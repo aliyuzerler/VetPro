@@ -28,6 +28,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; s
 - E2E yeniden yazıldı (`e2e/shell.spec.ts`): kabuk, KPI/tablo/durum hikâyeleri, canlı bileşenler,
   stil rehberi + modal etkileşimi, 1280/768/390 genişlik taşma kontrolleri, çekmece menü; masaüstü
   ve mobil proje ayrımı. 10 güncel ekran görüntüsü `e2e/screenshots/` altında.
+- README "Ekran Görüntüleri" bölümü: 6 küratörlü görüntü `docs/screenshots/` altında Türkçe
+  açıklamalarla; `devIndicators: false` ile dev düğmesi görüntülerden çıkarıldı, çekmece
+  ekran görüntüleri için animasyon oturma beklemeleri eklendi.
 
 ### Değişti
 - `globals.css` tam token entegrasyonu: design/tokens.json kaynaklı marka/nötr/durum paleti,

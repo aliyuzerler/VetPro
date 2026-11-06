@@ -141,6 +141,9 @@ test.describe('Faz 02 — uygulama kabuğu (masaüstü)', () => {
     ).toBeVisible();
     await expectNoHorizontalOverflow(page);
 
+    // Çekmece kapanma animasyonu bittikten sonra görüntü al
+    await page.waitForTimeout(700);
+
     await screenshot(page, '07-tablet-cekmece-stil-rehberi.png');
   });
 
@@ -169,6 +172,9 @@ test.describe('Faz 02 — mobil görünüm (iPhone 14)', () => {
     await expect(page.getByTestId('app-sidebar')).toBeHidden();
     await page.getByRole('button', { name: 'Menüyü aç' }).click();
     await expect(page.getByRole('dialog').getByTestId('app-sidebar')).toBeVisible();
+
+    // Sheet kayma animasyonu bittikten sonra görüntü al (README kalitesi)
+    await page.waitForTimeout(700);
 
     await screenshot(page, '09-mobil-cekmece.png', false);
     await page.keyboard.press('Escape');

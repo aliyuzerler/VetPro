@@ -90,6 +90,73 @@ pnpm dev:mobile     # Expo DevTools (QR ile cihaz/emülatör)
 - Mobil kabuk (`apps/mobile`): token tabanlı tema, alt navigasyon (Bugün/Hastalar/Randevular/
   Görevler/Daha Fazla), güvenli alan dolgusu ve ≥44 pt dokunma hedefleri.
 
+## Ekran Görüntüleri
+
+Aşağıdaki görüntüler standart faz sonu Playwright E2E koşusundan alınmıştır
+(`pnpm --filter @vetcore/web e2e` → `apps/web/e2e/screenshots/`); her faz sonunda
+güncellenir. Tüm veriler sentetiktir.
+
+### Web — Genel Bakış kontrol paneli (`/`)
+
+![Web kontrol paneli](docs/screenshots/web-kontrol-paneli.png)
+
+- **Sol kabuk:** 248 px derin-teal kenar çubuğu — 13 bölüm, açılır gruplar; henüz
+  aktifleşmemiş yapraklar faz rozetiyle (F05, F07…) pasif gösterilir, sahte iş akışı yoktur.
+- **Üst çubuk:** şube seçici (Merkez/İkinci Şube), global arama alanı (Faz 04'te aktif),
+  bildirimler, yardım ve profil.
+- **KPI kartları:** sentetik gün özeti — Bugünkü Randevular 12, Bekleyen Hastalar 4,
+  Günlük Ciro ₺18.450 (tabular numerals), Kritik Stok 7.
+- **Bugünün programı:** klinik terminolojisiyle sentetik randevu tablosu; durumlar
+  renk + ikon + metin ile gösterilir (Beklemede / Sürüyor / Planlandı / Tamamlandı).
+- **Platform bileşenleri:** Web/API/PostgreSQL canlı durumu — API yanıtı zod sözleşmesiyle
+  doğrulanır (bu koşuda canlı: hepsi yeşil).
+- **Durum hikâyeleri:** yükleme (skeleton), boş, hata (tekrar deneme yolu) ve yetkisiz
+  görünümleri tek ekranda.
+- **Faz planı:** 15 fazın durumu — Faz 01 Tamamlandı, Faz 02 Sürdürülüyor.
+
+### Web — Tasarım sistemi rehberi (`/stil-rehberi`)
+
+![Stil rehberi](docs/screenshots/web-stil-rehberi.png)
+
+Renk tokenları (marka/nötr/durum/accent), tipografi ölçeği + Türkçe glif paneli
+(İ ı Ş ş Ğ ğ Ü ü Ö ö Ç ç), buton varyantları, form düzeni (etiket üstte, ipucu altta,
+hata alanın yanında), durum rozetleri, yoğun tablo (sağa hizalı sayısal sütunlar),
+modal/çekmece/toast tetikleyicileri ve durum hikâyeleri. Kabul kriteri gereği
+loading/empty/error/unauthorized hikâyeleri burada da görüntülenir.
+
+### Web — Modal örneği (kesinleştirme onayı)
+
+![Modal örneği](docs/screenshots/web-stil-rehberi-modal.png)
+
+Modal yalnızca odaklı onay/görev için kullanılır: kesinleştirme uyarısı, vazgeç ve
+onay eylemleri. Gerçek kesinleştirme akışı Faz 06'da bağlanır.
+
+### Tablet (768 px) — çekmece ile gezinme sonrası stil rehberi
+
+![Tablet çekmece](docs/screenshots/tablet-cekmece-stil-rehberi.png)
+
+Tablet genişliğinde kenar çubuğu gizlenir; hamburger düğmesiyle açılan Sheet çekmecesindeki
+"Tasarım Sistemi" bağlantısıyla gezinilir (görüntü, gezinme tamamlanıp çekmece kapandıktan
+sonraki durumu gösterir). Sayfada yatay taşma yoktur (E2E iddiası).
+
+### Mobil (iPhone 14, 390 px) — tek kolon düzen
+
+![Mobil genel bakış](docs/screenshots/mobil-genel-bakis.png)
+
+Mobilde KPI kartları tek kolona düşer, tablo kart içinde yatay kaydırılabilir kalır,
+üst çubuk hamburger + şube + bildirim + profile iner. `min-width:auto` kaynaklı 128 px
+taşma hatası bu görüntünün alındığı E2E koşusunda düzeltilmiştir.
+
+### Mobil — çekmece menü açık
+
+![Mobil çekmece](docs/screenshots/mobil-cekmece.png)
+
+Mobil viewportta kenar çubuğuna erişim: hamburger → Sheet çekmece; Escape veya dış
+tıklama ile kapanır, bağlantı seçimi çekmeceyi otomatik kapatır.
+
+> Görüntü seti `docs/screenshots/` altında README için küratörlüüdür; tam ve ham E2E
+> çıktısı `apps/web/e2e/screenshots/` altında tutulur.
+
 ## Kalite kapıları
 
 - TypeScript `strict`; ESLint + Prettier; CI: lint → typecheck → test → migration → seed → build.

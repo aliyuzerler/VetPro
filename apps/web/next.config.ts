@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   // render'ına yol açtı (DB kartı API kartının çıktısını gösteriyordu). Next 16'da
   // compiler varsayılan açıktır; tutarlı davranış için devre dışı bırakıldı.
   reactCompiler: false,
+  // Ekran görüntülerinde sol altta beliren Next.js dev araçları düğmesini gizle
+  // (yalnızca dev modunu etkiler; üretim derlemesini ilgilendirmez).
+  devIndicators: false,
   async rewrites() {
     return [
       {
