@@ -26,6 +26,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; s
 - `scripts/dev-postgres.mjs`: embedded-postgres kütüphanesinin hardcode'luğu `en_US.UTF-8` locale'i tüm sistemlerde kurulu olmadığından initdb `code 1` ile çöküyordu; `initdbFlags: ['--lc-messages=C']` ile override edildi.
 - Faz 01 test promptu çalıştırıldı: lint (0 hata), typecheck (11/11), test (14+ PASS), build (6/6), migration + seed (sentetik), health/readiness canlı 200, sır taraması temiz.
 
+### Eklendi (Playwright E2E — 2026-11-06)
+- `apps/web`: Playwright E2E altyapısı (`playwright.config.ts`, `e2e/home.spec.ts`); chromium desktop (1440×900) ve mobil (iPhone 14, chromium motoru) projeleri; 12 senaryo (11 PASS + 1 bilinçli skip).
+- Ana sayfa E2E kapsamı: başlık/rozet, durum kartları (Web/API/PostgreSQL canlı doğrulama), 15 fazlık plan listesi, yenile butonu, footer sentetik veri + sürüm bilgisi, mobil yatay taşma kontrolü.
+- Ekran görüntüleri proje önekiyle `apps/web/e2e/screenshots/` altına yazılır ve repoya commit edilir; `test-results/` ve `playwright-report/` gitignore'a eklendi.
+
+### Düzeltildi (Playwright E2E QA — 2026-11-06)
+- `apps/web/src/app/page.tsx`: `statusBadge` emerald (başarılı) dalı sabit "Çalışıyor" yazıyor, `label` parametresini yok sayıyordu; PostgreSQL kartı "Bağlı" yerine "Çalışıyor" gösteriyordu. `{label}` olarak düzeltildi (E2E testi yakaladı).
+- `scripts/dev-postgres.mjs`: idempotent `up` — mevcut küme varsa initdb atlanır, yalnızca sunucu başlatılır (`PG_VERSION` kontrolü); şifre log'da maskelenir.
+- `apps/web`: E2E determinizmi için `dev:clean` script'i ve webServer'da taze derleme; mobil proje WebKit yerine chromium motoru ile koşar (sandbox'ta yalnızca chromium binary'leri mevcut).
+- `.env` git takibinden çıkarıldı (`git rm --cached`); `.gitignore` kuralı zaten mevcuttu.
+
 ## Unreleased (paket blueprint'i)
 - Initial VetCore product and engineering blueprint.
 - Defined one-time customer installation, branch-aware architecture and staff mobile scope.

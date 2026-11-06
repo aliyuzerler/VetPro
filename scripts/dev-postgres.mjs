@@ -5,8 +5,8 @@
  * Üretim/staging ortamında Docker Compose altyapısı kullanılır (infra/docker/).
  */
 import { createRequire } from 'node:module';
-import { mkdirSync, rmSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 const require = createRequire(import.meta.url);
 
@@ -19,6 +19,25 @@ const POSTGRES_DB = 'vetcore';
 async function up() {
   mkdirSync(DATA_DIR, { recursive: true });
   const { default: EmbeddedPostgres } = require('embedded-postgres');
+
+  // Idempotent: zaten kurulu bir küme varsa initdb'yi yeniden çalıştırma
+  // ("data directory might already exist" hatası), yalnızca sunucuyu başlat.
+  if (existsSync(join(DATA_DIR, 'PG_VERSION'))) {
+    const pg = new EmbeddedPostgres({
+      databaseDir: DATA_DIR,
+      user: POSTGRES_USER,
+      password: POSTGRES_PASSWORD,
+      port: PORT,
+      persistent: true,
+      initdbFlags: ['--lc-messages=C'],
+    });
+    await pg.start();
+    console.log(`Gömülü PostgreSQL hazır (mevcut küme): postgresql://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}`);
+    console.log('Durdurmak için: pkill -f dev-postgres.mjs (veriler .tmp-pg/ içinde kalır)');
+    attachSignalHandlers(pg);
+    return;
+  }
+
   const pg = new EmbeddedPostgres({
     databaseDir: DATA_DIR,
     user: POSTGRES_USER,
@@ -35,9 +54,13 @@ async function up() {
   await pg.start();
   await pg.createDatabase(POSTGRES_DB);
 
-  console.log(`Gömülü PostgreSQL hazır: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${PORT}/${POSTGRES_DB}`);
+  console.log(`Gömülü PostgreSQL hazır: postgresql://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}`);
   console.log('Durdurmak için: pkill -f dev-postgres.mjs (veriler .tmp-pg/ içinde kalır)');
 
+  attachSignalHandlers(pg);
+}
+
+function attachSignalHandlers(pg) {
   const stop = async () => {
     try {
       await pg.stop();

@@ -55,7 +55,7 @@ function statusBadge(status: HealthResponse['status'] | undefined, label: string
   }
   return (
     <Badge className="gap-1 bg-emerald-100 text-emerald-800">
-      <CheckCircle2 className="size-3" aria-hidden="true" /> Çalışıyor
+      <CheckCircle2 className="size-3" aria-hidden="true" /> {label}
     </Badge>
   );
 }

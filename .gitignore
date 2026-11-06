@@ -30,6 +30,11 @@ Thumbs.db
 db/
 .tmp-pg/
 
+# Playwright (screenshot'lar e2e/screenshots/ altında commit edilir)
+test-results/
+playwright-report/
+blob-report/
+
 # Sandbox harness (not part of the product repo)
 .zscripts/
 /skills/
