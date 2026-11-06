@@ -2,6 +2,54 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.1.0] — Faz 02: Tasarım sistemi ve uygulama kabukları (2026-11-07)
+
+### Eklendi
+- **Web uygulama kabuğu**: sabit 248 px kenar çubuğu (13 bölüm, açılır gruplar, faz rozetli
+  devre dışı yapraklar — sahte iş akışı yok), 72 px üst çubuk (şube seçici, global arama alanı,
+  bildirimler, yardım, profil), en fazla 1600 px içerik ve 28 px sayfa dolgusu; tablet/mobilde
+  Sheet çekmecesi (`src/components/layout/*`).
+- **Tasarım sistemi bileşenleri**: `StatusChip` (renk + ikon + metin — durum asla yalnızca renkle
+  iletilmez), `KpiCard` (tabular numerals, trend bağlamı), `EmptyState` / `ErrorState` (yeniden
+  deneme yolu) / `UnauthorizedState` (`src/components/design-system/*`).
+- `/` Genel Bakış kontrol paneli önizlemesi: sentetik KPI kartları, bugünün programı tablosu
+  (klinik terminolojisi), canlı platform bileşen durumu (zod sözleşme doğrulamalı), durum
+  hikâyeleri, 15 fazlık plan.
+- `/stil-rehberi` hikâye galerisi: renk tokenları, tipografi + Türkçe glif paneli, butonlar,
+  form düzeni (etiket üstte/ipucu altta/hata alanda), durum rozetleri, yoğun tablo, modal/çekmece/
+  toast örnekleri, yükleme/boş/hata/yetkisiz hikâyeleri, erişilebilirlik notları.
+- **Mobil kabuk** (`apps/mobile`): token tabanlı tema (`src/theme/tokens.ts`), alt navigasyon
+  (Bugün/Hastalar/Randevular/Görevler/Daha Fazla — bağımlılık eklenmeden saf View ikonları),
+  `useSafeAreaInsets` güvenli alan dolgusu, ≥44 pt dokunma hedefleri, durum rozeti ve boş durum
+  bileşenleri.
+- **Playwright standart faz sonu doğrulaması** (ADR-013): `prompts/skills/phase-workflow.md`,
+  `docs/TEST_STRATEGY.md` ve README güncellendi; her faz artık test promptuyla birlikte yeşil
+  Playwright koşusu + repoya commitlenen ekran görüntüleriyle kapanır.
+- E2E yeniden yazıldı (`e2e/shell.spec.ts`): kabuk, KPI/tablo/durum hikâyeleri, canlı bileşenler,
+  stil rehberi + modal etkileşimi, 1280/768/390 genişlik taşma kontrolleri, çekmece menü; masaüstü
+  ve mobil proje ayrımı. 10 güncel ekran görüntüsü `e2e/screenshots/` altında.
+
+### Değişti
+- `globals.css` tam token entegrasyonu: design/tokens.json kaynaklı marka/nötr/durum paleti,
+  yarıçap ölçeği (6/10/14/18), gölge tokenları, VetCore koyu tema, yerleşim değişkenleri
+  (`--vc-sidebar-width` vb.), görünür odak halkası ve `prefers-reduced-motion` desteği.
+- `packages/domain` `CURRENT_PHASE_ID` 1 → 2; faz planı rozetleri buna göre.
+
+### Düzeltildi (Faz 02 QA — 2026-11-07)
+- Stil rehberi demo modalında `Vazgeç` düğmesi pencereyi kapatmıyordu; `DialogClose` ile sarıldı
+  (E2E testi yakaladı).
+- Grid/flex öğeleri varsayılan `min-width:auto` nedeniyle mobilde (390 px) tablo min-content
+  genişliği kadar **128 px yatay taşma** üretiyordu; tablo/KPI/durum kartlarına `min-w-0`,
+  dar üst çubukta yardım düğmesi gizlendi (E2E taşma testi yakaladı).
+- E2E strict-mode: tabloda iki `Beklemede` satırı lokatörü çökertiyordu; `.first()` ile
+  ayrımcılık ve masaüstü/mobil proje ayrımı (`test.skip`) eklendi.
+- ESLint, Playwright `playwright-report/` ve `test-results/` artefaktlarını tarayıp derlenen trace
+  JS'lerinde sahte hata üretiyordu; ignore listesine eklendi.
+
+### Sonuç
+- Faz 02 test promptu: lint 0 hata, typecheck 11/11, unit test 24 PASS (API 8, Web 3, paketler),
+  build 6/6, Playwright E2E 8/8 PASS (8 proje-ayrımlı skip), 10 ekran görüntüsü yenilendi.
+
 ## [0.1.0] — Faz 01: Monorepo ve altyapı
 
 ### Eklendi

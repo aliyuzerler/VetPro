@@ -9,6 +9,15 @@
 - Security: IDOR, privilege escalation, branch access, mass assignment, file upload, token rotation, export authorization.
 - Performance: patient search, calendar, patient timeline, stock balances, ledger and dashboard aggregation.
 
+## Standard end-of-phase validation (Playwright)
+Every phase closes with the same chain, run in order:
+1. `pnpm lint`, `pnpm typecheck`, `pnpm test`, affected workspace builds.
+2. The phase test prompt executed as an independent QA pass.
+3. **Playwright E2E (`pnpm --filter @vetcore/web e2e`)** with embedded PostgreSQL + API running:
+   - Specs for every new user-facing surface of the phase are added under `apps/web/e2e/` before the phase can pass.
+   - Screenshots are written to `apps/web/e2e/screenshots/` (desktop 1440 + mobile iPhone-14 viewport) and committed with the phase.
+   - A green Playwright run plus current screenshots is a completion requirement; failing this blocks the phase regardless of unit/integration results.
+
 ## Mandatory high-risk test cases
 1. Two users finalize a service using the last unit of the same stock lot simultaneously; at most one succeeds.
 2. A service finalization failure after stock validation leaves no service charge or stock movement.

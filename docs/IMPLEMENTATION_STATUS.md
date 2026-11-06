@@ -4,8 +4,8 @@ Update this file at the end of every phase.
 
 | Phase | Scope | Status | Build prompt result | Test prompt result | Notes |
 |---|---|---|---|---|---|
-| 01 | Monorepo, infrastructure, CI | Done | Build complete | PASS (2026-11-06) | 2 defect fixed in dev-postgres.mjs (missing `await pg.initialise()` race condition; hardcoded `en_US.UTF-8` locale override with `--lc-messages=C`) |
-| 02 | Design system and app shells | Not started | — | — | |
+| 01 | Monorepo, infrastructure, CI | Done | Build complete | PASS (2026-11-06) | 3 defects fixed in dev-postgres.mjs (invalid TS annotations in .mjs; missing `await pg.initialise()` race condition; hardcoded `en_US.UTF-8` locale override with `--lc-messages=C`) |
+| 02 | Design system and app shells | Done | Build complete | PASS (2026-11-07) | Web shell (248px sidebar, 72px topbar, 1600px content, mobile drawer) + style guide stories + mobile bottom-nav shell (safe-area, 44pt targets); full token integration in globals.css; Playwright E2E standardized at every phase end (ADR-013, 8/8 PASS + screenshots). 4 QA fixes: demo modal DialogClose, mobile 128px grid min-width overflow, E2E strict-mode locator split, ESLint ignores for Playwright artifacts |
 | 03 | Auth, staff, clinic and branch setup | Not started | — | — | |
 | 04 | Owner and patient management | Not started | — | — | |
 | 05 | Calendar, appointment and flowboard | Not started | — | — | |

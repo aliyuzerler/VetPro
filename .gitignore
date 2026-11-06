@@ -47,3 +47,10 @@ blob-report/
 /tests/database-runtime-build.sh
 /tests/python-runtime-build.sh
 /tests/python-runtime-container.sh
+
+# Sandbox/runtime artifacts
+/tool-results/
+/agent-ctx/
+
+# ADR-010: tek kilit dosyası — pnpm-lock.yaml
+bun.lock

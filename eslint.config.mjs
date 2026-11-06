@@ -15,6 +15,8 @@ export default [
       '**/.next/**',
       '**/.turbo/**',
       '**/coverage/**',
+      '**/playwright-report/**',
+      '**/test-results/**',
       'apps/mobile/**',
       'extracted/**',
       'upload/**',

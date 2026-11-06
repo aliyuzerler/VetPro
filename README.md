@@ -79,10 +79,23 @@ pnpm dev:mobile     # Expo DevTools (QR ile cihaz/emülatör)
 - `GET /api/v1/health/readiness` — bağımlılık durumu (PostgreSQL SELECT 1); bağımlılık yoksa **HTTP 503**
 - `GET /api/docs` — Swagger/OpenAPI
 
+## Uygulama kabuğu (Faz 02)
+
+- `/` — Genel Bakış kontrol paneli önizlemesi: sentetik KPI kartları, bugünün programı,
+  canlı platform bileşen durumu, yükleme/boş/hata/yetkisiz durum hikâyeleri ve faz planı.
+- `/stil-rehberi` — Tasarım sistemi hikâye galerisi: renk tokenları, tipografi + Türkçe glifler,
+  butonlar, form düzeni, durum rozetleri, yoğun tablo, modal/çekmece/toast ve durum hikâyeleri.
+- Web kabuğu: sabit 248 px kenar çubuğu (13 bölüm, açılır gruplar), 72 px üst çubuk (şube seçici,
+  arama, bildirimler, profil), en fazla 1600 px içerik; tablet/mobilde Sheet çekmecesi.
+- Mobil kabuk (`apps/mobile`): token tabanlı tema, alt navigasyon (Bugün/Hastalar/Randevular/
+  Görevler/Daha Fazla), güvenli alan dolgusu ve ≥44 pt dokunma hedefleri.
+
 ## Kalite kapıları
 
 - TypeScript `strict`; ESLint + Prettier; CI: lint → typecheck → test → migration → seed → build.
 - Her faz `prompts/phases/phase-XX-*-test.md` promptu geçmeden tamamlanmış sayılmaz.
+- **Her faz sonunda standart Playwright E2E koşusu ve güncel ekran görüntüleri zorunludur**
+  (bkz. `docs/TEST_STRATEGY.md` — Standart faz sonu doğrulaması).
 - Durum takibi: `docs/IMPLEMENTATION_STATUS.md` ve `CHANGELOG.md`.
 
 ## ZCode ile çalışma

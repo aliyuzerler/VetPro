@@ -14,5 +14,6 @@
 | ADR-010 | Faz 01'de pnpm 10 + Turborepo 2 kullanımı (lockfile: pnpm-lock.yaml, `packageManager` alanı sabitlenir) | Faz promptu pnpm workspaces/Turborepo talep eder; tek kilit dosyası çift paket yöneticisi tutarsızlığını önler | Accepted — 2026-11-07 |
 | ADR-011 | Docker'sız yerel geliştirmede gömülü PostgreSQL (`scripts/dev-postgres.mjs`); CI/staging/production'da Docker Compose PostgreSQL | Sandbox ve hafif geliştirme ortamlarında Docker olmadan gerçek migration/seed doğrulaması sağlar; üretim yolu değişmez | Accepted — 2026-11-07 |
 | ADR-012 | Faz 01'de API, veritabanı olmadan açılabilir; readiness kontrolü durumu dürüstçe raporlar (db down → HTTP 503) | Geliştirme ve CI'da altyapı olmadan uygulama kabuğunun doğrulanabilmesi; sahte "up" durumu raporlanmaz | Accepted — 2026-11-07 |
+| ADR-013 | Her fazın sonunda standart doğrulama zincirine Playwright E2E + ekran görüntüleri eklenir (`apps/web/e2e`, ekran görüntüleri repoya commit edilir) | Faz başına UI regresyonunu yakalamak, klinik paydaşa görülebilir çıktı vermek ve faz kapanışını tek ölçüte bağmak; unit/integration testleri yerinde kalır | Accepted — 2026-11-07 |
 
 Append new decisions with date, context, options, consequences and approval owner.

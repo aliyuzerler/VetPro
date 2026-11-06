@@ -3,6 +3,10 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================
+   VetCore tasarım sistemi — Faz 02
+   Tek doğruluk kaynağı: design/tokens.json + design/DESIGN_SYSTEM.md
+   ============================================================ */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -37,79 +41,147 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Marka paleti — design/tokens.json > color.brand */
+  --color-brand-50: #f1faf8;
+  --color-brand-100: #ddf3ef;
+  --color-brand-500: #37a197;
+  --color-brand-600: #28847c;
+  --color-brand-700: #216a64;
+  --color-brand-800: #1c514d;
+  --color-brand-900: #173b39;
+  --color-brand-950: #102c2b;
+
+  /* Vurgu — design/tokens.json > color.accent (yalnızca seçili vurgular) */
+  --color-accent-coral: #d97855;
+  --color-accent-coral-soft: #fbe9e2;
+
+  /* Nötr — design/tokens.json > color.neutral */
+  --color-neutral-300: #cbd4d4;
+  --color-neutral-500: #8c999c;
+  --color-neutral-700: #536267;
+  --color-neutral-800: #344246;
+
+  /* Durum renkleri — design/tokens.json > color.status (yalnızca durum semantiği) */
+  --color-status-success: #21845a;
+  --color-status-warning: #c78a2c;
+  --color-status-danger: #c44e4e;
+  --color-status-info: #3979b8;
+
+  /* Yarıçaplar — design/tokens.json > radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  /* Gölgeler — design/tokens.json > shadow */
+  --shadow-card: 0 2px 10px rgba(17, 45, 43, 0.05);
+  --shadow-popover: 0 12px 32px rgba(17, 45, 43, 0.14);
 }
 
+/* ------------------------------------------------------------
+   Açık tema (varsayılan) — VetCore paleti
+   ------------------------------------------------------------ */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --background: #f7f9f8;        /* neutral.50 — sayfa zemini */
+  --foreground: #1b2528;        /* neutral.950 — metin */
+  --card: #ffffff;              /* neutral.white */
+  --card-foreground: #1b2528;
+  --popover: #ffffff;
+  --popover-foreground: #1b2528;
+  --primary: #28847c;           /* brand.600 — birincil eylem */
+  --primary-foreground: #ffffff;
+  --secondary: #f1faf8;         /* brand.50 — yumuşak yüzey */
+  --secondary-foreground: #173b39;
+  --muted: #f0f4f3;             /* neutral.100 */
+  --muted-foreground: #6e7c80;  /* neutral.600 */
+  --accent: #ddf3ef;            /* brand.100 */
+  --accent-foreground: #173b39;
+  --destructive: #c44e4e;       /* status.danger */
+  --destructive-foreground: #ffffff;
+  --border: #e2e8e7;            /* neutral.200 */
+  --input: #e2e8e7;
+  --ring: #28847c;
+
+  --chart-1: #28847c;           /* brand.600 */
+  --chart-2: #37a197;           /* brand.500 */
+  --chart-3: #d97855;           /* accent.600 */
+  --chart-4: #3979b8;           /* status.info */
+  --chart-5: #c78a2c;           /* status.warning */
+
+  --sidebar: #102c2b;           /* brand.950 — derin teal kabuk */
+  --sidebar-foreground: #f1faf8;
+  --sidebar-primary: #28847c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1c514d;    /* brand.800 — hover/aktif yüzey */
+  --sidebar-accent-foreground: #ddf3ef;
+  --sidebar-border: #1c514d;
+  --sidebar-ring: #37a197;
+
+  /* Durum renkleri + kısıtlı yumuşak zeminler (RENK TEK İPUCU DEĞİL: daima metin/ikon ile) */
+  --status-success: #21845a;
+  --status-success-bg: #e6f4ee;
+  --status-warning: #c78a2c;
+  --status-warning-bg: #faf1e0;
+  --status-danger: #c44e4e;
+  --status-danger-bg: #f9e8e8;
+  --status-info: #3979b8;
+  --status-info-bg: #e7f0f8;
+
+  /* Yerleşim — design/tokens.json > layout */
+  --vc-sidebar-width: 248px;
+  --vc-topbar-height: 72px;
+  --vc-content-max-width: 1600px;
+  --vc-page-padding: 28px;
 }
 
+/* ------------------------------------------------------------
+   Koyu tema — VetCore derin teal
+   ------------------------------------------------------------ */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #102c2b;        /* brand.950 */
+  --foreground: #e8efee;
+  --card: #173b39;              /* brand.900 */
+  --card-foreground: #e8efee;
+  --popover: #173b39;
+  --popover-foreground: #e8efee;
+  --primary: #37a197;           /* brand.500 — koyuda daha açık eylem */
+  --primary-foreground: #102c2b;
+  --secondary: #1c514d;         /* brand.800 */
+  --secondary-foreground: #ddf3ef;
+  --muted: #1c514d;
+  --muted-foreground: #8c999c;
+  --accent: #1c514d;
+  --accent-foreground: #ddf3ef;
+  --destructive: #d97878;
+  --destructive-foreground: #102c2b;
+  --border: rgba(255, 255, 255, 0.12);
+  --input: rgba(255, 255, 255, 0.16);
+  --ring: #37a197;
+
+  --chart-1: #37a197;
+  --chart-2: #28847c;
+  --chart-3: #d97855;
+  --chart-4: #3979b8;
+  --chart-5: #c78a2c;
+
+  --sidebar: #0c2322;
+  --sidebar-foreground: #e8efee;
+  --sidebar-primary: #37a197;
+  --sidebar-primary-foreground: #102c2b;
+  --sidebar-accent: #173b39;
+  --sidebar-accent-foreground: #ddf3ef;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #37a197;
+
+  --status-success: #4bab85;
+  --status-success-bg: rgba(33, 132, 90, 0.18);
+  --status-warning: #d9a756;
+  --status-warning-bg: rgba(199, 138, 44, 0.16);
+  --status-danger: #e07a7a;
+  --status-danger-bg: rgba(196, 78, 78, 0.18);
+  --status-info: #6ea3d6;
+  --status-info-bg: rgba(57, 121, 184, 0.18);
 }
 
 @layer base {
@@ -118,31 +190,33 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "tnum" 0; /* tabular rakamlar parasal/alansal metinde sınıfla açılır */
+  }
+  ::selection {
+    background: #ddf3ef;
+    color: #173b39;
   }
 }
 
-/* ============================================================
-   VetCore marka köprüsü (Faz 01)
-   Kaynak: design/tokens.json — tam tasarım sistemi entegrasyonu Faz 02'de yapılır.
-   ============================================================ */
-:root {
-  --background: #f7f9f8;
-  --foreground: #1b2528;
-  --card: #ffffff;
-  --card-foreground: #1b2528;
-  --popover: #ffffff;
-  --popover-foreground: #1b2528;
-  --primary: #28847c;
-  --primary-foreground: #ffffff;
-  --secondary: #f1faf8;
-  --secondary-foreground: #173b39;
-  --muted: #f0f4f3;
-  --muted-foreground: #6e7c80;
-  --accent: #ddf3ef;
-  --accent-foreground: #173b39;
-  --destructive: #c44e4e;
-  --destructive-foreground: #ffffff;
-  --border: #e2e8e7;
-  --input: #e2e8e7;
-  --ring: #28847c;
+/* Tabular numerals — para, miktar, saat sütunları (DESIGN_SYSTEM.md > Typography) */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Klavye odağı — görünür odak halkası (WCAG 2.2 AA) */
+:where(a, button, [role="button"], input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Hareket azaltma tercihi */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
