@@ -1,0 +1,18 @@
+# Architecture Decision Log
+
+| ID | Decision | Reason | Status |
+|---|---|---|---|
+| ADR-001 | Modular monolith backend | Faster delivery and simpler isolated customer deployments; module boundaries preserve later extraction | Accepted |
+| ADR-002 | One customer installation per clinic group in v1 | Aligns with one-time license sales and customer data isolation | Accepted |
+| ADR-003 | Branch-aware data model | Supports clinic groups without introducing SaaS billing | Accepted |
+| ADR-004 | Shared NestJS API for web and React Native | Single source of truth for clinical, inventory and finance rules | Accepted |
+| ADR-005 | Service finalization is atomic | Prevent partial clinical/stock/finance records and duplicate mobile retries | Accepted |
+| ADR-006 | Append-only inventory and finance ledger | Traceability and audit integrity | Accepted |
+| ADR-007 | Staff mobile app first; owner app later | Focus initial scope on clinic workflow and reduce product surface | Accepted |
+| ADR-008 | Provider adapters for SMS/WhatsApp/e-invoice/labs | Avoid hard vendor coupling and enable customer-specific integrations | Accepted |
+| ADR-009 | Regulatory fields configurable; no unverified official integrations | Requirements depend on current law and clinic permissions | Accepted |
+| ADR-010 | Faz 01'de pnpm 10 + Turborepo 2 kullanımı (lockfile: pnpm-lock.yaml, `packageManager` alanı sabitlenir) | Faz promptu pnpm workspaces/Turborepo talep eder; tek kilit dosyası çift paket yöneticisi tutarsızlığını önler | Accepted — 2026-11-07 |
+| ADR-011 | Docker'sız yerel geliştirmede gömülü PostgreSQL (`scripts/dev-postgres.mjs`); CI/staging/production'da Docker Compose PostgreSQL | Sandbox ve hafif geliştirme ortamlarında Docker olmadan gerçek migration/seed doğrulaması sağlar; üretim yolu değişmez | Accepted — 2026-11-07 |
+| ADR-012 | Faz 01'de API, veritabanı olmadan açılabilir; readiness kontrolü durumu dürüstçe raporlar (db down → HTTP 503) | Geliştirme ve CI'da altyapı olmadan uygulama kabuğunun doğrulanabilmesi; sahte "up" durumu raporlanmaz | Accepted — 2026-11-07 |
+
+Append new decisions with date, context, options, consequences and approval owner.

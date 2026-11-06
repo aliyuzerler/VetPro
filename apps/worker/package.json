@@ -1,0 +1,35 @@
+{
+  "name": "@vetcore/worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VetCore arka plan işleri — BullMQ worker iskeleti",
+  "scripts": {
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "@vetcore/contracts": "workspace:*",
+    "@vetcore/domain": "workspace:*",
+    "bullmq": "^5.52.0",
+    "ioredis": "^5.6.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.0.2"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "@nestjs/testing": "^11.1.0",
+    "@types/express": "^5.0.1",
+    "@types/node": "^22.15.0",
+    "@vetcore/config": "workspace:*",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.0"
+  }
+}

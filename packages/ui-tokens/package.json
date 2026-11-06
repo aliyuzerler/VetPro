@@ -1,0 +1,20 @@
+{
+  "name": "@vetcore/ui-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VetCore tasarım tokenları (kaynak: design/tokens.json)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.lib.json",
+    "typecheck": "tsc --noEmit -p tsconfig.lib.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.0"
+  }
+}

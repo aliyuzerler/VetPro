@@ -1,0 +1,33 @@
+# VetCore API imajı — çok aşamalı derleme.
+FROM node:22-alpine AS base
+RUN corepack enable
+WORKDIR /app
+
+FROM base AS deps
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY apps/api/package.json apps/api/
+COPY apps/worker/package.json apps/worker/
+COPY packages/contracts/package.json packages/contracts/
+COPY packages/domain/package.json packages/domain/
+COPY packages/config/package.json packages/config/
+COPY packages/ui-tokens/package.json packages/ui-tokens/
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+FROM base AS build
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps ./apps
+COPY --from=deps /app/packages ./packages
+COPY prisma ./prisma
+COPY tsconfig.base.json turbo.json eslint.config.mjs ./
+RUN pnpm db:generate && pnpm --filter @vetcore/contracts... --filter @vetcore/domain... build && pnpm --filter @vetcore/api build
+
+FROM node:22-alpine AS runtime
+RUN addgroup -S vetcore && adduser -S vetcore -G vetcore
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build --chown=vetcore:vetcore /app/apps/api/dist ./dist
+COPY --from=build --chown=vetcore:vetcore /app/node_modules ./node_modules
+COPY --from=build --chown=vetcore:vetcore /app/prisma ./prisma
+USER vetcore
+EXPOSE 4000
+CMD ["node", "dist/main.js"]

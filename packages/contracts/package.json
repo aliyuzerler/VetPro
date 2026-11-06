@@ -1,0 +1,23 @@
+{
+  "name": "@vetcore/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VetCore paylaşılan API sözleşmeleri (zod şemaları, tip tanımları)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.lib.json",
+    "typecheck": "tsc --noEmit -p tsconfig.lib.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.0.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.0"
+  }
+}

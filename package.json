@@ -1,0 +1,52 @@
+{
+  "name": "vetcore",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VetCore — Veteriner Klinik Yönetim Platformu (monorepo)",
+  "packageManager": "pnpm@10.20.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --filter @vetcore/web dev",
+    "dev:web": "pnpm --filter @vetcore/web dev",
+    "dev:api": "pnpm --filter @vetcore/api dev",
+    "dev:worker": "pnpm --filter @vetcore/worker dev",
+    "dev:mobile": "pnpm --filter @vetcore/mobile dev",
+    "build": "turbo run build",
+    "lint": "eslint .",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "dev:postgres": "node scripts/dev-postgres.mjs",
+    "infra:up": "docker compose -f infra/docker/docker-compose.yml up -d",
+    "infra:down": "docker compose -f infra/docker/docker-compose.yml down",
+    "infra:logs": "docker compose -f infra/docker/docker-compose.yml logs -f"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "devDependencies": {
+    "@prisma/client": "^6.11.1",
+    "@types/node": "^22.15.0",
+    "embedded-postgres": "^17.5.0-beta.15",
+    "eslint": "^9.30.0",
+    "eslint-config-next": "^16.1.1",
+    "prettier": "^3.6.0",
+    "prisma": "^6.11.1",
+    "tsx": "^4.20.0",
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.35.0"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@vetcore/config",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VetCore paylaşılan TS/ESLint/Prettier yapılandırması",
+  "files": [
+    "tsconfig",
+    "prettier.json"
+  ],
+  "scripts": {
+    "typecheck": "echo 'config paketi yalnızca JSON yapılandırma içerir' && exit 0"
+  }
+}

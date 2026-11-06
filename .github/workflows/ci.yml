@@ -1,0 +1,79 @@
+# VetCore CI — lint, typecheck, test, build + PostgreSQL migration doğrulaması.
+# Faz 01 kabul kriteri: CI lint/typecheck/test/build aşamalarını içermelidir.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    name: Lint / Typecheck / Test / Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: vetcore
+          POSTGRES_PASSWORD: vetcore
+          POSTGRES_DB: vetcore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vetcore"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://vetcore:vetcore@localhost:5432/vetcore?schema=public
+      NEXT_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: pnpm kurulumu
+        uses: pnpm/action-setup@v4
+        with:
+          # packageManager alanından okunur; uyumluluk için sürüm teyidi:
+          version: 10.20.0
+
+      - name: Node kurulumu
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Bağımlılıkları kur
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma client üret
+        run: pnpm db:generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Migration uygula (PostgreSQL servis konteyneri)
+        run: pnpm db:deploy
+
+      - name: Seed çalıştır (sentetik veri)
+        run: pnpm db:seed
+
+      - name: Build
+        run: pnpm build
+
+      - name: Sır taraması (basit denetim)
+        run: |
+          ! grep -rEn "sk_live|api_key\s*=\s*['\"][A-Za-z0-9]{16,}" \
+            --include="*.ts" --include="*.tsx" --include="*.json" \
+            apps packages prisma scripts infra

@@ -1,0 +1,11 @@
+# Coding Rules
+- TypeScript strict mode; avoid `any`, use `unknown` plus validation.
+- Keep domain logic in backend services, never duplicate stock/price rules in clients.
+- Use explicit DTOs and runtime validation at trust boundaries.
+- Separate controller, application service, domain logic and persistence.
+- Prefer small composable modules and readable names; no giant service/component files.
+- Use Decimal for money and inventory quantities; no float arithmetic.
+- Add migrations, seed fixtures and tests with every domain change.
+- No placeholder buttons, dead routes or mocked success paths in production flows.
+- Use shared API types; no hand-written duplicate mobile/web response interfaces.
+- Document errors and use stable error codes.

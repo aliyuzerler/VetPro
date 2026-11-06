@@ -1,2 +1,44 @@
-skills/
+# Dependencies
 node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+.next/
+out/
+.turbo/
+coverage/
+*.tsbuildinfo
+.expo/
+
+# Environment & secrets (only .env.example is tracked)
+.env
+.env.*
+!.env.example
+
+# Logs
+dev.log
+server.log
+*.log
+!.zscripts/dev.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Local databases and development artifacts
+db/
+.tmp-pg/
+
+# Sandbox harness (not part of the product repo)
+.zscripts/
+/skills/
+/Caddyfile
+/examples/
+/mini-services/
+/upload/
+/download/
+/extracted/
+/tests/database-runtime-build.sh
+/tests/python-runtime-build.sh
+/tests/python-runtime-container.sh

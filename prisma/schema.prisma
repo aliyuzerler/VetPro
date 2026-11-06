@@ -1,0 +1,55 @@
+// VetCore — Faz 01 temel şema.
+// Kapsam: klinik ve şube çekirdek varlıkları (tüm kayıtlar clinic_id/branch_id kapsamı taşır).
+// İş mantığı varlıkları (hasta, randevu, stok, finans...) ilgili fazlarda eklenir.
+// Kurallar: UUID PK, UTC zaman damgaları, money/quantity için Decimal, silinmez defter ileriki fazlarda.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Tek kurulum = tek müşteri klinik grubu (ADR-002). SaaS kiracılığı ilk sürümde yoktur;
+/// ancak ileri geçiş için clinic kapsamı ilk günden taşınır (ADR-003).
+model Clinic {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  legalName String?
+  slug      String   @unique
+  /// Klinik yerel saat dilimi; randevu ve tarih kuralları buradan okunur.
+  timezone  String   @default("Europe/Istanbul")
+  locale    String   @default("tr-TR")
+  currency  String   @default("TRY")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  branches Branch[]
+
+  @@map("clinics")
+}
+
+/// Klinik altında çoklu şube desteği. Şubeye özel kayıtlar branch_id taşır.
+model Branch {
+  id       String  @id @default(uuid()) @db.Uuid
+  clinicId String  @map("clinic_id") @db.Uuid
+  name     String
+  /// Şube kodu; belge numaralandırma ve raporlarda kullanılır.
+  code     String
+  address  String?
+  phone    String?
+  email    String?
+  isPrimary Boolean @default(false) @map("is_primary")
+  active   Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+
+  @@unique([clinicId, code])
+  @@index([clinicId])
+  @@map("branches")
+}

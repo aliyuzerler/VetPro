@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "VetCore",
+    "slug": "vetcore",
+    "version": "0.1.0",
+    "scheme": "vetcore",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.vetcore.staff",
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Klinik dosyalarına fotoğraf eklemek için kamera erişimi gerekir."
+      }
+    },
+    "android": {
+      "package": "com.vetcore.staff",
+      "adaptiveIcon": {
+        "backgroundColor": "#102C2B"
+      }
+    },
+    "extra": {
+      "apiBaseUrl": "http://localhost:4000/api/v1"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+node_modules
+dist
+.next
+.turbo
+coverage
+pnpm-lock.yaml
+bun.lock
+*.md
+infra
+.zscripts
+extracted
+upload
+download
+db
+.tmp-pg
+dev.log
+server.log

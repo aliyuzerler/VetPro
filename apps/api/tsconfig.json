@@ -1,0 +1,10 @@
+{
+  "extends": "@vetcore/config/tsconfig/nestjs.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "outDir": "./dist",
+    "baseUrl": "./"
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.mts"],
+  "exclude": ["node_modules", "dist"]
+}
