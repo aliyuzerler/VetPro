@@ -16,7 +16,7 @@ const POSTGRES_USER = 'vetcore';
 const POSTGRES_PASSWORD = 'vetcore-dev';
 const POSTGRES_DB = 'vetcore';
 
-async function up(): Promise<void> {
+async function up() {
   mkdirSync(DATA_DIR, { recursive: true });
   const { default: EmbeddedPostgres } = require('embedded-postgres');
   const pg = new EmbeddedPostgres({
@@ -25,9 +25,13 @@ async function up(): Promise<void> {
     password: POSTGRES_PASSWORD,
     port: PORT,
     persistent: true,
+    // Kütüphane varsayılanı "en_US.UTF-8" her sistemde kurulu değildir (ör. minimal
+    // container imajlarında yalnızca C/C.utf8 vardır); initdb hata verir. Son geçen
+    // --lc-messages flag'i kazandığı için varsayılanı "C" ile override ediyoruz.
+    initdbFlags: ['--lc-messages=C'],
   });
 
-  pg.initialise();
+  await pg.initialise(); // initdb bitmeden sunucu başlatılırsa race condition oluşur
   await pg.start();
   await pg.createDatabase(POSTGRES_DB);
 
@@ -51,7 +55,7 @@ async function up(): Promise<void> {
   setInterval(() => {}, 1 << 30);
 }
 
-async function down(): Promise<void> {
+async function down() {
   rmSync(DATA_DIR, { recursive: true, force: true });
   console.log('.tmp-pg temizlendi');
 }
@@ -59,7 +63,7 @@ async function down(): Promise<void> {
 const command = process.argv[2] ?? 'up';
 
 if (command === 'up') {
-  up().catch((error: unknown) => {
+  up().catch((error) => {
     console.error('Gömülü PostgreSQL başlatılamadı:', error);
     process.exit(1);
   });

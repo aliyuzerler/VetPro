@@ -20,6 +20,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; s
 - ADR-010: pnpm 10 + Turborepo 2 (lockfile: pnpm-lock.yaml).
 - ADR-011: Docker'sız geliştirme için gömülü PostgreSQL; prod/staging'te Docker Compose.
 
+### Düzeltildi (Faz 01 QA doğrulaması — 2026-11-06)
+- `scripts/dev-postgres.mjs`: TypeScript tip anotasyonları `.mjs` dosyasında geçersizdi; Node başlatma aşamada çöküyordu (anotasyonlar kaldırıldı).
+- `scripts/dev-postgres.mjs`: `pg.initialise()` `await` edilmiyordu; initdb bitmeden sunucu başlatılmaya çalışılıyor, race condition ile "postgresql.conf not found" hatası alınıyordu.
+- `scripts/dev-postgres.mjs`: embedded-postgres kütüphanesinin hardcode'luğu `en_US.UTF-8` locale'i tüm sistemlerde kurulu olmadığından initdb `code 1` ile çöküyordu; `initdbFlags: ['--lc-messages=C']` ile override edildi.
+- Faz 01 test promptu çalıştırıldı: lint (0 hata), typecheck (11/11), test (14+ PASS), build (6/6), migration + seed (sentetik), health/readiness canlı 200, sır taraması temiz.
+
 ## Unreleased (paket blueprint'i)
 - Initial VetCore product and engineering blueprint.
 - Defined one-time customer installation, branch-aware architecture and staff mobile scope.

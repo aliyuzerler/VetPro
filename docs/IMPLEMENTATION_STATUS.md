@@ -4,7 +4,7 @@ Update this file at the end of every phase.
 
 | Phase | Scope | Status | Build prompt result | Test prompt result | Notes |
 |---|---|---|---|---|---|
-| 01 | Monorepo, infrastructure, CI | Not started | — | — | |
+| 01 | Monorepo, infrastructure, CI | Done | Build complete | PASS (2026-11-06) | 2 defect fixed in dev-postgres.mjs (missing `await pg.initialise()` race condition; hardcoded `en_US.UTF-8` locale override with `--lc-messages=C`) |
 | 02 | Design system and app shells | Not started | — | — | |
 | 03 | Auth, staff, clinic and branch setup | Not started | — | — | |
 | 04 | Owner and patient management | Not started | — | — | |
