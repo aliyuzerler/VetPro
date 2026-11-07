@@ -71,8 +71,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     label: 'Muayene',
     icon: Stethoscope,
     items: [
-      { label: 'Muayene İşlemi', phase: 6 },
-      { label: 'Hizmet Kataloğu', phase: 6 },
+      { label: 'Muayene İşlemi', phase: 6, href: '/muayene' },
+      { label: 'Hizmet Kataloğu', phase: 6, href: '/hizmetler' },
     ],
   },
   {

@@ -334,3 +334,187 @@ export type RoomOption = {
   active: boolean;
   branch: { id: string; name: string; code: string };
 };
+
+/* ---------- Faz 06: muayene, SOAP, vital bulgular ve hizmet kataloğu ---------- */
+
+export type EncounterStatus = 'draft' | 'in_progress' | 'signed' | 'closed' | 'voided';
+
+export type VitalKind =
+  | 'temp'
+  | 'weight'
+  | 'heart_rate'
+  | 'resp_rate'
+  | 'cap_refill'
+  | 'blood_pressure'
+  | 'glucose'
+  | 'pain_score'
+  | 'other';
+
+export type VitalKindMeta = { kind: VitalKind; label: string; unit: string };
+
+/** Vital katalogları — API'deki encounters.domain ile eşit tutulur (UI seçim listesi). */
+export const VITAL_KIND_CATALOG: readonly VitalKindMeta[] = [
+  { kind: 'temp', label: 'Vücut Sıcaklığı', unit: '°C' },
+  { kind: 'weight', label: 'Ağırlık', unit: 'kg' },
+  { kind: 'heart_rate', label: 'Kalp Atışı', unit: 'atım/dk' },
+  { kind: 'resp_rate', label: 'Solunum', unit: '/dk' },
+  { kind: 'cap_refill', label: 'Kapiler Dolum', unit: 'sn' },
+  { kind: 'blood_pressure', label: 'Tansiyon', unit: 'mmHg' },
+  { kind: 'glucose', label: 'Kan Şekeri', unit: 'mg/dL' },
+  { kind: 'pain_score', label: 'Ağrı Skoru', unit: '0-10' },
+  { kind: 'other', label: 'Diğer', unit: '' },
+];
+
+export type EncounterVital = {
+  id: string;
+  kind: string;
+  value: string;
+  unit: string;
+  measuredAt: string;
+  note: string | null;
+  createdBy: { firstName: string; lastName: string } | null;
+};
+
+export type EncounterDiagnosis = {
+  id: string;
+  code: string | null;
+  name: string;
+  kind: string;
+  note: string | null;
+  createdAt: string;
+};
+
+export type EncounterAttachment = {
+  id: string;
+  label: string | null;
+  createdAt: string;
+  asset: { id: string; fileName: string; mimeType: string; sizeBytes: number; kind: string };
+};
+
+export type EncounterAddendum = {
+  id: string;
+  body: string;
+  createdAt: string;
+  author: { id: string; firstName: string; lastName: string; title: string | null };
+};
+
+export type ServiceRecordLineDto = {
+  id: string;
+  qty: string;
+  unitPrice: string;
+  discount: string;
+  tax: string;
+  lineTotal: string;
+  service: { id: string; code: string; name: string; category: string };
+};
+
+export type ServiceRecordDto = {
+  id: string;
+  status: string;
+  performedBy: { firstName: string; lastName: string } | null;
+  finalizedAt: string | null;
+  createdAt: string;
+  lines: ServiceRecordLineDto[];
+};
+
+export type EncounterDetail = {
+  id: string;
+  clinicId: string;
+  branchId: string;
+  patientId: string;
+  ownerId: string;
+  status: EncounterStatus;
+  chiefComplaint: string | null;
+  subjective: string | null;
+  objective: string | null;
+  assessment: string | null;
+  plan: string | null;
+  notes: string | null;
+  startedAt: string;
+  signedAt: string | null;
+  closedAt: string | null;
+  version: number;
+  patient: {
+    id: string;
+    name: string;
+    code: string;
+    gender: string;
+    birthDate: string | null;
+    branchId: string;
+    ownerId: string;
+    species: { name: string } | null;
+    breed: { name: string } | null;
+    alerts: PatientAlertBadge[];
+  };
+  owner: { id: string; firstName: string; lastName: string };
+  veterinarian: { id: string; firstName: string; lastName: string; title: string | null };
+  signedBy: { id: string; firstName: string; lastName: string } | null;
+  appointment: { id: string; scheduledStart: string; status: string } | null;
+  branch: { id: string; name: string; code: string };
+  vitals: EncounterVital[];
+  diagnoses: EncounterDiagnosis[];
+  attachments: EncounterAttachment[];
+  addendums: EncounterAddendum[];
+  serviceRecords: ServiceRecordDto[];
+};
+
+export type EncounterListItem = {
+  id: string;
+  clinicId: string;
+  branchId: string;
+  patientId: string;
+  ownerId: string;
+  status: EncounterStatus;
+  chiefComplaint: string | null;
+  startedAt: string;
+  signedAt: string | null;
+  version: number;
+  veterinarian: { id: string; firstName: string; lastName: string };
+  patient: { id: string; name: string; code: string };
+  branch: { id: string; name: string; code: string };
+  _count: { vitals: number; diagnoses: number; addendums: number; serviceRecords: number };
+};
+
+export type ServicePriceDto = {
+  id: string;
+  branchId: string | null;
+  branch: { id: string; name: string; code: string } | null;
+  currency: string;
+  amount: string;
+  taxCode: string | null;
+  validFrom: string;
+  validTo: string | null;
+};
+
+export type ServiceConsumptionRuleDto = {
+  id: string;
+  defaultQty: string;
+  unit: string | null;
+  required: boolean;
+  allocationPolicy: string;
+  active: boolean;
+};
+
+export type ServiceDto = {
+  id: string;
+  clinicId: string;
+  code: string;
+  name: string;
+  category: string;
+  durationMin: number;
+  notes: string | null;
+  active: boolean;
+  prices: ServicePriceDto[];
+  consumptionRules: ServiceConsumptionRuleDto[];
+};
+
+export const SERVICE_CATEGORY_CATALOG: readonly { value: string; label: string }[] = [
+  { value: 'muayene', label: 'Muayene' },
+  { value: 'cerrahi', label: 'Cerrahi' },
+  { value: 'laboratuvar', label: 'Laboratuvar' },
+  { value: 'aşılama', label: 'Aşılama' },
+  { value: 'görüntüleme', label: 'Görüntüleme' },
+  { value: 'diş', label: 'Diş' },
+  { value: 'bakım', label: 'Bakım' },
+  { value: 'diğer', label: 'Diğer' },
+];

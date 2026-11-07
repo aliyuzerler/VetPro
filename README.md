@@ -163,6 +163,34 @@ pnpm dev:mobile     # Expo DevTools (QR ile cihaz/emülatör)
 - **Yeni izinler:** `appointment.manage` (veteriner + resepsiyon şablonlarında),
   `appointment.override` (veteriner + admin).
 
+## Muayene, SOAP ve hizmet kataloğu (Faz 06)
+
+- `/muayene` — hasta arama (ad, kod, mikroçip, sahip adı/telefonu), muayene listesi
+  ve yeni muayene (taslak) diyaloğu; **muayene workbench'i** tek ekranda: hasta
+  uyarı şeridi, SOAP editörü (S/O/A/P + başvuru şikâyeti + notlar), vital bulgu
+  paneli (katalog: vücut sıcaklığı, ağırlık, kalp atışı, solunum, kapiler dolum,
+  tansiyon, kan şekeri, ağrı skoru), tanı paneli (birincil/ikincil/diferansiyel),
+  hizmet kaydı paneli ve addendum paneli.
+- **İmza kilidi (API + UI birlikte):** `İmzala` düğmesi yalnız `clinical.sign` iznine
+  görünür; imzalanan kayıt doğrudan update/delete edilemez (409 `ENCOUNTER_SIGNED`),
+  tüm yazma alanları kilitlenir. Düzeltmeler addendum ile yapılır ve her addendum
+  denetim defterine `ADDENDUM_CREATED` olarak yazılır (orijinal kayıt referanslı).
+- **Vital geçmişi korunur:** aynı bulgunun her ölçümü ayrı satırdır; panel hem bu
+  muayenenin ölçümlerini hem hastanın tür filtreli tüm geçmişini gösterir
+  (üzerine yazma yok).
+- `/hizmetler` — hizmet kataloğu: kod (klinikte tekil), ad, kategori, süre; şube
+  override'lı **fiyat geçmişi** (geçerlilik aralıkları + "Süresi doldu" rozeti) ve
+  varsayılan **tüketim kuralları** (Faz 08'de stok hareketine dönüşür). Yazma
+  `service.manage` izni ister; izin yoksa salt-okunur.
+- **Fiyat çözümleme:** geçerlilik penceresi → şube override (şube fiyatı genel
+  fiyatı geçersiz kılar) → en yeni `validFrom`. Fiyatı olmayan hizmet muayeneye
+  eklenemez (`SERVICE_PRICE_MISSING`); hizmet kaydı satırlarına fiyat çözümleme
+  anında dondurulur.
+- **Hizmet kesinleştirme:** Faz 06'da yalnız kayıt durumu kesinleşir; gerçek stok
+  çıkışı ve ücretlendirme Faz 08 atomik işlemiyle bağlanır (arayüzde açıkça belirtilir).
+- **Yeni izinler:** `encounter.manage` (muayene yazma), `service.manage` (katalog
+  yazma); imza + addendum `clinical.sign`.
+
 ## Ekran Görüntüleri
 
 Aşağıdaki görüntüler standart faz sonu Playwright E2E koşusundan alınmıştır
@@ -185,7 +213,7 @@ güncellenir. Tüm veriler sentetiktir.
   doğrulanır (bu koşuda canlı: hepsi yeşil).
 - **Durum hikâyeleri:** yükleme (skeleton), boş, hata (tekrar deneme yolu) ve yetkisiz
   görünümleri tek ekranda.
-- **Faz planı:** 15 fazın durumu — Faz 01–04 Tamamlandı, Faz 05 Tamamlandı, Faz 06 Sırada.
+- **Faz planı:** 15 fazın durumu — Faz 01–06 Tamamlandı, Faz 07 Sırada.
 
 ### Web — Giriş sayfası (`/giris`, Faz 03)
 

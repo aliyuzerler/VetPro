@@ -100,4 +100,16 @@ export const PERMISSIONS = [
     name: 'Randevu kural istisnası',
     description: 'Çalışma saatleri dışı randevuyu gerekçe ile onaylar',
   },
+  {
+    key: 'encounter.manage',
+    group: 'clinical',
+    name: 'Muayene kaydı yönetimi',
+    description: 'Muayene, SOAP, vital bulgu, tanı ve hizmet kayıtlarını yönetir',
+  },
+  {
+    key: 'service.manage',
+    group: 'clinical',
+    name: 'Hizmet kataloğu yönetimi',
+    description: 'Hizmet, fiyat ve tüketim kuralı tanımlarını yönetir',
+  },
 ] as const;

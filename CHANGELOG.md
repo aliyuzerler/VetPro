@@ -2,6 +2,89 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.5.0] — Faz 06: Muayene, SOAP, vital bulgular ve hizmet kataloğu (2026-11-07)
+
+### Eklendi
+- **Veri modeli (migration `faz06_clinical_services`)**: `Encounter` (şube kapsamlı;
+  SOAP alanları kayıt üzerinde; ileri yönlü durum makinesi draft → in_progress →
+  signed → closed, voided çıkışı yalnız imza öncesi; `version` alanı), `VitalObservation`
+  (aynı bulgunun tüm geçmiş ölçümleri ayrı satır — üzerine yazma yok), `Diagnosis`
+  (birincil/ikincil/diferansiyel), `ClinicalAttachment` (hastanın mevcut dosya
+  varlığına referans; private storage erişimi aynen geçerli), `ClinicalAddendum`
+  (imzalı kayıt düzeltmesi; yazar + zaman + encounter referansı), `Service`
+  (klinik kataloğu; kod tekil, kategori + süre), `ServicePrice` (geçerlilik tarihli,
+  şube override'lı; fiyat satırları geçmiş için korunur), `ServiceConsumptionRule`
+  (varsayılan tüketim; `product_id` alanı Faz 07'de Product FK'sı olarak bağlanır),
+  `ServiceRecord` + `ServiceRecordLine` (muayene hizmet kaydı; fiyat çözümleme
+  anında dondurulur). Yeni izinler: `encounter.manage`, `service.manage` (katalog
+  18 anahtar; veteriner şablonu güncellendi).
+- **API — muayeneler** (`/encounters`): oluşturma (hasta + hekim + randevu doğrulaması),
+  SOAP kaydetme (`PATCH`; yalnız draft/in_progress), imza (`/sign` — `clinical.sign`
+  izni), kapatma (`/close`), gerekçeli iptal (`/void`), taslak silme (yalnız draft).
+  İmzalı kayıtta PATCH/DELETE ve tüm alt kaynak yazıları 409 `ENCOUNTER_SIGNED`
+  döner (kabul kriteri); düzeltme yolu yalnız addendum'dur.
+- **API — vital bulgular**: `POST /encounters/:id/vitals` (katalog: temp, weight,
+  heart_rate, resp_rate, cap_refill, blood_pressure, glucose, pain_score, other),
+  `GET /encounters/patient/:patientId/vitals?kind=` — hasta genelinde tüm ölçüm
+  geçmişi korunur (kabul kriteri).
+- **API — tanı, ek, addendum**: diagnosis ekleme/kaldırma (imza sonrası kapalı),
+  ek ekleme (dosya hasta eşleşmesi doğrulanır — `ASSET_PATIENT_MISMATCH`),
+  addendum yalnız imzalı kayda (`ENCOUNTER_NOT_SIGNED` aksi hâlde) ve her ekleme
+  `ADDENDUM_CREATED` denetimi üretir (metadata'da encounterId referansı — kabul kriteri).
+- **API — hizmet kataloğu** (`/services`): CRUD (`service.manage`), fiyat satırları
+  (geçerlilik penceresi doğrulanır — ters pencere 409), tüketim kuralı CRUD.
+  **Fiyat çözümleme** (`services.domain.resolvePrice`, birim testli): geçerlilik
+  penceresi (closed-open aralık) → şube override genel fiattan önce → en yeni
+  `validFrom` kazanır. Süresi dolmuş satır asla seçilmez; fiyatı olmayan hizmet
+  kayda giremez (409 `SERVICE_PRICE_MISSING` — kabul kriteri).
+- **API — hizmet kayıtları** (`/encounters/:id/service-records`): satır oluşturma
+  (fiyat çözümü anında dondurulur, indirim/vergi tutar hesabı birim testli),
+  satır değiştirme (yalnız taslak), kesinleştirme (`finalize`) — Faz 06'da yalnız
+  durum değişir, gerçek stok/finans post'u Faz 08 atomik işlemiyle bağlanır
+  (build promptu gereği stok post'u bu fazda bağlanmadı; arayüzde açıkça belirtilir).
+- **Web — `/muayene`**: hasta arama + muayene listesi + yeni muayene diyaloğu;
+  workbench (uyarı şeridi, SOAP editörü, vital paneli + hasta geçmişi, tanı paneli,
+  hizmet kaydı paneli, addendum paneli). İmza düğmesi yalnız `clinical.sign`
+  iznine görünür; imzalı kayıtta tüm yazma alanları kilitlenir ve kilit notu gösterilir.
+- **Web — `/hizmetler`**: katalog tablosu (arama), hizmet formu diyaloğu (kod tekil
+  hatası ayrıştırılır), fiyat geçmişi (şube override + "Süresi doldu" rozeti),
+  fiyat/kural diyaloğu; `service.manage` izni yoksa salt-okunur.
+- **Seed**: 6 sentetik hizmet (HIZ-001..006; MRKZ genel fiyatlar), Kuduz Aşısı
+  SUB2 override (480 vs 520) ve Genel Muayene süresi dolmuş fiyat satırı (380/2025)
+  — fiyat çözümleme kabul kriterinin demo karşılığı; Karabaş için in_progress demo
+  muayenesi (SOAP dolu + vital geçmişi + tanı).
+- **Storybook**: Faz 06 atölyesi — muayene durum rozeti (5 durum), SOAP editörü
+  (dolu taslak + kaydetme etkileşimi + imzalı kilit), vital paneli (geçmiş korunur
+  + ekleme etkileşimi + kilit), tanı paneli, hizmet kaydı paneli (taslak +
+  kesinleşmiş + kilit), addendum paneli (imzalı ekleme + imzasız kapalı), hizmet
+  detay paneli (fiyat geçmişi + override + süresi dolmuş + izinsiz salt-okunur),
+  fiyat ve hizmet formu diyaloğu (portal bilinçli body sorgusu); test-runner
+  73/73 (render + play + axe).
+
+### Düzeltildi
+- Mobil görünümde 174 px yatay taşma: `/muayene` ve `/hizmetler` ızgaralarına temel
+  `grid-cols-1` eklenmediğinden gizli ızgara sütunu içerikle genişliyordu
+  (minmax(0,1fr) yalnız xl kırılımındaydı).
+- Muayene workbench sekmeleri mobilde taşma: `TabsList` satır kırılımına açıldı
+  (`flex-wrap`).
+- `react-hooks/set-state-in-effect` ihlalleri: diyalog formlarının `useEffect` ile
+  sıfırlama deseni, Radix DialogContent'in her açılışta yeniden bağlanması esas
+  alınarak `useState` ilk değerine taşındı; SOAP editörü `key` tabanlı yeniden
+  bağlama ile senkronlanır.
+- `Date.now()` render içinde çağrılmıyordu (react-hooks/purity): fiyat geçerlilik
+  karşılaştırması bağlanma anına sabitlendi.
+
+### Bilinen sınırlar
+- `ServiceConsumptionRule.product_id` alanı yerinde; Faz 07'de Product modeliyle
+  FK olarak bağlanacak (bu fazda dış girdi kabul edilmez, NULL tutulur).
+- `ServiceRecord.finalize` gerçek stok çıkışı/ücret üretmez — Faz 08 atomik
+  işleminde stok hareketi + Charge bağlanır (idempotencyKey alanı hazır).
+- SOAP alanları Encounter üzerinde tekil tutulur (ayrı SoapNote tablosu yok);
+  sürüm bilgisi `version` alanı ile izlenir. İmzalı kayıt içeriği asla değişmez;
+  tüm düzeltmeler addendum'dur ve denetim defterine yazılır.
+- Hizmet kaydı fiyat satırları çözümleme anında dondurulur; sonraki fiyat
+  değişiklikleri mevcut kayıtları etkilemez (fiyat geçmişi korunur).
+
 ## [0.4.0] — Faz 05: Randevu takvimi ve klinik akış panosu (2026-11-07)
 
 ### Eklendi

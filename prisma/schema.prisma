@@ -1,8 +1,14 @@
-// VetCore — Faz 05 şema.
+// VetCore — Faz 06 şema.
 // Kapsam: klinik/şube çekirdeği (Faz 01) + kimlik, personel, rol, izin, oturum ve denetim
 // (Faz 03) + hasta sahibi, hasta, tür/ırk, uyarı, kilo gözlemi ve özel dosya varlıkları
-// (Faz 04) + randevu takvimi, çalışma saatleri, bekleme listesi ve akış panosu (Faz 05).
+// (Faz 04) + randevu takvimi, çalışma saatleri, bekleme listesi ve akış panosu (Faz 05)
+// + muayene (SOAP), vital bulgular, tanı, ek dosya, addendum ve hizmet kataloğu (Faz 06).
 // Stok, finans... ilgili fazlarda eklenir.
+// Faz 06 politikası: imzalı muayene kaydı değişmez — düzeltmeler ClinicalAddendum ile
+// yapılır ve denetim defterine yazılır. SOAP alanları Encounter üzerinde tutulur
+// (tek aktif taslak + version alanı); ayrı SoapNote tablosu sürümleme gerekçesiyle
+// eklenmedi. ServiceConsumptionRule.product_id Faz 07'de Product modeline FK olarak
+// bağlanır (draft model: alan bu fazda yerinde, ilişki stok modülleriyle birlikte).
 // Kurallar: UUID PK, UTC zaman damgaları, money/quantity için Decimal, silinmez defter ileriki fazlarda.
 // Güvenlik: şifre yalnızca scrypt hash saklanır; refresh token yalnızca SHA-256 hash saklanır.
 // Faz 04 politikası: sahip/hasta kayıtlarında fiziksel silme yok — arşivleme + açık merge
@@ -43,6 +49,8 @@ model Clinic {
   scheduleBlocks ScheduleBlock[]
   appointments Appointment[]
   waitlistEntries WaitlistEntry[]
+  encounters Encounter[]
+  services Service[]
 
   @@map("clinics")
 }
@@ -72,6 +80,9 @@ model Branch {
   scheduleBlocks ScheduleBlock[]
   appointments Appointment[]
   waitlistEntries WaitlistEntry[]
+  encounters Encounter[]
+  serviceRecords ServiceRecord[]
+  servicePrices ServicePrice[]
 
   @@unique([clinicId, code])
   @@index([clinicId])
@@ -107,6 +118,11 @@ model Staff {
   appointments      Appointment[]
   preferredWaitlist WaitlistEntry[]     @relation("WaitlistPreferredStaff")
   overriddenAppointments Appointment[]  @relation("AppointmentOverriddenBy")
+  encounters        Encounter[]         @relation("EncounterVeterinarian")
+  signedEncounters  Encounter[]         @relation("EncounterSignedBy")
+  clinicalAddendums ClinicalAddendum[]
+  vitalObservations VitalObservation[]
+  serviceRecords    ServiceRecord[]
 
   @@index([clinicId])
   @@map("staff")
@@ -338,6 +354,7 @@ model Owner {
   patients         Patient[]
   appointments     Appointment[]
   waitlistEntries  WaitlistEntry[]
+  encounters       Encounter[]
 
   @@index([clinicId])
   @@index([clinicId, lastName, firstName])
@@ -421,6 +438,8 @@ model Patient {
   files     FileAsset[]
   appointments Appointment[]
   waitlistEntries WaitlistEntry[]
+  encounters Encounter[]
+  vitals     VitalObservation[]
 
   @@unique([clinicId, code])
   @@unique([clinicId, microchip])
@@ -489,6 +508,7 @@ model FileAsset {
   clinic     Clinic  @relation(fields: [clinicId], references: [id], onDelete: Restrict)
   patient    Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
   uploadedBy Staff?  @relation(fields: [uploadedByStaffId], references: [id], onDelete: SetNull)
+  clinicalAttachments ClinicalAttachment[]
 
   @@index([patientId])
   @@index([clinicId])
@@ -592,6 +612,7 @@ model Appointment {
   room    Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
   overriddenBy Staff?     @relation("AppointmentOverriddenBy", fields: [overriddenByStaffId], references: [id], onDelete: SetNull)
   waitlistEntries WaitlistEntry[] @relation("WaitlistBookedAppointment")
+  encounters Encounter[]
 
   @@index([clinicId, scheduledStart])
   @@index([branchId, scheduledStart])
@@ -636,4 +657,267 @@ model WaitlistEntry {
   @@index([patientId])
   @@index([ownerId])
   @@map("waitlist_entries")
+}
+
+/// Muayene kaydı — şube kapsamlı (Faz 06). SOAP alanları kayıt üzerinde tutulur;
+/// durum makinesi ileri yönlüdür: draft → in_progress → signed → closed
+/// (draft/in_progress → voided). İmzalı kayıt değiştirilemez ve silinemez;
+/// düzeltmeler ClinicalAddendum ile yapılır (kabul kriteri: signed encounter
+/// doğrudan update/delete edilememeli). Fiziksel silme yalnızca draft'ta mümkündür
+/// (taslakta geçmiş denetim değeri yoktur); voided kayıtlar geçmiş için korunur.
+model Encounter {
+  id             String   @id @default(uuid()) @db.Uuid
+  clinicId       String   @map("clinic_id") @db.Uuid
+  branchId       String   @map("branch_id") @db.Uuid
+  patientId      String   @map("patient_id") @db.Uuid
+  ownerId        String   @map("owner_id") @db.Uuid
+  /// Muayeneyi yürüten hekim; yalnızca encounter.manage izni olan personel atanabilir.
+  veterinarianId String   @map("veterinarian_id") @db.Uuid
+  appointmentId  String?  @map("appointment_id") @db.Uuid
+  /// 'draft' | 'in_progress' | 'signed' | 'closed' | 'voided'
+  status         String   @default("draft")
+  chiefComplaint String?  @map("chief_complaint")
+  /// SOAP — Subjective (anamnez/sahip beyanı)
+  subjective     String?
+  /// SOAP — Objective (klinik bulgu)
+  objective      String?
+  /// SOAP — Assessment (tanı değerlendirmesi)
+  assessment     String?
+  /// SOAP — Plan (tedavi planı)
+  plan           String?
+  notes          String?
+  startedAt      DateTime @default(now()) @map("started_at")
+  signedAt       DateTime? @map("signed_at")
+  signedById     String?  @map("signed_by_id") @db.Uuid
+  closedAt       DateTime? @map("closed_at")
+  voidedAt       DateTime? @map("voided_at")
+  /// Kayıt sürümü — her yazma işleminde +1; imzada kilitlenir.
+  version        Int      @default(1)
+  createdById    String?  @map("created_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  clinic       Clinic     @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch       Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  patient      Patient    @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  owner        Owner      @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  veterinarian Staff      @relation("EncounterVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
+  signedBy     Staff?     @relation("EncounterSignedBy", fields: [signedById], references: [id], onDelete: SetNull)
+  appointment  Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  vitals         VitalObservation[]
+  diagnoses      Diagnosis[]
+  attachments    ClinicalAttachment[]
+  addendums      ClinicalAddendum[]
+  serviceRecords ServiceRecord[]
+
+  @@index([branchId, status, startedAt])
+  @@index([patientId, startedAt])
+  @@index([branchId, startedAt])
+  @@index([veterinarianId, startedAt])
+  @@map("encounters")
+}
+
+/// Vital bulgu gözlemi — aynı bulgunun (kind) geçmiş ölçümleri korunur
+/// (kabul kriteri: yalnızca son değer değil, tüm ölçüm geçmişi). kind kataloğu:
+/// 'temp' | 'weight' | 'heart_rate' | 'resp_rate' | 'cap refill' | 'blood_pressure'
+/// | 'glucose' | 'pain_score' | 'other'.
+model VitalObservation {
+  id          String   @id @default(uuid()) @db.Uuid
+  patientId   String   @map("patient_id") @db.Uuid
+  encounterId String?  @map("encounter_id") @db.Uuid
+  /// Bulgu kataloğu anahtarı (yukarıdaki liste)
+  kind        String
+  value       Decimal  @db.Decimal(10, 3)
+  /// Birim: °C, kg, atım/dk, /dk, mmHg, mg/dL...
+  unit        String
+  measuredAt  DateTime @map("measured_at")
+  note        String?
+  createdByStaffId String? @map("created_by_staff_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  encounter Encounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  createdBy Staff?  @relation(fields: [createdByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([patientId, kind, measuredAt])
+  @@index([encounterId])
+  @@map("vital_observations")
+}
+
+/// Tanı — muayeneye bağlı; imzadan sonra eklenemez (kayıt kilitlidir).
+model Diagnosis {
+  id          String   @id @default(uuid()) @db.Uuid
+  encounterId String   @map("encounter_id") @db.Uuid
+  /// Sistem kategorisi kodu (klinik sözlüğü; serbest metin de kabul edilir)
+  code        String?
+  name        String
+  /// 'primary' | 'secondary' | 'differential'
+  kind        String   @default("primary")
+  note        String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+
+  @@index([encounterId])
+  @@map("diagnoses")
+}
+
+/// Muayene eki — hastaya ait mevcut dosya varlığını muayeneye bağlar
+/// (yükleme Faz 04 dosya ucundan; erişim private storage + yetki kontrolü arkasında).
+model ClinicalAttachment {
+  id          String   @id @default(uuid()) @db.Uuid
+  encounterId String   @map("encounter_id") @db.Uuid
+  assetId     String   @map("asset_id") @db.Uuid
+  label       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  asset     FileAsset @relation(fields: [assetId], references: [id], onDelete: Restrict)
+
+  @@unique([encounterId, assetId])
+  @@index([encounterId])
+  @@map("clinical_attachments")
+}
+
+/// İmzalı kayıt düzeltmesi — orijinal muayeneye referans verir; kayıt değişmez
+/// (kabul kriteri: addendum orijinal kaydı referanslamalı ve denetim üretmeli).
+/// Yazar, zaman ve şube denetim amaçlı saklanır (clinical-record-integrity kuralı).
+model ClinicalAddendum {
+  id            String   @id @default(uuid()) @db.Uuid
+  encounterId   String   @map("encounter_id") @db.Uuid
+  authorStaffId String   @map("author_staff_id") @db.Uuid
+  body          String
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  /// Cascade: addendum yalnız signed/closed kayıtta var olabilir; encounter fiziksel
+  /// silme yalnız draft'ta mümkündür — bu ilişkide Restrict'e ihtiyaç yoktur.
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  author    Staff     @relation(fields: [authorStaffId], references: [id], onDelete: Restrict)
+
+  @@index([encounterId, createdAt])
+  @@map("clinical_addendums")
+}
+
+/// Hizmet kataloğu — klinik kapsamlı (Faz 06). Süre takvim/randevu önerisinde,
+/// kategori gruplamada, tüketim kuralı Faz 08 stok bağlantısında kullanılır.
+model Service {
+  id          String   @id @default(uuid()) @db.Uuid
+  clinicId    String   @map("clinic_id") @db.Uuid
+  /// Klinik içinde tekil insan tarafından okunur kod (HIZ-...).
+  code        String
+  name        String
+  /// Kategori: muayene | cerrahi | laboratuvar | aşılama | görüntüleme | diş | bakım | diğer
+  category    String   @default("muayene")
+  /// Varsayılan süre (dakika)
+  durationMin Int      @map("duration_min")
+  notes       String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  clinic          Clinic                   @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  prices          ServicePrice[]
+  consumptionRules ServiceConsumptionRule[]
+  recordLines     ServiceRecordLine[]
+
+  @@unique([clinicId, code])
+  @@index([clinicId, active])
+  @@map("services")
+}
+
+/// Hizmet fiyatı — geçerlilik tarihli, şube override'lı fiyat satırları.
+/// Çözümleme: (branchId eşit > null) ve (valid_from <= now < valid_to) arasından
+/// en yeni valid_from kazananır (kabul kriteri: fiyat geçerlilik tarihleri ve
+/// şube override doğru çözülmeli). Fiyat satırları geçmiş için korunur.
+model ServicePrice {
+  id        String    @id @default(uuid()) @db.Uuid
+  serviceId String    @map("service_id") @db.Uuid
+  /// null = tüm şubeler için genel fiyat; dolu = yalnız o şubede override
+  branchId  String?   @map("branch_id") @db.Uuid
+  currency  String    @default("TRY")
+  amount    Decimal   @db.Decimal(10, 2)
+  taxCode   String?   @map("tax_code")
+  validFrom DateTime  @map("valid_from")
+  /// null = süresiz geçerli
+  validTo   DateTime? @map("valid_to")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  service Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  branch  Branch?  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, validFrom])
+  @@index([branchId])
+  @@map("service_prices")
+}
+
+/// Hizmet tüketim kuralı — hizmetin varsayılan ürün tüketimi (Faz 08'te stok
+/// hareketine dönüşür). product_id FK'sı Faz 07'de Product modeliyle eklenir;
+/// bu fazda alan yerinde, ilişki kurulmadan draft olarak tanımlanır.
+model ServiceConsumptionRule {
+  id               String  @id @default(uuid()) @db.Uuid
+  serviceId        String  @map("service_id") @db.Uuid
+  /// Faz 07'de Product FK'sı eklenecek (draft alan)
+  productId        String? @map("product_id") @db.Uuid
+  defaultQty       Decimal @map("default_qty") @db.Decimal(10, 3)
+  /// Birim etiketi (Faz 07'de Unit modeline bağlanır)
+  unit             String?
+  /// true ise tüketim zorunlu (hizmet kapatılırken eksikse uyarır)
+  required         Boolean @default(false)
+  /// Tahsis politikası: 'fifo' | 'nearest_expiry' | 'manual' (Faz 08'te okunur)
+  allocationPolicy String  @default("fifo") @map("allocation_policy")
+  active           Boolean @default(true)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId])
+  @@map("service_consumption_rules")
+}
+
+/// Hizmet kaydı — muayeneyi seçilen hizmetler (Faz 06'da yalnızca taslak
+/// fiyatlama; Faz 08'te stok+finans atomik post'u bağlanır).
+model ServiceRecord {
+  id                String    @id @default(uuid()) @db.Uuid
+  clinicId          String    @map("clinic_id") @db.Uuid
+  encounterId       String    @map("encounter_id") @db.Uuid
+  branchId          String    @map("branch_id") @db.Uuid
+  /// 'draft' | 'finalized' — Faz 08'te finalized gerçek stok/finans post'unu tetikler
+  status            String    @default("draft")
+  performedByStaffId String?  @map("performed_by_staff_id") @db.Uuid
+  finalizedAt       DateTime? @map("finalized_at")
+  /// Faz 08 atomik işlemi için idempotency anahtarı (mobil tekrar denemeleri)
+  idempotencyKey    String?   @map("idempotency_key") @db.Uuid
+  createdById       String?   @map("created_by_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  encounter   Encounter           @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  branch      Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  performedBy Staff?              @relation(fields: [performedByStaffId], references: [id], onDelete: SetNull)
+  lines       ServiceRecordLine[]
+
+  @@index([encounterId])
+  @@index([branchId, status])
+  @@unique([idempotencyKey])
+  @@map("service_records")
+}
+
+/// Hizmet kaydı satırı — fiyat çözümleme anında dondurulur (unit_price geçmiş
+/// fiyat satırından kopyalanır; sonradan fiyat değişimi kaydı etkilemez).
+model ServiceRecordLine {
+  id              String  @id @default(uuid()) @db.Uuid
+  serviceRecordId String  @map("service_record_id") @db.Uuid
+  serviceId       String  @map("service_id") @db.Uuid
+  qty             Decimal @db.Decimal(10, 3)
+  unitPrice       Decimal @map("unit_price") @db.Decimal(10, 2)
+  discount        Decimal @default(0) @db.Decimal(10, 2)
+  tax             Decimal @default(0) @db.Decimal(10, 2)
+  lineTotal       Decimal @map("line_total") @db.Decimal(12, 2)
+
+  serviceRecord ServiceRecord @relation(fields: [serviceRecordId], references: [id], onDelete: Cascade)
+  service       Service       @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  @@index([serviceRecordId])
+  @@map("service_record_lines")
 }

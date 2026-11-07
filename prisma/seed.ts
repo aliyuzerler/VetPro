@@ -100,6 +100,8 @@ async function main(): Promise<void> {
       allBranches: false,
       permissions: [
         'clinical.sign',
+        'encounter.manage',
+        'service.manage',
         'owner.manage',
         'patient.manage',
         'appointment.manage',
@@ -846,6 +848,219 @@ async function main(): Promise<void> {
     });
   }
 
+  // 13) Hizmet kataloğu — Faz 06 (idempotent: klinik+kod unique). MRKZ şube
+  // override'ı ve süresi geçmiş fiyat satırı fiyat çözümleme kabul kriterinin
+  // seed karşılığıdır (test 'SÜRE_DOLDU' koduyla süresi geçmiş satırı bulur).
+  const serviceDefs = [
+    {
+      code: 'HIZ-001',
+      name: 'Genel Muayene',
+      category: 'muayene',
+      durationMin: 20,
+      basePrice: '450.00',
+      overridePrice: null as string | null,
+      expiredPrice: '380.00',
+      rules: [{ defaultQty: '1.000', unit: 'seans', required: false }],
+    },
+    {
+      code: 'HIZ-002',
+      name: 'Kuduz Asısı',
+      category: 'aşılama',
+      durationMin: 15,
+      basePrice: '520.00',
+      overridePrice: '480.00',
+      expiredPrice: null as string | null,
+      rules: [{ defaultQty: '1.000', unit: 'doz', required: true }],
+    },
+    {
+      code: 'HIZ-003',
+      name: 'Kan Biyokimyası',
+      category: 'laboratuvar',
+      durationMin: 10,
+      basePrice: '780.00',
+      overridePrice: null as string | null,
+      expiredPrice: null as string | null,
+      rules: [{ defaultQty: '2.000', unit: 'tüp', required: true }],
+    },
+    {
+      code: 'HIZ-004',
+      name: 'Diş Taşı Temizliği',
+      category: 'diş',
+      durationMin: 40,
+      basePrice: '1250.00',
+      overridePrice: null as string | null,
+      expiredPrice: null as string | null,
+      rules: [{ defaultQty: '1.000', unit: 'seans', required: false }],
+    },
+    {
+      code: 'HIZ-005',
+      name: 'Kısırlaştırma Operasyonu',
+      category: 'cerrahi',
+      durationMin: 60,
+      basePrice: '3400.00',
+      overridePrice: null as string | null,
+      expiredPrice: null as string | null,
+      rules: [
+        { defaultQty: '1.000', unit: 'operasyon', required: false },
+        { defaultQty: '1.500', unit: 'anestezi dozu', required: true },
+      ],
+    },
+    {
+      code: 'HIZ-006',
+      name: 'Röntgen (2 Projektör)',
+      category: 'görüntüleme',
+      durationMin: 15,
+      basePrice: '640.00',
+      overridePrice: null as string | null,
+      expiredPrice: null as string | null,
+      rules: [],
+    },
+  ] as const;
+  for (const svcDef of serviceDefs) {
+    const service = await prisma.service.upsert({
+      where: { clinicId_code: { clinicId: clinic.id, code: svcDef.code } },
+      update: { name: svcDef.name, category: svcDef.category, durationMin: svcDef.durationMin, active: true },
+      create: {
+        clinicId: clinic.id,
+        code: svcDef.code,
+        name: svcDef.name,
+        category: svcDef.category,
+        durationMin: svcDef.durationMin,
+      },
+    });
+
+    // Genel fiyat (tüm şubeler) — geçerlilik bugünden itibaren
+    const basePriceExists = await prisma.servicePrice.findFirst({
+      where: { serviceId: service.id, branchId: null, validTo: null },
+    });
+    if (!basePriceExists) {
+      await prisma.servicePrice.create({
+        data: {
+          serviceId: service.id,
+          branchId: null,
+          currency: 'TRY',
+          amount: svcDef.basePrice,
+          taxCode: 'KDV20',
+          validFrom: new Date('2026-01-01T00:00:00.000Z'),
+        },
+      });
+    }
+
+    // Şube override fiyatı (SUB2)
+    if (svcDef.overridePrice) {
+      const overrideExists = await prisma.servicePrice.findFirst({
+        where: { serviceId: service.id, branchId: sube2.id, validTo: null },
+      });
+      if (!overrideExists) {
+        await prisma.servicePrice.create({
+          data: {
+            serviceId: service.id,
+            branchId: sube2.id,
+            currency: 'TRY',
+            amount: svcDef.overridePrice,
+            taxCode: 'KDV20',
+            validFrom: new Date('2026-01-01T00:00:00.000Z'),
+          },
+        });
+      }
+    }
+
+    // Süresi geçmiş fiyat satırı (geçmiş korunur; çözümlemede asla seçilmez)
+    if (svcDef.expiredPrice) {
+      const expiredExists = await prisma.servicePrice.findFirst({
+        where: {
+          serviceId: service.id,
+          validTo: { not: null, lte: new Date('2026-05-01T00:00:00.000Z') },
+        },
+      });
+      if (!expiredExists) {
+        await prisma.servicePrice.create({
+          data: {
+            serviceId: service.id,
+            branchId: null,
+            currency: 'TRY',
+            amount: svcDef.expiredPrice,
+            taxCode: 'KDV20',
+            validFrom: new Date('2025-01-01T00:00:00.000Z'),
+            validTo: new Date('2025-12-31T23:59:59.999Z'),
+          },
+        });
+      }
+    }
+
+    for (const ruleDef of svcDef.rules) {
+      const ruleExists = await prisma.serviceConsumptionRule.findFirst({
+        where: { serviceId: service.id, unit: ruleDef.unit, active: true },
+      });
+      if (!ruleExists) {
+        await prisma.serviceConsumptionRule.create({
+          data: {
+            serviceId: service.id,
+            defaultQty: ruleDef.defaultQty,
+            unit: ruleDef.unit,
+            required: ruleDef.required,
+          },
+        });
+      }
+    }
+  }
+
+  // 14) Bugünün demo muayene kaydı — Faz 06. Karabaş (in_consultation randevusu)
+  // için taslak encounter + vital geçmişi; SOAP alanları UI'nin dolu durumunu
+  // göstermesi için doldurulur (idempotent: hasta + chief_complaint araması).
+  const demoEncounterExists = await prisma.encounter.findFirst({
+    where: { patientId: karabas.id, chiefComplaint: 'Yıllık karma aşı + genel kontrol', status: { in: ['draft', 'in_progress'] } },
+  });
+  if (!demoEncounterExists && veterinerStaff) {
+    const encounter = await prisma.encounter.create({
+      data: {
+        clinicId: clinic.id,
+        branchId: merkez.id,
+        patientId: karabas.id,
+        ownerId: karabas.ownerId,
+        veterinarianId: veterinerStaff.id,
+        status: 'in_progress',
+        chiefComplaint: 'Yıllık karma aşı + genel kontrol',
+        subjective: 'Sahip: son 6 ayda iştah normal, kusma/ishal yok. Günlük 2 öğün kuru mama.',
+        objective: 'Vücut kondisyonu ideal, mukozalar pembe, CRT < 2 sn. Ağız içi hafif tartar.',
+        assessment: 'Genel durum iyi; aşı takvimi güncel, profilaksi önerilir.',
+        plan: 'Kuduz + karma aşı uygulanacak; 1 yıl sonra hatırlatma.',
+        version: 2,
+        createdById: adminStaff?.id ?? null,
+      },
+    });
+    await prisma.vitalObservation.createMany({
+      data: [
+        {
+          patientId: karabas.id,
+          encounterId: encounter.id,
+          kind: 'temp',
+          value: 38.6,
+          unit: '°C',
+          measuredAt: new Date(),
+          createdByStaffId: veterinerStaff.id,
+        },
+        {
+          patientId: karabas.id,
+          encounterId: encounter.id,
+          kind: 'heart_rate',
+          value: 92,
+          unit: 'atım/dk',
+          measuredAt: new Date(),
+          createdByStaffId: veterinerStaff.id,
+        },
+      ],
+    });
+    await prisma.diagnosis.create({
+      data: {
+        encounterId: encounter.id,
+        code: null,
+        name: 'Sağlıklı yetişkin köpek',
+        kind: 'primary',
+      },
+    });
+  }
+
   const [branchCount, staffCount, roleCount, permissionCount] = await Promise.all([
     prisma.branch.count({ where: { clinicId: clinic.id } }),
     prisma.staff.count({ where: { clinicId: clinic.id } }),
@@ -861,6 +1076,10 @@ async function main(): Promise<void> {
     prisma.waitlistEntry.count({ where: { clinicId: clinic.id } }),
     prisma.appointmentType.count({ where: { clinicId: clinic.id } }),
   ]);
+  const [serviceCount, encounterCount] = await Promise.all([
+    prisma.service.count({ where: { clinicId: clinic.id } }),
+    prisma.encounter.count({ where: { clinicId: clinic.id } }),
+  ]);
 
   console.log('Seed tamamlandı (sentetik demo verisi):');
   console.log(`  Klinik: ${clinic.name} (${clinic.slug})`);
@@ -868,6 +1087,7 @@ async function main(): Promise<void> {
   console.log(`  Personel: ${staffCount} | Rol: ${roleCount} | İzin: ${permissionCount}`);
   console.log(`  Sahip: ${ownerCount} | Hasta: ${patientCount} | Tür: ${speciesDefs.length}`);
   console.log(`  Randevu: ${appointmentCount} | Randevu türü: ${typeCount} | Bekleme: ${waitlistCount}`);
+  console.log(`  Hizmet: ${serviceCount} | Muayene kaydı: ${encounterCount}`);
   console.log(`  Demo parola (tüm sentetik hesaplar): ${DEMO_PASSWORD}`);
 }
 

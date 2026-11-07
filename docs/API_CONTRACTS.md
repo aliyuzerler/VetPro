@@ -95,6 +95,45 @@ Base path `/api/v1`. This is a module map; ZCode must define request/response sc
 - Tüm mutation uçları `audit_events`'e yazar (appointment.create/update/status/
   checkin/cancel/override, appointment.type.*, schedule.block.*, waitlist.*).
 
+### Faz 06 — uygulanan muayene ve hizmet kataloğu sözleşmesi (2026-11-07)
+- Muayeneler ŞUBE KAPSAMLI: `GET /encounters?patientId=&status=&veterinarianId=`,
+  `POST /encounters` (`encounter.manage`; patientId + veterinarianId zorunlu,
+  appointmentId verilirse hasta/şube eşleşmesi doğrulanır), `GET /encounters/:id`
+  (SOAP + vitals + diagnoses + attachments + addendums + serviceRecords tek yanıt),
+  `PATCH /encounters/:id` (SOAP alanları + draft→in_progress; yalnız draft/in_progress),
+  `POST /encounters/:id/sign` (`clinical.sign`), `POST /encounters/:id/close`,
+  `POST /encounters/:id/void` {reason}, `DELETE /encounters/:id` (yalnız draft).
+- **İmza kilidi:** signed/closed kayıtta PATCH, DELETE, vital/tanı/ek/hizmet yazıları
+  409 `ENCOUNTER_SIGNED`; addendum yalnız signed/closed'ta kabul edilir
+  (`ENCOUNTER_NOT_SIGNED` aksi hâlde) ve `ADDENDUM_CREATED` denetimi yazar.
+- Vital bulgular: `POST /encounters/:id/vitals` {kind, value, unit, measuredAt, note?}
+  (kind kataloğu: temp | weight | heart_rate | resp_rate | cap_refill |
+  blood_pressure | glucose | pain_score | other), `GET /encounters/patient/:patientId/vitals?kind=`
+  — tüm ölçüm geçmişi korunur (desc, take 200).
+- Tanı: `POST /encounters/:id/diagnoses` {name, code?, kind?, note?},
+  `DELETE /encounters/:id/diagnoses/:diagnosisId` (yalnız editable durumda).
+- Ekler: `POST /encounters/:id/attachments` {assetId, label?} — dosya hasta
+  eşleşmesi doğrulanır (`ASSET_PATIENT_MISMATCH`); `DELETE .../attachments/:attachmentId`.
+- Hizmet kataloğu: `GET /services?category=&active=&search=`, `POST /services`
+  (`service.manage`; klinik+kod unique — 409 `SERVICE_DUPLICATE_CODE`),
+  `PATCH /services/:id`, `GET /services/:id/prices`, `POST /services/:id/prices`
+  {branchId?, amount, validFrom, validTo?} (ters pencere 409
+  `SERVICE_PRICE_INVALID_WINDOW`), `POST /services/:id/consumption-rules`
+  {defaultQty, unit?, required?, allocationPolicy?}, `DELETE .../consumption-rules/:ruleId`
+  (soft: active=false).
+- **Fiyat çözümleme:** geçerlilik penceresi (validFrom ≤ t < validTo; null validTo =
+  süresiz) → şube override (branchId eşit) genel fiattan önce → en yeni validFrom.
+  Süresi dolmuş satır asla seçilmez; fiyat geçmişi satır olarak korunur.
+- Hizmet kayıtları: `POST /encounters/:id/service-records` {lines: [{serviceId, qty,
+  discount?, tax?}]} — fiyat çözümlenir ve satıra dondurulur; fiyatı olmayan hizmet
+  409 `SERVICE_PRICE_MISSING` (missingServiceIds listed). `PATCH .../service-records/:recordId/lines`
+  (yalnız taslak), `POST .../service-records/:recordId/finalize` (performedBy +
+  finalizedAt yazılır; **Faz 06'da stok/finans post yok** — Faz 08 atomik işlemde
+  bağlanır), `DELETE .../service-records/:recordId` (yalnız taslak).
+- Yeni izinler: `encounter.manage` (muayene yazma uçları), `service.manage`
+  (katalog yazma uçları); imza ve addendum `clinical.sign` ister. Okuma uçları
+  kimlik + şube kapsamı yeterlidir.
+
 ## Owners and patients
 - CRUD `/owners`, `/owners/:id/patients`, `/patients`
 - `GET /patients/search?q=`
