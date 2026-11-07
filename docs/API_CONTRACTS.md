@@ -134,6 +134,56 @@ Base path `/api/v1`. This is a module map; ZCode must define request/response sc
   (katalog yazma uçları); imza ve addendum `clinical.sign` ister. Okuma uçları
   kimlik + şube kapsamı yeterlidir.
 
+### Faz 07 — uygulanan stok yönetimi sözleşmesi (2026-11-07)
+- Ürün kataloğu: `GET /products?search=&categoryId=&active=`, `POST /products`
+  (`product.manage`; klinik+SKU unique — 409 `PRODUCT_DUPLICATE_CODE`, barkod
+  çakışması 409 `PRODUCT_DUPLICATE_BARCODE`), `PATCH /products/:id` (parti takip
+  türü sonradan değişmez), `GET /products/:id/lots?warehouseId=&includeBlocked=`
+  (FEFO sıralı; her partide `blockReason`: expired | quarantined | exhausted |
+  null), `GET|POST /product-categories`, `GET|POST /units`,
+  `GET|POST /products/:id/conversions` (1 fromUnit = factor × toUnit).
+- Tedarikçiler: `GET /suppliers?search=&active=`, `POST|PATCH /suppliers/:id`
+  (`supplier.manage`; klinik+ad unique — 409 `SUPPLIER_DUPLICATE_NAME`).
+- Stok yazıları (`/stock`, @BranchScoped): `POST /stock/receipts`
+  (`inventory.receive`; {warehouseId, supplierId?, note?, idempotencyKey?,
+  lines: [{productId, lotCode?, expiresAt?, unitCost?, qty}]}) — parti takipli
+  üründe lot+SKT zorunlu; aynı (kod,SKT,maliyet) mevcut partiye eklenir,
+  uyuşmazlıkta 409 `LOT_CONFLICT`. `POST /stock/consumptions` (`inventory.consume`;
+  lotId verilmezse FEFO tahsis; bloklu parti 409 `LOT_BLOCKED`, yetersiz stok
+  409 `INSUFFICIENT_STOCK` — atomik koşullu azaltım). `POST /stock/returns`
+  (`inventory.receive`; gerekçe zorunlu). `POST /stock/adjustments`
+  (`inventory.adjust`; işaretli qtyDelta + zorunlu reason).
+- Transfer: `GET /stock/transfers?status=`, `POST /stock/transfers`
+  (`inventory.transfer`; {fromWarehouseId, toWarehouseId, lines: [{productId,
+  lotId?, qty}]}) — lot takipli üründe kaynak parti zorunlu; `PATCH
+  /stock/transfers/:id/dispatch` (kaynak şube yetkisi; kaynak stoğu düşer,
+  `transfer_out` yazar, durum dispatched = yolda), `PATCH
+  /stock/transfers/:id/receive` (hedef şube yetkisi; hedef depoda parti açar/
+  büyütür, `transfer_in` yazar, satıra receivedLotId yazar), `PATCH .../cancel`
+  (yalnız taslak). Geçersiz durum geçişi 409 `TRANSFER_INVALID_STATE`.
+- Sayım: `GET /stock/counts`, `POST /stock/counts` (`inventory.adjust`; mevcut
+  bakiyeler expectedQty olarak dondurulur), `PATCH /stock/counts/:id/lines`
+  {lines: [{lineId, countedQty?}]}, `POST /stock/counts/:id/complete` {reason}
+  — gerekçe zorunlu (400 `COUNT_REASON_REQUIRED`); her fark satırı için
+  `adjustment` hareketi + `STOCK_COUNT_COMPLETED` denetimi.
+- Parti/sıcaklık: `PATCH /stock/lots/:lotId/status` {status: active|quarantined}
+  (`inventory.receive`; `LOT_QUARANTINED`/`LOT_RELEASED` denetimi),
+  `GET|POST /stock/temperature-logs` (yazım `warehouse.manage`).
+- Okuma uçları: `GET /stock/movements?kind=&warehouseId=&productId=&from=&to=`
+  ve `GET /stock/movements/:id` — **append-only: PATCH/DELETE yok** (yol 404,
+  doğrudan ORM girişimi DB tetikleyicisiyle bloklanır). `GET /stock/balances
+  ?warehouseId=&productId=&lowStock=true`, `GET /stock/alerts` (expired/yaklaşan
+  SKT partileri + min. stok altı ürünler).
+- Yeni izinler: `product.manage`, `supplier.manage`, `inventory.receive`,
+  `inventory.consume`, `inventory.transfer`; sayım/düzeltme mevcut
+  `inventory.adjust`, sıcaklık `warehouse.manage`. Okuma uçları kimlik + şube
+  kapsamı yeterlidir.
+- `CRUD /products`, `/suppliers`, `/stock-locations` (StockLocation → Warehouse; ADR-021)
+- `GET /stock/balances`, `GET /stock/lots` (→ `/products/:id/lots`), `GET /stock/alerts`
+- `POST /stock/receipts`, `/stock/transfers`, `/stock/counts`, `/stock/adjustments`
+- `PATCH /stock/transfers/:id/dispatch`, `PATCH /stock/transfers/:id/receive`
+- `GET /stock/movements?sourceType=&sourceId=` (→ kind/refType/refId filtreleri)
+
 ## Owners and patients
 - CRUD `/owners`, `/owners/:id/patients`, `/patients`
 - `GET /patients/search?q=`

@@ -87,18 +87,15 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     label: 'Depo & Stok',
     icon: Boxes,
     items: [
-      { label: 'Ürünler', phase: 7 },
-      { label: 'Partiler ve Son Kullanma', phase: 7 },
-      { label: 'Stok Hareketleri', phase: 7 },
+      { label: 'Ürünler', phase: 7, href: '/urunler' },
+      { label: 'Partiler ve Son Kullanma', phase: 7, href: '/partiler' },
+      { label: 'Stok Hareketleri', phase: 7, href: '/stok-hareketleri' },
     ],
   },
   {
     label: 'Satın Alma',
     icon: ShoppingCart,
-    items: [
-      { label: 'Tedarikçiler', phase: 7 },
-      { label: 'Satın Alma Siparişleri', phase: 7 },
-    ],
+    items: [{ label: 'Tedarikçiler', phase: 7, href: '/tedarikciler' }],
   },
   {
     label: 'Finans',

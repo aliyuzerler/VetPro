@@ -2,6 +2,85 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.6.0] — Faz 07: Ürün, depo, lot, tedarikçi ve stok defteri (2026-11-07)
+
+### Eklendi
+- **Veri modeli (migration `faz07_inventory`)**: `ProductCategory`, `Unit`,
+  `Product` (SKU/barkod/parti-takip türü/min. stok/referans satış fiyatı),
+  `ProductUnitConversion` (1 fromUnit = factor × toUnit), `Supplier`,
+  `InventoryLot` (depo bazlı parti; lot kodu + SKT + birim maliyet + durum),
+  `StockMovement` + `StockMovementLine` (APPEND-ONLY defter; kind: goods_receipt |
+  consumption | adjustment | transfer_out | transfer_in | supplier_return;
+  idempotencyKey ile mobil tekrar deneme tekilleştirme), `StockBalance`
+  (defterle aynı işlemde güncellenen projeksiyon; partisiz ürünler lotId NULL —
+  kısıt `NULLS NOT DISTINCT` ile yeniden tanımlandı), `StockTransfer` + line
+  (iki aşamalı: draft → dispatched → received; iptal yalnız taslakta),
+  `StockCount` + line (beklenen bakiye açılışta dondurulur),
+  `TemperatureLog` (soğuk zincir). Yeni izinler: `product.manage`,
+  `supplier.manage`, `inventory.receive`, `inventory.consume`,
+  `inventory.transfer` (katalog 23 anahtar; veteriner + stok şablonları güncellendi).
+  **Defter append-only veritabanı düzeyinde:** `stock_movements` ve
+  `stock_movement_lines` üzerinde UPDATE/DELETE bloklayan tetikleyiciler;
+  doğrudan ORM girişimi de hata verir (kabul kriteri 7).
+- **API — stok çekirdeği** (`/stock`, `/products`, `/suppliers`):
+  - **Mal kabul** `POST /stock/receipts` (`inventory.receive`): lot/SKT/maliyet
+    ile stok artışı (kabul kriteri 1); aynı (kod, SKT, maliyet) tekrar gelirse
+    mevcut partiye eklenir, uyuşmazlıkta 409 `LOT_CONFLICT`. Partisiz üründe
+    lot kodu reddedilir.
+  - **Tüketim** `POST /stock/consumptions` (`inventory.consume`): parti verilirse
+    seçilebilirlik denetimi (expired/quarantined/exhausted → 409 `LOT_BLOCKED`),
+    verilmezse **FEFO otomatik tahsis** (çok partiye bölebilir; bloklu partiler
+    atlanır — kabul kriteri 3). Çıkış **atomik koşullu azaltım**
+    (`qtyOnHand >= qty` güvencesi) ile yazılır: aynı partiye eş zamanlı iki
+    tüketimden biri 409 `INSUFFICIENT_STOCK` alır, negatif stok oluşamaz
+    (kabul kriteri 6).
+  - **Mutabakat:** lot bazlı bakiye = SUM(defter satırları); bakiye yazımı defter
+    ile aynı işlemde yapılır (kabul kriteri 2).
+  - **Transfer** `POST /stock/transfers` → `/dispatch` → `/receive`
+    (`inventory.transfer`; iki aşamalı): sevk kaynak stoğu düşer ve `transfer_out`
+    yazar (durum dispatched = **yolda**); teslim hedef depoda aynı özelliklerde
+    parti açar/büyütür ve `transfer_in` yazar (kabul kriteri 4). Sevk kaynak şube,
+    teslim hedef şube yetkisiyle yapılır (iki aşamalı yetki).
+  - **Sayım** `POST /stock/counts` → `PATCH .../lines` → `POST .../complete`
+    (`inventory.adjust`): tamamlama **gerekçe zorunlu** (400
+    `COUNT_REASON_REQUIRED`); her fark satırı için `adjustment` hareketi +
+    `STOCK_COUNT_COMPLETED` denetimi (kabul kriteri 5). Manuel düzeltme
+    `POST /stock/adjustments` aynı gerekçe + denetim disiplinini uygular.
+  - **Tedarikçi iadesi** `POST /stock/returns` (`inventory.receive`; gerekçe
+    zorunlu), **parti durumu** `PATCH /stock/lots/:id/status` (karantina/serbest;
+    `LOT_QUARANTINED`/`LOT_RELEASED` denetimi), **sıcaklık kayıtları**
+    `GET|POST /stock/temperature-logs` (`warehouse.manage`).
+  - Okuma uçları: `/stock/movements` (+detay; append-only — PATCH/DELETE yok),
+    `/stock/balances?lowStock=true`, `/stock/alerts` (süresi geçen/yaklaşan
+    partiler + düşük stok), `/stock/transfers`, `/stock/counts`,
+    `/products/:id/lots?includeBlocked=` (FEFO sıralı + blok gerekçesi).
+- **Web** — `/urunler` (liste + arama + depo bakiyeleri + FEFO partiler + mal
+  kabul/tüketim diyaloğu), `/partiler` (FEFO parti tablosu; süresi geçmiş/
+  karantina rozetleri; karantina aksiyonu; soğuk zincir sıcaklık kayıtları),
+  `/stok-hareketleri` (salt-okunur defter + tür filtresi; Transferler sekmesi:
+  kurulum/sevk/teslim; sayım başlatma + föy), `/tedarikciler` (liste + kart).
+  Kenar çubuğunda "Depo & Stok" ve "Satın Alma" yaprakları aktifleşti. Yazma
+  aksiyonları izinle görünür; izin yoksa sayfa salt-okunurdur.
+- **Testler:** alan mantığı 17 birim test (FEFO sıralama/tahsis, blok
+  seçilebilirlik, sayım farkı, birim dönüşümü), API e2e 15 test (7 kabul
+  kriterinin tamamı + izin/şube kapsam testleri), Playwright 26 test × 2
+  kırılım (masaüstü + mobil; tam süit 102 PASS), Storybook 26 yeni hikâye —
+  toplam 99/99 (axe dahil).
+
+### Değişti
+- `packages/domain` faz göstergesi Faz 07'ye taşındı; kontrol paneli faz rozeti
+  artık faz tanımından (`getPhase`) dinamik okunur.
+- Karantina partisi durumu değiştiğinde tüketim FEFO tahsisi otomatik güncellenir;
+  uyarı listesi (`/stock/alerts`) düşük stok + SKT uyarılarını tek yanıtta verir.
+
+### Bilinen sınırlar
+- Tedarikçi iadesi ve manuel düzeltme maliyet muhasebesi (ortalama maliyet
+  güncellemesi) Faz 09 finans modülüne ertelendi.
+- Transfer receive'de hedef depoda aynı lot kodu farklı SKT/maliyetle varsa
+  409 `LOT_CONFLICT` döner; kod çakışması manuel çözüm ister.
+- `ServiceConsumptionRule.product_id` artık Product FK'sıdır; tüketim kurallarının
+  gerçek stok hareketine dönüşmesi Faz 08 atomik işlemindedir.
+
 ## [0.5.0] — Faz 06: Muayene, SOAP, vital bulgular ve hizmet kataloğu (2026-11-07)
 
 ### Eklendi

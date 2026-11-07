@@ -39,7 +39,7 @@ export const PHASES: readonly PhaseDefinition[] = [
 ] as const;
 
 /** Şu anda yürütülmekte olan faz. Faz tamamlandığında güncellenir. */
-export const CURRENT_PHASE_ID = 6;
+export const CURRENT_PHASE_ID = 7;
 
 /** Uygulama sürümü — kök package.json ve CHANGELOG ile eşit tutulur. */
 export const APP_VERSION = '0.1.0';

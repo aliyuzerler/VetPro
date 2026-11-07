@@ -191,6 +191,34 @@ pnpm dev:mobile     # Expo DevTools (QR ile cihaz/emülatör)
 - **Yeni izinler:** `encounter.manage` (muayene yazma), `service.manage` (katalog
   yazma); imza + addendum `clinical.sign`.
 
+## Ürün, depo, lot ve stok defteri (Faz 07)
+
+- **Defter append-only:** stok hareketleri ve satırları API'de yazma ucu olmadığı
+  gibi veritabanı tetikleyicileriyle de korunur; düzeltme yalnızca gerekçeli
+  telafi (adjustment) hareketiyle yapılır. Bakiye projeksiyonu defterle aynı
+  işlemde yazılır — lot bazlı mutabakat API e2e ile doğrulanır.
+- `/urunler` — ürün kartları (SKU/barkod/parti takip türü/min. stok), depo bazlı
+  bakiyeler (düşük stok rozeti), FEFO sıralı partiler; **mal kabul** diyaloğu
+  (lot kodu + son kullanma + birim maliyet; aynı lot tekrar gelirse birleştirilir,
+  uyuşmazlıkta `LOT_CONFLICT`) ve **tüketim** diyaloğu (parti seçilmezse FEFO
+  tahsis; süresi geçmiş ve karantina partileri bloklu — `LOT_BLOCKED`).
+- `/partiler` — tüm partiler FEFO sırasıyla: "Süresi geçmiş", "N gün" ve
+  "Karantina" rozetleri; karantinaya alma/serbest bırakma (denetimli);
+  **soğuk zincir** sıcaklık kayıtları (depo bazlı ölçüm defteri).
+- `/stok-hareketleri` — salt-okunur hareket defteri (tür filtresi; giriş +/çıkış −
+  rozetleri; gerekçe/not/personel); **Transferler** sekmesi: iki aşamalı transfer
+  kurulum → sevk (kaynak düşer, "Yolda") → teslim (hedef depoda parti açılır);
+  **Sayım**: föy açılışında bakiyeler dondurulur, fark gerekçe ile tamamlandığında
+  düzeltme hareketi + denetim kaydı üretilir.
+- `/tedarikciler` — tedarikçi kataloğu (mal kabul ve iade hareketlerinde referans).
+- **Eş zamanlı tüketim güvenliği:** çıkışlar atomik koşullu azaltımla yazılır
+  (`qtyOnHand >= qty`); aynı partiye paralel iki tüketimden biri `INSUFFICIENT_STOCK`
+  alır — negatif stok oluşamaz (API e2e ile kanıtlanır).
+- **Yeni izinler:** `product.manage`, `supplier.manage`, `inventory.receive`,
+  `inventory.consume`, `inventory.transfer`; sayım/düzeltme `inventory.adjust`,
+  sıcaklık `warehouse.manage`. Tek şubeli kullanıcı hedef şube depolarını
+  görmez; çok şubeli kurulum/transfer yetkisi erişilen tüm şubeleri kapsar.
+
 ## Ekran Görüntüleri
 
 Aşağıdaki görüntüler standart faz sonu Playwright E2E koşusundan alınmıştır
@@ -360,6 +388,62 @@ API aynı kayda doğrudan erişimde 403 döner.
 
 ![Mobil giriş](docs/screenshots/mobil-giris.png)
 
+
+### Web — Ürünler, partiler ve stok defteri (Faz 07)
+
+![Ürünler](docs/screenshots/web-f07-01-urunler.png)
+
+Ürün listesi, depo bazlı bakiyeler (düşük stok rozetli) ve FEFO sıralı parti
+paneli tek ekranda; mal kabul ve tüketim diyaloğu izinle görünür.
+
+![Mal kabul ve defter](docs/screenshots/web-f07-03-mal-kabul-defter.png)
+
+Mal kabul lot/SKT/maliyet ile `goods_receipt` hareketi yazar; defterde parti
+kodu ve maliyet görünür (append-only — güncelleme/silme yoktur).
+
+![Partiler ve son kullanma](docs/screenshots/web-f07-05-partiler.png)
+
+FEFO sıralı parti tablosu: süresi geçmiş parti "Süresi geçmiş", karantina
+partisi "Karantina" rozetiyle bloklu görünür; aksiyon karantinayı tersine
+çevirir ve denetim kaydı üretir.
+
+![Defter filtre](docs/screenshots/web-f07-08-defter-filtre.png)
+
+Hareket defteri tür filtresiyle: Mal Kabul, Tüketim, Düzeltme, Transfer
+Sevk/Teslim, Tedarikçi İadesi; her satır işaretli miktar rozeti taşır.
+
+![Transfer yolda](docs/screenshots/web-f07-09-transfer-yolda.png)
+
+İki aşamalı transfer: sevk sonrası durum "Yolda" olur, kaynak stok düşer;
+teslim hedef şube yetkisiyle yapılır ve hedef depoda aynı özelliklerde parti açar.
+
+![Transfer teslim](docs/screenshots/web-f07-10-transfer-teslim.png)
+
+Teslim sonrası "Teslim Alındı"; satırda hedef depoda açılan parti kodu görünür.
+
+![Sayım](docs/screenshots/web-f07-11-sayim-tamam.png)
+
+Sayım föyü: beklenen/sayılan/fark sütunları; gerekçe girilmeden tamamlama
+düğmesi kapalıdır — tamamlama farklar için düzeltme hareketi yazar.
+
+![Tedarikçiler](docs/screenshots/web-f07-12-tedarikciler.png)
+
+Tedarikçi kataloğu; yazma `supplier.manage` izni ister.
+
+![Yetkisiz ürün görünümü](docs/screenshots/web-f07-13-yetkisiz-urunler.png)
+
+Resepsiyon rolünde ürün sayfası salt-okunurdur: mal kabul/yeni ürün/tüketim
+aksiyonları hiç görünmez (izin bazlı UI).
+
+### Mobil — ürünler ve partiler (Faz 07)
+
+![Mobil ürünler](docs/screenshots/mobil-f07-14-mobil-urunler.png)
+
+![Mobil partiler](docs/screenshots/mobil-f07-14-mobil-partiler.png)
+
+Mobil kırılımda tablolar kart içinde yatay kaydırılabilir; sayfada yatay taşma
+yoktur (E2E iddiası).
+
 ### Web — Tasarım sistemi rehberi (`/stil-rehberi`)
 
 ![Stil rehberi](docs/screenshots/web-stil-rehberi.png)
@@ -416,7 +500,7 @@ altında üretilir ve her fazla güncellenir.
 ```bash
 pnpm --filter @vetcore/web storybook          # canlı atölye → http://localhost:6006
 pnpm --filter @vetcore/web storybook:build    # statik build (storybook-static/)
-pnpm --filter @vetcore/web storybook:test     # test-runner: 18/18 PASS (smoke + play + a11y)
+pnpm --filter @vetcore/web storybook:test     # test-runner: 99/99 PASS (smoke + play + a11y)
 node scripts/storybook-screenshots.mjs        # ekran görüntülerini yenile
 ```
 

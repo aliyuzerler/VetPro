@@ -518,3 +518,208 @@ export const SERVICE_CATEGORY_CATALOG: readonly { value: string; label: string }
   { value: 'bakım', label: 'Bakım' },
   { value: 'diğer', label: 'Diğer' },
 ];
+
+// ── Faz 07 — Ürün, tedarikçi, parti ve stok defteri ────────────────────────
+
+export type ProductCategoryDto = {
+  id: string;
+  clinicId: string;
+  name: string;
+  active: boolean;
+};
+
+export type UnitDto = {
+  id: string;
+  clinicId: string;
+  key: string;
+  name: string;
+};
+
+export type ProductConversionDto = {
+  id: string;
+  fromUnit: { id: string; key: string; name: string };
+  toUnit: { id: string; key: string; name: string };
+  factor: string;
+};
+
+export type ProductDto = {
+  id: string;
+  clinicId: string;
+  categoryId: string | null;
+  category: { id: string; name: string } | null;
+  code: string;
+  barcode: string | null;
+  name: string;
+  trackingType: 'lot' | 'none';
+  baseUnit: { id: string; key: string; name: string };
+  minStock: string;
+  defaultSalePrice: string | null;
+  notes: string | null;
+  active: boolean;
+  conversions: ProductConversionDto[];
+};
+
+export type SupplierDto = {
+  id: string;
+  clinicId: string;
+  name: string;
+  taxNumber: string | null;
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+  active: boolean;
+};
+
+export type LotBlockReason = 'expired' | 'quarantined' | 'exhausted';
+
+export type LotViewDto = {
+  id: string;
+  lotCode: string;
+  expiresAt: string | null;
+  status: string;
+  unitCost: number;
+  receivedAt: string;
+  qtyOnHand: number;
+  warehouseId: string;
+  warehouseName: string;
+  branchName: string;
+  blockReason: LotBlockReason | null;
+};
+
+export type StockBalanceDto = {
+  id: string;
+  productId: string;
+  productCode: string;
+  productName: string;
+  trackingType: 'lot' | 'none';
+  unit: string;
+  minStock: number;
+  warehouseId: string;
+  warehouseName: string;
+  branchName: string;
+  lotId: string | null;
+  lotCode: string | null;
+  expiresAt: string | null;
+  lotStatus: string | null;
+  qtyOnHand: number;
+  lowStock: boolean;
+};
+
+export type StockMovementLineDto = {
+  id: string;
+  productId: string;
+  product: { id: string; code: string; name: string };
+  lotId: string | null;
+  lot: { id: string; lotCode: string; expiresAt: string | null } | null;
+  qty: string;
+  unitCost: string;
+};
+
+export type StockMovementDto = {
+  id: string;
+  clinicId: string;
+  branchId: string;
+  warehouseId: string;
+  warehouse: { id: string; name: string; branch: { name: string } };
+  kind: string;
+  status: string;
+  supplier: { id: string; name: string } | null;
+  refType: string | null;
+  refId: string | null;
+  reason: string | null;
+  note: string | null;
+  performedBy: { id: string; firstName: string; lastName: string } | null;
+  idempotencyKey: string | null;
+  postedAt: string;
+  lines: StockMovementLineDto[];
+};
+
+export type StockTransferLineDto = {
+  id: string;
+  productId: string;
+  product: { id: string; code: string; name: string };
+  lotId: string | null;
+  lot: { id: string; lotCode: string; expiresAt: string | null } | null;
+  qty: string;
+  receivedLot: { id: string; lotCode: string } | null;
+};
+
+export type StockTransferDto = {
+  id: string;
+  clinicId: string;
+  code: string;
+  fromWarehouse: { id: string; name: string; branch: { name: string } };
+  toWarehouse: { id: string; name: string; branch: { name: string } };
+  status: 'draft' | 'dispatched' | 'received' | 'cancelled';
+  note: string | null;
+  dispatchedAt: string | null;
+  receivedAt: string | null;
+  createdAt: string;
+  lines: StockTransferLineDto[];
+};
+
+export type StockCountLineDto = {
+  id: string;
+  productId: string;
+  product: { id: string; code: string; name: string };
+  lotId: string | null;
+  lot: { id: string; lotCode: string; expiresAt: string | null } | null;
+  expectedQty: string;
+  countedQty: string | null;
+};
+
+export type StockCountDto = {
+  id: string;
+  clinicId: string;
+  code: string;
+  warehouse: { id: string; name: string; branch: { name: string } };
+  status: 'draft' | 'completed' | 'cancelled';
+  note: string | null;
+  completedAt: string | null;
+  completedBy: { id: string; firstName: string; lastName: string } | null;
+  createdAt: string;
+  lines: StockCountLineDto[];
+};
+
+export type TemperatureLogDto = {
+  id: string;
+  warehouseId: string;
+  warehouse: { id: string; name: string };
+  celsius: string;
+  measuredAt: string;
+  note: string | null;
+  recordedBy: { id: string; firstName: string; lastName: string } | null;
+};
+
+export type StockAlertsDto = {
+  expiringLots: {
+    lotId: string;
+    lotCode: string;
+    productId: string;
+    productName: string;
+    warehouseId: string;
+    warehouseName: string;
+    expiresAt: string;
+    expired: boolean;
+    qtyOnHand: number;
+    status: string;
+  }[];
+  lowStockProducts: {
+    productId: string;
+    productCode: string;
+    productName: string;
+    warehouseId: string;
+    warehouseName: string;
+    total: number;
+    minStock: number;
+  }[];
+};
+
+export const MOVEMENT_KIND_CATALOG: readonly { value: string; label: string }[] = [
+  { value: 'goods_receipt', label: 'Mal Kabul' },
+  { value: 'consumption', label: 'Tüketim' },
+  { value: 'adjustment', label: 'Düzeltme' },
+  { value: 'transfer_out', label: 'Transfer Sevk' },
+  { value: 'transfer_in', label: 'Transfer Teslim' },
+  { value: 'supplier_return', label: 'Tedarikçi İadesi' },
+];

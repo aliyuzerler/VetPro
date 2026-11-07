@@ -10,7 +10,7 @@ import {
   Server,
   Wallet,
 } from 'lucide-react';
-import { CURRENT_PHASE_ID, PHASES } from '@vetcore/domain';
+import { CURRENT_PHASE_ID, getPhase, PHASES } from '@vetcore/domain';
 import { HealthResponseSchema, type HealthResponse } from '@vetcore/contracts';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -241,8 +241,8 @@ export default function DashboardPage() {
       <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-[28px] font-bold tracking-tight">Genel Bakış</h1>
-          <Badge variant="outline" className="border-brand-600/40 text-brand-700">
-            Faz {String(CURRENT_PHASE_ID).padStart(2, '0')} — Tasarım sistemi ve uygulama kabukları
+          <Badge variant="outline" className="border-brand-600/40 text-brand-700" data-testid="current-phase-badge">
+            Faz {String(CURRENT_PHASE_ID).padStart(2, '0')} — {getPhase(CURRENT_PHASE_ID)?.title ?? ''}
           </Badge>
         </div>
         <p className="max-w-3xl text-sm text-muted-foreground">

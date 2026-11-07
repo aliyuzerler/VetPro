@@ -17,6 +17,36 @@ export const PERMISSIONS = [
     description: 'Sayım farkı ve manuel stok düzeltmesi yapar',
   },
   {
+    key: 'product.manage',
+    group: 'inventory',
+    name: 'Ürün kartı yönetimi',
+    description: 'Ürün, kategori, birim ve dönüşüm tanımlarını yönetir',
+  },
+  {
+    key: 'supplier.manage',
+    group: 'inventory',
+    name: 'Tedarikçi yönetimi',
+    description: 'Tedarikçi kayıtlarını yönetir',
+  },
+  {
+    key: 'inventory.receive',
+    group: 'inventory',
+    name: 'Mal kabul',
+    description: 'Lot/son kullanma/maliyet ile mal kabul ve tedarikçi iadesi yapar',
+  },
+  {
+    key: 'inventory.consume',
+    group: 'inventory',
+    name: 'Stok tüketimi',
+    description: 'Stok tüketim kaydı oluşturur (FEFO önerili)',
+  },
+  {
+    key: 'inventory.transfer',
+    group: 'inventory',
+    name: 'Depolar arası transfer',
+    description: 'Şubeler arası iki aşamalı stok transferi yürütür',
+  },
+  {
     key: 'finance.refund',
     group: 'finance',
     name: 'İade',

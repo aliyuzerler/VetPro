@@ -106,6 +106,9 @@ async function main(): Promise<void> {
         'patient.manage',
         'appointment.manage',
         'appointment.override',
+        'inventory.receive',
+        'inventory.consume',
+        'inventory.transfer',
       ],
     },
     {
@@ -123,10 +126,18 @@ async function main(): Promise<void> {
     {
       key: 'stok',
       name: 'Stok Yöneticisi',
-      description: 'Stok düzeltme ve depo yönetimi',
+      description: 'Ürün, tedarikçi, mal kabul, sayım ve depo yönetimi',
       isSystem: true,
       allBranches: false,
-      permissions: ['inventory.adjust', 'warehouse.manage'],
+      permissions: [
+        'inventory.adjust',
+        'inventory.receive',
+        'inventory.consume',
+        'inventory.transfer',
+        'product.manage',
+        'supplier.manage',
+        'warehouse.manage',
+      ],
     },
     {
       key: 'finans',
@@ -1058,6 +1069,336 @@ async function main(): Promise<void> {
         name: 'Sağlıklı yetişkin köpek',
         kind: 'primary',
       },
+    });
+  }
+
+  // ── 8) Faz 07 — ürün, tedarikçi, parti ve stok defteri demo verisi ─────────
+  // Defter bütünlüğü: her stok girişi StockMovement + StockMovementLine +
+  // StockBalance üçlüsüyle aynı işlemde yazılır (API mantığıyla aynı kural).
+  const seedVetStaff = (await prisma.staff.findUnique({
+    where: { email: 'veteriner@vetcore-demo.example' },
+  }))!;
+  if (!seedVetStaff) throw new Error('Veteriner personel bulunamadı — seed önkoşulu');
+
+  const merkezWarehouse = (await prisma.warehouse.findFirst({
+    where: { branchId: merkez.id, name: 'Merkez Ana Depo' },
+  }))!;
+  const sube2Warehouse = (await prisma.warehouse.findFirst({
+    where: { branchId: sube2.id, name: 'Şube Deposu' },
+  }))!;
+
+  const unitDefs = [
+    { key: 'adet', name: 'Adet' },
+    { key: 'ml', name: 'Mililitre' },
+    { key: 'mg', name: 'Miligram' },
+    { key: 'kutu', name: 'Kutu' },
+    { key: 'doz', name: 'Doz' },
+  ] as const;
+  const units = new Map<string, { id: string }>();
+  for (const def of unitDefs) {
+    const unit = await prisma.unit.upsert({
+      where: { clinicId_key: { clinicId: clinic.id, key: def.key } },
+      update: { name: def.name },
+      create: { clinicId: clinic.id, key: def.key, name: def.name },
+    });
+    units.set(def.key, unit);
+  }
+
+  const categoryDefs = ['İlaç', 'Aşı', 'Sarf Malzeme', 'Laboratuvar', 'Mama'] as const;
+  const categories = new Map<string, { id: string }>();
+  for (const name of categoryDefs) {
+    const category = await prisma.productCategory.upsert({
+      where: { clinicId_name: { clinicId: clinic.id, name } },
+      update: {},
+      create: { clinicId: clinic.id, name },
+    });
+    categories.set(name, category);
+  }
+
+  const supplierDefs = [
+    {
+      name: 'VetPharm Dağıtım A.Ş.',
+      taxNumber: '1234567801',
+      phone: '+90 212 555 10 10',
+      email: 'siparis@vetpharm-demo.example',
+      notes: 'İlaç ve aşı tedariki — sentetik demo kaydı',
+    },
+    {
+      name: 'Anadolu Veteriner Malzemeleri Ltd.',
+      taxNumber: '1234567802',
+      phone: '+90 312 555 20 20',
+      email: 'satis@anadolu-vet-demo.example',
+      notes: 'Sarf malzeme ve laboratuvar tedariki — sentetik demo kaydı',
+    },
+  ] as const;
+  const suppliers = new Map<string, { id: string }>();
+  for (const def of supplierDefs) {
+    const supplier = await prisma.supplier.upsert({
+      where: { clinicId_name: { clinicId: clinic.id, name: def.name } },
+      update: {
+        taxNumber: def.taxNumber,
+        phone: def.phone,
+        email: def.email,
+        notes: def.notes,
+      },
+      create: { clinicId: clinic.id, ...def },
+    });
+    suppliers.set(def.name, supplier);
+  }
+
+  const day = (offset: number) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + offset);
+    d.setHours(23, 59, 59, 0);
+    return d;
+  };
+
+  /** Mal kabul hareketini defter + bakiye ile tutarlı yazar (idempotent). */
+  async function seedReceipt(input: {
+    product: { id: string };
+    warehouse: { id: string; branchId: string };
+    lotCode: string;
+    expiresAt: Date | null;
+    unitCost: number;
+    qty: number;
+    supplierId: string | null;
+    lotStatus?: 'active' | 'quarantined';
+    trackingType: 'lot' | 'none';
+    idempotencyKey: string;
+  }): Promise<void> {
+    const existing = await prisma.stockMovement.findUnique({
+      where: { idempotencyKey: input.idempotencyKey },
+      select: { id: true },
+    });
+    if (existing) return;
+
+    let lotId: string | null = null;
+    if (input.trackingType === 'lot') {
+      const lot = await prisma.inventoryLot.upsert({
+        where: {
+          productId_warehouseId_lotCode: {
+            productId: input.product.id,
+            warehouseId: input.warehouse.id,
+            lotCode: input.lotCode,
+          },
+        },
+        update: { status: input.lotStatus ?? 'active' },
+        create: {
+          clinicId: clinic.id,
+          productId: input.product.id,
+          warehouseId: input.warehouse.id,
+          lotCode: input.lotCode,
+          expiresAt: input.expiresAt,
+          unitCost: input.unitCost,
+          status: input.lotStatus ?? 'active',
+          supplierId: input.supplierId,
+        },
+      });
+      lotId = lot.id;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const movement = await tx.stockMovement.create({
+        data: {
+          clinicId: clinic.id,
+          branchId: input.warehouse.branchId,
+          warehouseId: input.warehouse.id,
+          kind: 'goods_receipt',
+          supplierId: input.supplierId,
+          performedByStaffId: seedVetStaff.id,
+          idempotencyKey: input.idempotencyKey,
+          note: 'Faz 07 seed mal kabulü (sentetik)',
+        },
+      });
+      await tx.stockMovementLine.create({
+        data: {
+          movementId: movement.id,
+          productId: input.product.id,
+          lotId,
+          qty: input.qty,
+          unitCost: input.unitCost,
+        },
+      });
+      // lotId null seçici bileşik unique'da kullanılamaz → findFirst + create (P2002 yarış güvencesi)
+      const balance = await tx.stockBalance.findFirst({
+        where: {
+          productId: input.product.id,
+          warehouseId: input.warehouse.id,
+          lotId: lotId ?? null,
+        },
+      });
+      if (balance) {
+        await tx.stockBalance.update({
+          where: { id: balance.id },
+          data: { qtyOnHand: { increment: input.qty } },
+        });
+      } else {
+        await tx.stockBalance.create({
+          data: {
+            clinicId: clinic.id,
+            productId: input.product.id,
+            warehouseId: input.warehouse.id,
+            lotId: lotId ?? null,
+            qtyOnHand: input.qty,
+          },
+        });
+      }
+    });
+  }
+
+  const productDefs = [
+    {
+      code: 'UR-AMOX250',
+      name: 'Amoksisilin 250 mg/ml Enjeksiyon',
+      category: 'İlaç',
+      trackingType: 'lot' as const,
+      unitKey: 'ml',
+      minStock: 10,
+      defaultSalePrice: 45,
+      barcode: '8690000000018',
+    },
+    {
+      code: 'UR-KUDUZ01',
+      name: 'Kuduz Aşısı (İnaktif)',
+      category: 'Aşı',
+      trackingType: 'lot' as const,
+      unitKey: 'doz',
+      minStock: 5,
+      defaultSalePrice: 320,
+      barcode: '8690000000025',
+    },
+    {
+      code: 'UR-ELDIVEN',
+      name: 'Muayene Eldiveni (100\'lü kutu)',
+      category: 'Sarf Malzeme',
+      trackingType: 'none' as const,
+      unitKey: 'kutu',
+      minStock: 4,
+      defaultSalePrice: 85,
+      barcode: '8690000000032',
+    },
+    {
+      code: 'UR-IVKAT22',
+      name: 'İntravenöz Kateter 22G',
+      category: 'Sarf Malzeme',
+      trackingType: 'none' as const,
+      unitKey: 'adet',
+      minStock: 20,
+      defaultSalePrice: 18,
+      barcode: '8690000000049',
+    },
+    {
+      code: 'UR-HEMOKIT',
+      name: 'Hemogram Test Kiti',
+      category: 'Laboratuvar',
+      trackingType: 'lot' as const,
+      unitKey: 'kutu',
+      minStock: 3,
+      defaultSalePrice: 210,
+      barcode: '8690000000056',
+    },
+  ] as const;
+
+  const products = new Map<string, { id: string }>();
+  for (const def of productDefs) {
+    const product = await prisma.product.upsert({
+      where: { clinicId_code: { clinicId: clinic.id, code: def.code } },
+      update: {
+        name: def.name,
+        categoryId: categories.get(def.category)!.id,
+        trackingType: def.trackingType,
+        baseUnitId: units.get(def.unitKey)!.id,
+        minStock: def.minStock,
+        defaultSalePrice: def.defaultSalePrice,
+        barcode: def.barcode,
+      },
+      create: {
+        clinicId: clinic.id,
+        code: def.code,
+        name: def.name,
+        categoryId: categories.get(def.category)!.id,
+        trackingType: def.trackingType,
+        baseUnitId: units.get(def.unitKey)!.id,
+        minStock: def.minStock,
+        defaultSalePrice: def.defaultSalePrice,
+        barcode: def.barcode,
+      },
+    });
+    products.set(def.code, product);
+  }
+
+  const amox = products.get('UR-AMOX250')!;
+  const kuduz = products.get('UR-KUDUZ01')!;
+  const eldiven = products.get('UR-ELDIVEN')!;
+  const kateter = products.get('UR-IVKAT22')!;
+  const hemokit = products.get('UR-HEMOKIT')!;
+  const vetpharm = suppliers.get('VetPharm Dağıtım A.Ş.')!;
+  const anadolu = suppliers.get('Anadolu Veteriner Malzemeleri Ltd.')!;
+
+  // Merkez Ana Depo: FEFO/blok/süresi geçmiş senaryoları
+  // AMOX-250: süresi geçmiş parti (bloklu) + yakın SKT (FEFO ilk sırada) + uzak SKT
+  await seedReceipt({
+    product: amox, warehouse: merkezWarehouse, lotCode: 'A2410',
+    expiresAt: day(-5), unitCost: 22.5, qty: 12, supplierId: vetpharm.id,
+    trackingType: 'lot', idempotencyKey: 'a1000000-0000-4000-8000-000000000001',
+  });
+  await seedReceipt({
+    product: amox, warehouse: merkezWarehouse, lotCode: 'B2503',
+    expiresAt: day(21), unitCost: 24.0, qty: 30, supplierId: vetpharm.id,
+    trackingType: 'lot', idempotencyKey: 'a1000000-0000-4000-8000-000000000002',
+  });
+  await seedReceipt({
+    product: amox, warehouse: merkezWarehouse, lotCode: 'C2512',
+    expiresAt: day(200), unitCost: 24.5, qty: 25, supplierId: vetpharm.id,
+    trackingType: 'lot', idempotencyKey: 'a1000000-0000-4000-8000-000000000003',
+  });
+  // Kuduz aşısı: minimum stok eşiğinin altında (düşük stok uyarısı senaryosu)
+  await seedReceipt({
+    product: kuduz, warehouse: merkezWarehouse, lotCode: 'R2601',
+    expiresAt: day(45), unitCost: 180, qty: 3, supplierId: vetpharm.id,
+    trackingType: 'lot', idempotencyKey: 'a1000000-0000-4000-8000-000000000004',
+  });
+  // Hemogram kiti: karantina partisi (tüketim bloklu senaryosu)
+  await seedReceipt({
+    product: hemokit, warehouse: merkezWarehouse, lotCode: 'K2605',
+    expiresAt: day(90), unitCost: 140, qty: 6, supplierId: anadolu.id,
+    lotStatus: 'quarantined',
+    trackingType: 'lot', idempotencyKey: 'a1000000-0000-4000-8000-000000000005',
+  });
+  // Partisiz ürünler
+  await seedReceipt({
+    product: eldiven, warehouse: merkezWarehouse, lotCode: '-',
+    expiresAt: null, unitCost: 52, qty: 9, supplierId: anadolu.id,
+    trackingType: 'none', idempotencyKey: 'a1000000-0000-4000-8000-000000000006',
+  });
+  await seedReceipt({
+    product: kateter, warehouse: merkezWarehouse, lotCode: '-',
+    expiresAt: null, unitCost: 9.5, qty: 40, supplierId: anadolu.id,
+    trackingType: 'none', idempotencyKey: 'a1000000-0000-4000-8000-000000000007',
+  });
+  // Şube Deposu: transfer senaryosu için başlangıç stoğu
+  await seedReceipt({
+    product: amox, warehouse: sube2Warehouse, lotCode: 'S2501',
+    expiresAt: day(60), unitCost: 23.8, qty: 15, supplierId: vetpharm.id,
+    trackingType: 'lot', idempotencyKey: 'a1000000-0000-4000-8000-000000000008',
+  });
+  await seedReceipt({
+    product: eldiven, warehouse: sube2Warehouse, lotCode: '-',
+    expiresAt: null, unitCost: 53, qty: 5, supplierId: anadolu.id,
+    trackingType: 'none', idempotencyKey: 'a1000000-0000-4000-8000-000000000009',
+  });
+
+  // Soğuk zincir örnek ölçümleri (Merkez Ana Depo)
+  const tempCount = await prisma.temperatureLog.count({
+    where: { warehouseId: merkezWarehouse.id },
+  });
+  if (tempCount === 0) {
+    await prisma.temperatureLog.createMany({
+      data: [
+        { clinicId: clinic.id, branchId: merkez.id, warehouseId: merkezWarehouse.id, celsius: 4.2, measuredAt: new Date(today.getTime() - 3 * 3600_000), recordedByStaffId: seedVetStaff.id },
+        { clinicId: clinic.id, branchId: merkez.id, warehouseId: merkezWarehouse.id, celsius: 5.1, measuredAt: new Date(today.getTime() - 2 * 3600_000), recordedByStaffId: seedVetStaff.id },
+        { clinicId: clinic.id, branchId: merkez.id, warehouseId: merkezWarehouse.id, celsius: 4.8, measuredAt: new Date(today.getTime() - 1 * 3600_000), recordedByStaffId: seedVetStaff.id, note: 'Buzdolabı kapak açılması sonrası' },
+      ],
     });
   }
 
