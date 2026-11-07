@@ -56,6 +56,13 @@ model Clinic {
   suppliers         Supplier[]
   units             Unit[]
   charges           Charge[]
+  payments          Payment[]
+  refunds           Refund[]
+  cashRegisters     CashRegister[]
+  cashSessions      CashSession[]
+  cashMovements     CashMovement[]
+  expenses          Expense[]
+  supplierPayables  SupplierPayable[]
 
   @@map("clinics")
 }
@@ -77,21 +84,28 @@ model Branch {
 
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Restrict)
 
-  rooms           Room[]
-  warehouses      Warehouse[]
-  staffBranches   StaffBranch[]
-  auditEvents     AuditEvent[]
-  patients        Patient[]
-  scheduleBlocks  ScheduleBlock[]
-  appointments    Appointment[]
-  waitlistEntries WaitlistEntry[]
-  encounters      Encounter[]
-  serviceRecords  ServiceRecord[]
-  charges         Charge[]
-  servicePrices   ServicePrice[]
-  stockMovements  StockMovement[]
-  stockCounts     StockCount[]
-  temperatureLogs TemperatureLog[]
+  rooms            Room[]
+  warehouses       Warehouse[]
+  staffBranches    StaffBranch[]
+  auditEvents      AuditEvent[]
+  patients         Patient[]
+  scheduleBlocks   ScheduleBlock[]
+  appointments     Appointment[]
+  waitlistEntries  WaitlistEntry[]
+  encounters       Encounter[]
+  serviceRecords   ServiceRecord[]
+  charges          Charge[]
+  servicePrices    ServicePrice[]
+  stockMovements   StockMovement[]
+  stockCounts      StockCount[]
+  temperatureLogs  TemperatureLog[]
+  payments         Payment[]
+  refunds          Refund[]
+  cashRegisters    CashRegister[]
+  cashSessions     CashSession[]
+  cashMovements    CashMovement[]
+  expenses         Expense[]
+  supplierPayables SupplierPayable[]
 
   @@unique([clinicId, code])
   @@index([clinicId])
@@ -138,6 +152,13 @@ model Staff {
   receivedTransfers      StockTransfer[]     @relation("StockTransferReceiver")
   completedStockCounts   StockCount[]        @relation("StockCountCompleter")
   temperatureLogs        TemperatureLog[]    @relation("TemperatureLogRecorder")
+  createdPayments        Payment[]           @relation("PaymentCreator")
+  createdRefunds         Refund[]            @relation("RefundCreator")
+  openedCashSessions     CashSession[]       @relation("CashSessionOpener")
+  closedCashSessions     CashSession[]       @relation("CashSessionCloser")
+  createdCashMovements   CashMovement[]      @relation("CashMovementCreator")
+  createdExpenses        Expense[]           @relation("ExpenseCreator")
+  createdPayables        SupplierPayable[]   @relation("SupplierPayableCreator")
 
   @@index([clinicId])
   @@map("staff")
@@ -379,6 +400,8 @@ model Owner {
   waitlistEntries WaitlistEntry[]
   encounters      Encounter[]
   charges         Charge[]
+  payments        Payment[]
+  refunds         Refund[]
 
   @@index([clinicId])
   @@index([clinicId, lastName, firstName])
@@ -958,13 +981,14 @@ model Charge {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Restrict)
-  branch        Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  encounter     Encounter?     @relation(fields: [encounterId], references: [id], onDelete: SetNull)
-  serviceRecord ServiceRecord? @relation(fields: [serviceRecordId], references: [id], onDelete: SetNull)
-  owner         Owner          @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  patient       Patient?       @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  clinic        Clinic              @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch        Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  encounter     Encounter?          @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  serviceRecord ServiceRecord?      @relation(fields: [serviceRecordId], references: [id], onDelete: SetNull)
+  owner         Owner               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  patient       Patient?            @relation(fields: [patientId], references: [id], onDelete: SetNull)
   lines         ChargeLine[]
+  allocations   PaymentAllocation[]
 
   @@unique([serviceRecordId])
   @@index([clinicId, status])
@@ -1123,9 +1147,11 @@ model Supplier {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  clinic    Clinic          @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  clinic    Clinic            @relation(fields: [clinicId], references: [id], onDelete: Restrict)
   lots      InventoryLot[]
   movements StockMovement[]
+  payables  SupplierPayable[]
+  expenses  Expense[]
 
   @@unique([clinicId, name])
   @@index([clinicId, active])
@@ -1361,4 +1387,240 @@ model TemperatureLog {
 
   @@index([warehouseId, measuredAt])
   @@map("temperature_logs")
+}
+
+// ─── Faz 09 — Kasa, tahsilat, cari hesap ve giderler ───────────────────────
+// Politika: tüm finansal yazımlar append-only defter mantığındadır — tahsilat,
+// iade, kasa hareketi ve ücret satırı fiziksel olarak silinmez; düzeltme ters
+// kayıtla yapılır. Money alanları Decimal(12,2) (kuruş kaymasız). Tahsilat
+// idempotencyKey ile korunur (mobil retry REPLAY döner). İade orijinal
+// tahsilata bağlıdır ve denetim defterine yazılır. Kasa oturumu kapanışında
+// fark hesaplanır; fark ≠ 0 ise açıklama zorunludur.
+
+/// Tahsilat — hasta sahibinden alınan ödeme. Kısmi ödeme desteklenir:
+/// tutarın ücretlere dağılan kısmı PaymentAllocation ile, kalanı ise sahibin
+/// ileri kredisi olarak cari hesapta izlenir.
+model Payment {
+  id             String   @id @default(uuid()) @db.Uuid
+  clinicId       String   @map("clinic_id") @db.Uuid
+  branchId       String   @map("branch_id") @db.Uuid
+  ownerId        String   @map("owner_id") @db.Uuid
+  /// 'cash' | 'card' | 'transfer' | 'other'
+  method         String
+  amount         Decimal  @db.Decimal(12, 2)
+  currency       String   @default("TRY")
+  /// İstemci üretimi idempotency anahtarı — aynı anahtar REPLAY döner.
+  idempotencyKey String?  @map("idempotency_key")
+  /// Nakit tahsilat açık kasa oturumuna bağlanır; kart/havale için opsiyonel.
+  cashSessionId  String?  @map("cash_session_id") @db.Uuid
+  note           String?
+  createdById    String?  @map("created_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  clinic      Clinic              @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch      Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  owner       Owner               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  cashSession CashSession?        @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+  createdBy   Staff?              @relation("PaymentCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  allocations PaymentAllocation[]
+  refunds     Refund[]
+
+  /// NULLS NOT DISTINCT değil: NULL anahtarlar (elle tahsilat) çok olabilir.
+  @@unique([clinicId, idempotencyKey])
+  @@index([clinicId, ownerId, createdAt])
+  @@index([branchId, createdAt])
+  @@index([cashSessionId])
+  @@map("payments")
+}
+
+/// Tahsilat dağıtımı — tahsilatın ücretler üzerine paylaştırılması.
+/// Dağıtım toplamı tutarı aşamaz ve ücret bakiyesini geçemez (servis kilidi);
+/// kayıt append-only: iade, dağıtımı silmez (cari ekstremde ayrı satırdır).
+model PaymentAllocation {
+  id        String   @id @default(uuid()) @db.Uuid
+  paymentId String   @map("payment_id") @db.Uuid
+  chargeId  String   @map("charge_id") @db.Uuid
+  amount    Decimal  @db.Decimal(12, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  charge  Charge  @relation(fields: [chargeId], references: [id], onDelete: Restrict)
+
+  @@unique([paymentId, chargeId])
+  @@index([chargeId])
+  @@map("payment_allocations")
+}
+
+/// İade — orijinal tahsilata bağlı append-only kayıt. İade toplamı tahsilat
+/// tutarını aşamaz (kalan iade edilebilir tutar servisçe hesaplanır);
+/// REFUND_CREATED denetim yazımı zorunludur (kabul kriteri).
+model Refund {
+  id            String   @id @default(uuid()) @db.Uuid
+  clinicId      String   @map("clinic_id") @db.Uuid
+  branchId      String   @map("branch_id") @db.Uuid
+  paymentId     String   @map("payment_id") @db.Uuid
+  ownerId       String   @map("owner_id") @db.Uuid
+  /// Orijinal yöntemle uyumlu önerilir: 'cash' | 'card' | 'transfer' | 'other'
+  method        String
+  amount        Decimal  @db.Decimal(12, 2)
+  reason        String
+  /// Nakit iade açık kasa oturumuna bağlanır (kasadan çıkış hareketi).
+  cashSessionId String?  @map("cash_session_id") @db.Uuid
+  createdById   String?  @map("created_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  clinic      Clinic       @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch      Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  payment     Payment      @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  owner       Owner        @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  cashSession CashSession? @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+  createdBy   Staff?       @relation("RefundCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([clinicId, ownerId, createdAt])
+  @@index([paymentId])
+  @@index([cashSessionId])
+  @@map("refunds")
+}
+
+/// Kasa — şubeye bağlı fiziksel çekmece/POS tanımı. Kasa başına aynı anda tek
+/// açık oturum (migration'da kısmi tekil indeksle garanti edilir).
+model CashRegister {
+  id        String   @id @default(uuid()) @db.Uuid
+  clinicId  String   @map("clinic_id") @db.Uuid
+  branchId  String   @map("branch_id") @db.Uuid
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  clinic   Clinic        @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch   Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  sessions CashSession[]
+
+  @@unique([clinicId, branchId, name])
+  @@index([clinicId, branchId, active])
+  @@map("cash_registers")
+}
+
+/// Kasa oturumu — açılış bakiyesi ile açılır, sayım ile kapanır.
+/// expected = openingFloat + toplam giriş − toplam çıkış; fark = counted −
+/// expected. Fark ≠ 0 ise differenceNote zorunludur (kabul kriteri).
+model CashSession {
+  id             String    @id @default(uuid()) @db.Uuid
+  clinicId       String    @map("clinic_id") @db.Uuid
+  branchId       String    @map("branch_id") @db.Uuid
+  registerId     String    @map("register_id") @db.Uuid
+  /// 'open' | 'closed'
+  status         String    @default("open")
+  openingFloat   Decimal   @map("opening_float") @db.Decimal(12, 2)
+  countedTotal   Decimal?  @map("counted_total") @db.Decimal(12, 2)
+  expectedTotal  Decimal?  @map("expected_total") @db.Decimal(12, 2)
+  difference     Decimal?  @db.Decimal(12, 2)
+  /// Fark ≠ 0 ise zorunlu; fark = 0 için boş bırakılabilir.
+  differenceNote String?   @map("difference_note") @db.Text
+  openedById     String    @map("opened_by_id") @db.Uuid
+  closedById     String?   @map("closed_by_id") @db.Uuid
+  openedAt       DateTime  @default(now()) @map("opened_at")
+  closedAt       DateTime? @map("closed_at")
+
+  clinic    Clinic         @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch    Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  register  CashRegister   @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  openedBy  Staff          @relation("CashSessionOpener", fields: [openedById], references: [id], onDelete: Restrict)
+  closedBy  Staff?         @relation("CashSessionCloser", fields: [closedById], references: [id], onDelete: SetNull)
+  payments  Payment[]
+  movements CashMovement[]
+  refunds   Refund[]
+  expenses  Expense[]
+
+  @@index([registerId, status])
+  @@index([clinicId, branchId, openedAt])
+  @@map("cash_sessions")
+}
+
+/// Kasa hareket defteri — append-only. sourceType: 'payment' | 'refund' |
+/// 'expense' | 'manual_in' | 'manual_out'. direction: 'in' | 'out'.
+/// Oturum kapanınca yeni hareket yazılamaz (servis kilidi).
+model CashMovement {
+  id          String   @id @default(uuid()) @db.Uuid
+  clinicId    String   @map("clinic_id") @db.Uuid
+  branchId    String   @map("branch_id") @db.Uuid
+  sessionId   String   @map("session_id") @db.Uuid
+  direction   String
+  amount      Decimal  @db.Decimal(12, 2)
+  sourceType  String   @map("source_type")
+  sourceId    String?  @map("source_id") @db.Uuid
+  reason      String?
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  session   CashSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  createdBy Staff?      @relation("CashMovementCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  clinic    Clinic      @relation(fields: [clinicId], references: [id])
+  branch    Branch      @relation(fields: [branchId], references: [id])
+
+  @@index([sessionId, createdAt])
+  @@index([clinicId, sourceType, sourceId])
+  @@map("cash_movements")
+}
+
+/// Gider — klinik operasyonel gideri. Nakit gider açık oturuma bağlanır ve
+/// kasadan çıkış hareketi üretir; kart/havale gideri oturumsuz kaydedilir.
+model Expense {
+  id            String   @id @default(uuid()) @db.Uuid
+  clinicId      String   @map("clinic_id") @db.Uuid
+  branchId      String   @map("branch_id") @db.Uuid
+  /// 'medication' | 'equipment' | 'rent' | 'salary' | 'utility' | 'marketing' | 'maintenance' | 'other'
+  category      String
+  /// 'cash' | 'card' | 'transfer' | 'other'
+  method        String
+  amount        Decimal  @db.Decimal(12, 2)
+  vendorId      String?  @map("vendor_id") @db.Uuid
+  description   String
+  spentAt       DateTime @map("spent_at")
+  cashSessionId String?  @map("cash_session_id") @db.Uuid
+  createdById   String?  @map("created_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  clinic      Clinic       @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch      Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  vendor      Supplier?    @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  cashSession CashSession? @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+  createdBy   Staff?       @relation("ExpenseCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([clinicId, branchId, spentAt])
+  @@index([category])
+  @@index([cashSessionId])
+  @@map("expenses")
+}
+
+/// Tedarikçi borcu — elle açılır veya mal kabulden türetilir. Kısmi ödeme
+/// paidAmount ile izlenir; paidAmount ≥ amount iken status 'settled' olur.
+/// Kapatma denetim yazımı üretir; kayıt silinmez, hatalı kayıt 'void' olur.
+model SupplierPayable {
+  id          String    @id @default(uuid()) @db.Uuid
+  clinicId    String    @map("clinic_id") @db.Uuid
+  branchId    String    @map("branch_id") @db.Uuid
+  supplierId  String    @map("supplier_id") @db.Uuid
+  /// Tedarikçi fatura/borç belge numarası
+  documentNo  String?   @map("document_no")
+  description String?
+  amount      Decimal   @db.Decimal(12, 2)
+  paidAmount  Decimal   @default(0) @map("paid_amount") @db.Decimal(12, 2)
+  /// 'open' | 'settled' | 'void'
+  status      String    @default("open")
+  dueDate     DateTime? @map("due_date")
+  settledAt   DateTime? @map("settled_at")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  clinic    Clinic   @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  supplier  Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  createdBy Staff?   @relation("SupplierPayableCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([clinicId, supplierId, status])
+  @@index([branchId, status])
+  @@map("supplier_payables")
 }

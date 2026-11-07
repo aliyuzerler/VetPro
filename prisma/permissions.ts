@@ -53,6 +53,30 @@ export const PERMISSIONS = [
     description: 'Tahsilat iadesi oluşturur',
   },
   {
+    key: 'finance.pay',
+    group: 'finance',
+    name: 'Tahsilat',
+    description: 'Ödeme alır ve ücretlere dağıtır (nakit/kart/havale)',
+  },
+  {
+    key: 'finance.cash',
+    group: 'finance',
+    name: 'Kasa yönetimi',
+    description: 'Kasa aç/kapat, fark açıklaması ve nakit giriş/çıkış yapar',
+  },
+  {
+    key: 'finance.expense',
+    group: 'finance',
+    name: 'Gider yönetimi',
+    description: 'Klinik giderlerini kaydeder',
+  },
+  {
+    key: 'finance.payable',
+    group: 'finance',
+    name: 'Tedarikçi borç yönetimi',
+    description: 'Tedarikçi borçlarını açar ve öder',
+  },
+  {
     key: 'reports.export',
     group: 'reports',
     name: 'Rapor dışa aktarma',

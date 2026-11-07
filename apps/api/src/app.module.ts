@@ -20,6 +20,7 @@ import { AppointmentsModule } from './appointments/appointments.module';
 import { ServicesModule } from './services/services.module';
 import { EncountersModule } from './encounters/encounters.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { FinanceModule } from './finance/finance.module';
 
 /**
  * Faz 03: kimlik, personel, rol/izin, şube kapsamı, oturum ve denetim modülleri.
@@ -27,6 +28,8 @@ import { InventoryModule } from './inventory/inventory.module';
  * Faz 05: randevu, çalışma saati, bekleme listesi ve akış panosu modülleri.
  * Faz 06: hizmet kataloğu ve muayene (SOAP/vital/tanı/ek/addendum/hizmet kaydı) modülleri.
  * Faz 07: ürün/tedarikçi/parti kataloğu ve stok defteri (mal kabul, tüketim, transfer, sayım).
+ * Faz 08: hizmet → stok → ücret atomik iş akışı (kesinleştirme, ters kayıt, idempotency).
+ * Faz 09: kasa, tahsilat, cari hesap ve giderler (tahsilat dağıtımı, iade, kasa oturumu).
  * Guard zinciri (global): JwtAuthGuard → PermissionsGuard; şube kapsamlı uçlarda
  * ayrıca BranchScopeGuard devreye girer.
  */
@@ -52,6 +55,7 @@ import { InventoryModule } from './inventory/inventory.module';
     ServicesModule,
     EncountersModule,
     InventoryModule,
+    FinanceModule,
   ],
 })
 export class AppModule implements NestModule {

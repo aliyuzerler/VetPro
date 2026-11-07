@@ -788,3 +788,162 @@ export const MOVEMENT_KIND_CATALOG: readonly { value: string; label: string }[] 
   { value: 'transfer_in', label: 'Transfer Teslim' },
   { value: 'supplier_return', label: 'Tedarikçi İadesi' },
 ];
+
+// ─── Faz 09 — kasa, tahsilat, cari hesap ve giderler ────────────────────────
+
+export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'other';
+
+export const PAYMENT_METHOD_CATALOG: readonly { value: PaymentMethod; label: string }[] = [
+  { value: 'cash', label: 'Nakit' },
+  { value: 'card', label: 'Kart' },
+  { value: 'transfer', label: 'Havale/EFT' },
+  { value: 'other', label: 'Diğer' },
+];
+
+export const EXPENSE_CATEGORY_CATALOG: readonly { value: string; label: string }[] = [
+  { value: 'medication', label: 'İlaç/Tıbbi Sarf' },
+  { value: 'equipment', label: 'Ekipman' },
+  { value: 'rent', label: 'Kira' },
+  { value: 'salary', label: 'Maaş' },
+  { value: 'utility', label: 'Fatura/Abonelik' },
+  { value: 'marketing', label: 'Pazarlama' },
+  { value: 'maintenance', label: 'Bakım/Onarım' },
+  { value: 'other', label: 'Diğer' },
+];
+
+export type FinanceChargeDto = {
+  id: string;
+  ownerId: string;
+  owner: { id: string; firstName: string; lastName: string };
+  patientId: string | null;
+  patientName: string | null;
+  status: 'open' | 'partial' | 'paid' | 'void';
+  total: string;
+  allocated: string;
+  balance: string;
+  description: string | null;
+  createdAt: string;
+};
+
+export type OwnerBalanceDto = {
+  ownerId: string;
+  name: string;
+  charges: string;
+  payments: string;
+  refunds: string;
+  balance: string;
+  archived: boolean;
+};
+
+export type PaymentDto = {
+  id: string;
+  ownerId: string;
+  owner: { id: string; firstName: string; lastName: string };
+  method: PaymentMethod;
+  amount: string;
+  refunded: string;
+  net: string;
+  note: string | null;
+  createdAt: string;
+};
+
+export type PaymentDetailDto = {
+  id: string;
+  ownerId: string;
+  owner: { id: string; firstName: string; lastName: string };
+  branchId: string;
+  method: PaymentMethod;
+  amount: string;
+  idempotencyKey: string | null;
+  cashSessionId: string | null;
+  note: string | null;
+  createdBy: { id: string; firstName: string; lastName: string } | null;
+  createdAt: string;
+  allocations: { chargeId: string; chargeStatus: string; chargeTotal: string; amount: string }[];
+  refunds: { id: string; amount: string; reason: string; createdAt: string }[];
+  refunded: string;
+  refundable: string;
+};
+
+export type StatementRowDto = {
+  id: string;
+  kind: 'charge' | 'payment' | 'refund';
+  direction: '+' | '-';
+  amount: string;
+  runningBalance: string;
+  occurredAt: string;
+  description: string;
+};
+
+export type StatementDto = {
+  owner: { id: string; name: string };
+  rows: StatementRowDto[];
+  closingBalance: string;
+  summary: { charges: string; payments: string; refunds: string };
+};
+
+export type CashRegisterDto = {
+  id: string;
+  name: string;
+  branch: { id: string; name: string };
+  active: boolean;
+  openSession: {
+    id: string;
+    openingFloat: string;
+    expected: string | null;
+    openedAt: string;
+  } | null;
+};
+
+export type CashSessionDto = {
+  id: string;
+  status: 'open' | 'closed';
+  register: { id: string; name: string };
+  openingFloat: string;
+  countedTotal: string | null;
+  expectedTotal: string | null;
+  difference: string | null;
+  differenceNote: string | null;
+  openedBy?: { firstName: string; lastName: string };
+  openedAt: string;
+  closedAt: string | null;
+};
+
+export type CashSessionDetailDto = CashSessionDto & {
+  branchId: string;
+  live: { expected: string; cashIn: string; cashOut: string };
+  movements: {
+    id: string;
+    direction: 'in' | 'out';
+    amount: string;
+    sourceType: string;
+    sourceId: string | null;
+    reason: string | null;
+    createdAt: string;
+  }[];
+};
+
+export type ExpenseDto = {
+  id: string;
+  branchId: string;
+  category: string;
+  method: PaymentMethod;
+  amount: string;
+  description: string;
+  vendor: { id: string; name: string } | null;
+  createdBy: { firstName: string; lastName: string } | null;
+  spentAt: string;
+};
+
+export type SupplierPayableDto = {
+  id: string;
+  supplier: { id: string; name: string };
+  documentNo: string | null;
+  description: string | null;
+  amount: string;
+  paidAmount: string;
+  status: 'open' | 'settled' | 'void';
+  dueDate: string | null;
+  settledAt: string | null;
+  createdAt: string;
+};

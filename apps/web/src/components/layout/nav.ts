@@ -101,9 +101,10 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     label: 'Finans',
     icon: Wallet,
     items: [
-      { label: 'Günlük Ciro', phase: 9 },
-      { label: 'Hasta Sahibi Bakiyeleri', phase: 9 },
-      { label: 'Kasa', phase: 9 },
+      { label: 'Tahsilatlar', phase: 9, href: '/tahsilat' },
+      { label: 'Hasta Sahibi Bakiyeleri', phase: 9, href: '/cari' },
+      { label: 'Kasa', phase: 9, href: '/kasa' },
+      { label: 'Giderler ve Borçlar', phase: 9, href: '/giderler' },
     ],
   },
   {

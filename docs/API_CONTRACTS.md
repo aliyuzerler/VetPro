@@ -224,10 +224,14 @@ Base path `/api/v1`. This is a module map; ZCode must define request/response sc
 - `POST /patients/:id/vaccine-events`; `GET /vaccinations/due`
 - CRUD `/lab-orders`; `POST /lab-orders/:id/results`
 
-## Finance
-- `POST /charges/:id/payments`, `POST /payments`, `POST /payments/:id/refund`
-- CRUD `/cash-registers`; `POST /cash-sessions/open`; `POST /cash-sessions/:id/close`
-- CRUD `/expenses`; `GET /owners/:id/statement`
+## Finance (Faz 09)
+- `POST /finance/payments` (`finance.pay`; idempotencyKey → REPLAY; FIFO or explicit allocations)
+- `POST /finance/payments/:id/refund` (`finance.refund`; limited to remaining refundable; audit)
+- `GET /finance/charges?ownerId=&status=` (allocation summary + balance)
+- `GET /finance/balances?search=`; `GET /finance/owners/:id/statement` (charges +/payments −/refunds + running balance)
+- `GET/POST /cash/registers` (`finance.cash` for POST); `POST /cash/sessions/open`; `POST /cash/sessions/:id/close` (difference note required when difference ≠ 0); `POST /cash/sessions/:id/movements` (manual in/out; closed session → 409); `GET /cash/sessions[/:id]` (live expected = opening + in − out)
+- `POST/GET /finance/expenses` (`finance.expense`; cash expense requires open session and posts cash-out movement)
+- `POST/GET /finance/payables`, `POST /finance/payables/:id/pay` (`finance.payable`; partial payments; settled when paid ≥ amount)
 
 ## Mobile sync
 - `POST /sync/push` accepts bounded batch with operation IDs and entity versions.

@@ -554,6 +554,86 @@ tıklama ile kapanır, bağlantı seçimi çekmeceyi otomatik kapatır.
 > Görüntü seti `docs/screenshots/` altında README için küratörlüüdür; tam ve ham E2E
 > çıktısı `apps/web/e2e/screenshots/` altında tutulur.
 
+## Kasa, tahsilat, cari hesap ve giderler (Faz 09)
+
+- **Tahsilat:** nakit/kart/havale/diğer ödeme alınır; tutar sahibin açık
+  ücretlerine **FIFO dağıtım** ile bağlanır (`PaymentAllocation` — append-only).
+  Kısmi ödeme ücreti `partial` durumuna taşır, tam kapatan tahsilat `paid`
+  yapar; ücretleri aşan tutar **ileri kredi** olarak cari hesapta izlenir.
+  Tahsilat gövdesindeki `idempotencyKey` ile aynı anahtarlı mobil tekrar
+  denemesi REPLAY döner (çift kayıt imkânsız; eşzamanlı istekte P2002 yarış
+  güvencesi).
+- **İade:** orijinal tahsilata bağlı append-only `Refund` kaydı; iade toplamı
+  tahsilat − önceki iadeleri aşamaz, gerekçe zorunludur ve
+  `REFUND_CREATED` denetimi yazılır. Ucu `finance.refund` izni ister
+  (veteriner/resepsiyon API düzeyinde 403 alır — e2e ile kanıtlanır);
+  arayüzde izinsiz rollere İade düğmesi hiç gösterilmez.
+- **Kasa:** şube başına kasa tanımı (`CashRegister`); kasa başına tek açık
+  oturum **kısmi tekil indeksle** veritabanı düzeyinde garanti edilir.
+  Oturumda beklenen tutar = açılış + giriş − çıkış; tahsilat/iade/gider ve
+  elle giriş-çıkış hareketleri append-only `CashMovement` defterine yazılır.
+- **Kasa kapanışı:** sayım ile beklenen tutar farkı hesaplanır; **fark ≠ 0
+  ise açıklama zorunludur** (servis + DB CHECK iki katmanda) ve
+  `CASH_SESSION_CLOSED` denetimi yazılır. Kapalı oturuma hareket yazılamaz.
+- **Cari ekstre:** sahip bazında ücret(+), tahsilat(−), iade(+) satırları
+  kronolojik koşan bakiyeyle listelenir; üç kayıt tipinin ilişkisi tek ekranda
+  görünür (`/cari`).
+- **Gider ve tedarikçi borcu:** gider kaydı (`/giderler`) — nakit gider açık
+  kasa oturumuna bağlanır ve kasadan çıkış hareketi üretir;
+  `SupplierPayable` kısmi ödemeyle izlenir, bakiye kapanınca `settled` olur
+  (denetim yazımı ile). E-fatura/e-arşiv **iddiası yoktur** — yalnızca ileride
+  provider adapter'i için arayüz alanı ayrılmıştır.
+- **Para hassasiyeti:** tüm money alanları `Decimal(12,2)`; bakiye hesapları
+  kuruş tam sayısı üzerinden yapılır (0.1 + 0.2 türü kayma imkânsız —
+  birim ve e2e testleriyle kanıtlanır).
+
+### Web — Tahsilat önizlemesi ve kayıt (Faz 09)
+
+![Tahsilat önizlemesi](docs/screenshots/web-f09-01-tahsilat-onizlemesi.png)
+
+![Tahsilat kaydedildi](docs/screenshots/web-f09-02-tahsilat-kaydedildi.png)
+
+FIFO dağıtım önizlemesi ücret bakiyeleriyle; kayıt sonrası listede net tutar.
+
+### Web — Cari ekstre (Faz 09)
+
+![Cari ekstre](docs/screenshots/web-f09-03-cari-ekstre.png)
+
+Ücret(+)/tahsilat(−)/iade(+) satırları ve koşan bakiye.
+
+### Web — Kasa oturumu ve fark açıklaması (Faz 09)
+
+![Kasa açık](docs/screenshots/web-f09-04-kasa-acik.png)
+
+![Fark açıklaması zorunlu](docs/screenshots/web-f09-05-fark-aciklamasi-zorunlu.png)
+
+![Kasa kapandı](docs/screenshots/web-f09-06-kasa-kapandi.png)
+
+Canlı beklenen tutar; −10 TL farkta açıklama zorunlu hata durumu ve açıklamayla kapanış.
+
+### Web — Gider ve iade (Faz 09)
+
+![Gider kaydedildi](docs/screenshots/web-f09-07-gider-kaydedildi.png)
+
+![İade diyaloğu](docs/screenshots/web-f09-08-iade-diyalogu.png)
+
+![İade kaydedildi](docs/screenshots/web-f09-09-iade-kaydedildi.png)
+
+Gider listesi + açık tedarikçi borcu kartı; iade diyaloğu iade edilebilir kalanı gösterir.
+
+### Web — Yetkisiz kullanıcı (Faz 09)
+
+![Yetkisiz tahsilat](docs/screenshots/web-f09-10-yetkisiz-tahsilat.png)
+
+Veteriner rolünde Tahsilat Al ve İade aksiyonları hiç görünmez (salt-okunur).
+
+### Mobil — kasa (Faz 09)
+
+![Mobil kasa](docs/screenshots/mobil-f09-11-mobil-kasa.png)
+
+Mobil kırılımda kasa kartları ve hareket defteri tek kolona düşer; yatay taşma
+yoktur (E2E iddiası).
+
 ## Storybook — tasarım sistemi atölyesi (ADR-017)
 
 UI bileşenleri [Storybook 10](https://storybook.js.org/) ile izole geliştirilir ve

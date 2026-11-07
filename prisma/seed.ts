@@ -121,6 +121,7 @@ async function main(): Promise<void> {
         'owner.manage',
         'patient.manage',
         'appointment.manage',
+        'finance.pay',
       ],
     },
     {
@@ -142,10 +143,17 @@ async function main(): Promise<void> {
     {
       key: 'finans',
       name: 'Finans',
-      description: 'İade ve rapor dışa aktarma',
+      description: 'Tahsilat, iade, kasa, gider ve tedarikçi borç yönetimi',
       isSystem: true,
       allBranches: false,
-      permissions: ['finance.refund', 'reports.export'],
+      permissions: [
+        'finance.refund',
+        'finance.pay',
+        'finance.cash',
+        'finance.expense',
+        'finance.payable',
+        'reports.export',
+      ],
     },
   ] as const;
 
@@ -217,6 +225,15 @@ async function main(): Promise<void> {
       roleKey: 'stok',
       branchCodes: ['SUB2'],
       defaultBranch: 'SUB2',
+    },
+    {
+      email: 'finans@vetcore-demo.example',
+      firstName: 'Burak',
+      lastName: 'Çelik',
+      title: 'Finans Sorumlusu',
+      roleKey: 'finans',
+      branchCodes: ['MRKZ', 'SUB2'],
+      defaultBranch: 'MRKZ',
     },
   ] as const;
 
@@ -293,6 +310,25 @@ async function main(): Promise<void> {
       where: { branchId_name: { branchId: warehouse.branch.id, name: warehouse.name } },
       update: {},
       create: { branchId: warehouse.branch.id, name: warehouse.name, isDefault: true },
+    });
+  }
+
+  // 6b) Kasa tanımları — Faz 09 (şube başına bir nakit kasası)
+  const registers = [
+    { branch: merkez, name: 'Merkez Kasa 1' },
+    { branch: sube2, name: 'Şube Kasa 1' },
+  ] as const;
+  for (const register of registers) {
+    await prisma.cashRegister.upsert({
+      where: {
+        clinicId_branchId_name: {
+          clinicId: clinic.id,
+          branchId: register.branch.id,
+          name: register.name,
+        },
+      },
+      update: {},
+      create: { clinicId: clinic.id, branchId: register.branch.id, name: register.name },
     });
   }
 

@@ -68,6 +68,8 @@ set -e
 # E2E_FILTER verilirse yalnız o testler koşar (hata ayıklama için)
 if [ -n "${E2E_FILTER:-}" ]; then
   pnpm --filter @vetcore/web exec playwright test ${E2E_FILTER}
+elif [ "$#" -gt 0 ]; then
+  pnpm --filter @vetcore/web exec playwright test "$@"
 else
   pnpm --filter @vetcore/web e2e
 fi

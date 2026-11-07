@@ -2,6 +2,82 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.9.0] — Faz 09: Kasa, tahsilat, cari hesap ve giderler (2026-11-08)
+
+### Eklendi
+- **Veri modeli (migration `faz09_finance` + `faz09_cash_session_guard`)**:
+  `Payment` (tahsilat — method `cash|card|transfer|other`; `idempotencyKey`
+  clinic bazında unique — NULL değerler çok olabilir; opsiyonel açık kasa
+  oturumu), `PaymentAllocation` (ücret başına tek satır — `(paymentId,
+  chargeId)` unique; append-only), `Refund` (orijinal tahsilata Restrict FK
+  ile bağlı; gerekçe zorunlu), `CashRegister` (şubeye bağlı kasa —
+  `(clinic, branch, name)` unique), `CashSession` (açılış bakiyesi, sayım,
+  beklenen, fark, `differenceNote` — CHECK kısıtı: fark ≠ 0 iken açıklama
+  boş olamaz), `CashMovement` (append-only defter — `payment|refund|expense|
+  manual_in|manual_out` kaynaklı), `Expense` (kategori katalogu + nakit gider
+  oturum bağlantılı) ve `SupplierPayable` (kısmi ödemeli tedarikçi borcu —
+  `paidAmount >= amount` durumunda `settled`). **Kasa başına tek açık oturum**
+  kısmi tekil indeksle (`WHERE status = 'open'`) veritabanı düzeyinde
+  garanti edilir.
+- **İzin kataloğu:** 4 yeni anahtar — `finance.pay`, `finance.cash`,
+  `finance.expense`, `finance.payable` (27 anahtar). Finans rolü tüm finance
+  izinlerini aldı; resepsiyona `finance.pay` verildi (iade yok). Yeni sentetik
+  personel: finans@vetcore-demo.example (Burak Çelik). Seed'e şube başına
+  kasa eklendi (Merkez Kasa 1, Şube Kasa 1).
+- **API — finance modülü** (şube kapsamlı; guard zinciri Jwt→Permission→Branch):
+  - **Tahsilat** `POST /finance/payments` (`finance.pay`): TEK transaction —
+    ücret dağıtımı (elle verilmemişse otomatik FIFO; `ALLOCATION_EXCEEDS_*`
+    kontrolleri), ücret durumu güncellemesi (`open→partial→paid`), opsiyonel
+    kasa hareketi, `PAYMENT_CREATED` denetimi. `idempotencyKey` ile REPLAY
+    (aynı anahtar aynı yanıtı döner; P2002 yarış güvencesi dâhil).
+  - **İade** `POST /finance/payments/:id/refund` (`finance.refund`): kalan
+    iade edilebilir tutar üst sınırı; gerekçe zorunlu; `REFUND_CREATED`
+    denetimi; nakit iade kasadan çıkış hareketi üretir.
+  - **Cari:** `GET /finance/charges` (dağıtım özeti + kalan bakiye),
+    `GET /finance/balances` (sahip bakiye özeti),
+    `GET /finance/owners/:id/statement` — ücret(+)/tahsilat(−)/iade(+) satırları
+    kronolojik koşan bakiyeyle (kabul kriteri: üç kayıt ilişkisi görünür).
+  - **Kasa:** `GET/POST /cash/registers`, `POST /cash/sessions/open`,
+    `POST /cash/sessions/:id/close` (fark hesabı; **fark ≠ 0 iken açıklama
+    zorunlu** — `CASH_DIFFERENCE_NOTE_REQUIRED`), `POST /cash/sessions/:id/
+    movements` (elle giriş/çıkış — kapalı oturuma yazım 409), `GET /cash/
+    sessions[/:id]` (canlı beklenen tutar = açılış + giriş − çıkış).
+    Yazma uçları `finance.cash` izni ister.
+  - **Gider/borç:** `POST/GET /finance/expenses` (`finance.expense` — nakit
+    gider oturum ister, çıkış hareketi üretir), `POST/GET /finance/payables` +
+    `POST /finance/payables/:id/pay` (`finance.payable` — kısmi ödeme,
+    `PAYMENT_EXCEEDS_PAYABLE` kontrolü, kapanınca `settled` + denetim).
+- **Web:** 4 yeni sayfa — `/tahsilat` (bugün net/nakit KPI, sahibe FIFO
+  önizlemeli tahsilat diyaloğu, iade diyaloğu), `/cari` (sahip arama +
+  bakiye listesi + ekstre), `/kasa` (kasa kartları, canlı oturum paneli,
+  nakit giriş/çıkış, kapanış farkı diyaloğu), `/giderler` (gider listesi +
+  diyaloğu, tedarikçi borçları + ödeme). Kenar çubuğu Finans grubu
+  aktifleşti. Storybook: 12 yeni story (tahsilat FIFO/ileri kredi/geçersiz
+  tutar, cari ekstre ilişkisi, kasa kapanış farkı/tam sayım/canlı panel/kasa
+  kartları, gider diyaloğu ×2) — axe erişilebilirlik kapısı dâhil.
+- **Doğrulama:** alan mantığı 31 birim test; API e2e 15/15 (7 kabul kriteri +
+  kasa 409 + nakit gider oturum kilidi + tedarikçi borcu kapatma + şube
+  kapsamı); tam API regresyonu 262/262; Playwright tam süit 128 PASS (Faz 09
+  spec 7×2 kırılım) + 22 ekran görüntüsü; Storybook 114/114 (axe dâhil);
+  lint/typecheck/build 6/6.
+
+### Değişti
+- `Charge.status` artık `open|partial|paid|void` — dağıtım yazımı durumları
+  günceller (Faz 08'den gelen `open|void` genişletildi).
+- `prisma/permissions.ts` tek kaynak izin kataloğuna finance grubu tamamlandı;
+  Finans rol tanımı ve resepsiyon izinleri genişletildi.
+- Playwright zincir betiği spec dosyası argümanı destekledi (uzun süit
+  parçalı koşum için).
+
+### Bilinen sınırlar
+- E-fatura/e-arşiv iddiası yoktur — yalnızca ileride provider adapter için
+  arayüz ayrılmıştır (build prompt gereği).
+- Tahsilatın ücretlere dağılmayan kısmı (ileri kredi) iadeye kapanmaz —
+  iade yalnız tahsilat üzerinden tanımlıdır; ücret iadesi Faz 08 reversal
+  akışıyla yapılır.
+- Kasa sayımı banka POS gün sonu mutabakatı içermez (oturum defteri yalnız
+  nakit hareketlerini izler).
+
 ## [0.7.0] — Faz 08: Hizmet → stok → ücret atomik iş akışı (2026-11-08)
 
 ### Eklendi
