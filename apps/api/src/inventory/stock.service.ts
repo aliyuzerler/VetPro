@@ -271,6 +271,161 @@ export class StockService {
     return movement;
   }
 
+  /**
+   * Faz 10 — çapraz modül tüketim yazımı (reçete dağıtımı, aşı uygulaması).
+   * Çağıran modül kendi $transaction istemcisini verir: event kaydı ve defter
+   * hareketi tek işlemde kalır. Lot seçimi: lotId verilirse seçilebilirlik
+   * denetimi (expired/quarantined → LOT_BLOCKED), verilmezse FEFO tahsisi
+   * (bloklu partiler atlanır, yetersiz stokta INSUFFICIENT_STOCK). Bakiye
+   * azaltımı atomik koşulludur — eş zamanlı tüketimde negatif stok oluşamaz.
+   * Dönüş: hareket kimliği + parti tahsisleri (event'e lot/SKT dondurmak için).
+   */
+  async postConsumptionForRef(
+    tx: Prisma.TransactionClient,
+    input: {
+      clinicId: string;
+      branchId: string;
+      warehouseId: string;
+      productId: string;
+      qty: number;
+      lotId?: string | null;
+      refType: string;
+      refId: string;
+      staffId?: string | null;
+      idempotencyKey?: string | null;
+      note?: string | null;
+    },
+  ): Promise<{
+    movementId: string;
+    allocations: Array<{
+      lotId: string | null;
+      lotCode: string | null;
+      expiresAt: Date | null;
+      qty: number;
+    }>;
+  }> {
+    const qty = round3(input.qty);
+    if (qty <= 0) {
+      throw new BadRequestException({ code: 'VALIDATION', message: 'Miktar 0’dan büyük olmalı' });
+    }
+    const product = await tx.product.findFirst({
+      where: { id: input.productId, clinicId: input.clinicId, active: true },
+    });
+    if (!product) {
+      throw new NotFoundException({ code: 'PRODUCT_NOT_FOUND', message: 'Ürün bulunamadı' });
+    }
+    const resolved: LedgerLineInput[] = [];
+    if (product.trackingType === 'none') {
+      if (input.lotId) {
+        throw new BadRequestException({
+          code: STOCK_ERROR_CODES.PRODUCT_NOT_LOT_TRACKED,
+          message: `Ürün ${product.code} parti takipli değildir`,
+        });
+      }
+      resolved.push({ productId: product.id, lotId: null, qty: -qty, unitCost: 0 });
+    } else if (input.lotId) {
+      const lot = await tx.inventoryLot.findFirst({
+        where: { id: input.lotId, productId: product.id, clinicId: input.clinicId },
+      });
+      if (!lot || lot.warehouseId !== input.warehouseId) {
+        throw new NotFoundException({
+          code: STOCK_ERROR_CODES.LOT_NOT_FOUND,
+          message: 'Parti bu depoda bulunamadı',
+        });
+      }
+      const balance = await tx.stockBalance.findFirst({
+        where: { productId: product.id, warehouseId: input.warehouseId, lotId: lot.id },
+      });
+      const blocked = isLotSelectable({
+        id: lot.id,
+        lotCode: lot.lotCode,
+        expiresAt: lot.expiresAt,
+        status: lot.status,
+        receivedAt: lot.receivedAt,
+        qtyOnHand: balance?.qtyOnHand.toNumber() ?? 0,
+      });
+      if (blocked) {
+        throw new ConflictException({
+          code: STOCK_ERROR_CODES.LOT_BLOCKED,
+          message: `Parti ${lot.lotCode} tüketim için seçilemez (${blocked})`,
+        });
+      }
+      resolved.push({
+        productId: product.id,
+        lotId: lot.id,
+        qty: -qty,
+        unitCost: lot.unitCost.toNumber(),
+      });
+    } else {
+      // FEFO otomatik tahsis — bloklu partiler atlanır
+      const lots = await tx.inventoryLot.findMany({
+        where: { productId: product.id, warehouseId: input.warehouseId },
+      });
+      const balances = await tx.stockBalance.findMany({
+        where: { productId: product.id, warehouseId: input.warehouseId, lotId: { not: null } },
+      });
+      const balanceByLot = new Map(balances.map((b) => [b.lotId!, b.qtyOnHand.toNumber()]));
+      const fefoLots: FefoLot[] = lots.map((lot) => ({
+        id: lot.id,
+        lotCode: lot.lotCode,
+        expiresAt: lot.expiresAt,
+        status: lot.status,
+        receivedAt: lot.receivedAt,
+        qtyOnHand: balanceByLot.get(lot.id) ?? 0,
+      }));
+      let allocations;
+      try {
+        allocations = allocateFefo(fefoLots, qty);
+      } catch (error) {
+        if (error instanceof InsufficientStockError) {
+          throw new ConflictException({
+            code: STOCK_ERROR_CODES.INSUFFICIENT_STOCK,
+            message: `Yetersiz seçilebilir stok: istenen ${error.requested}, mevcut ${error.available}`,
+          });
+        }
+        throw error;
+      }
+      for (const allocation of allocations) {
+        if (allocation.qty <= 0) continue;
+        const lot = lots.find((l) => l.id === allocation.lotId)!;
+        resolved.push({
+          productId: product.id,
+          lotId: allocation.lotId,
+          qty: -allocation.qty,
+          unitCost: lot.unitCost.toNumber(),
+        });
+      }
+    }
+    const movement = await this.postMovement(tx, {
+      clinicId: input.clinicId,
+      branchId: input.branchId,
+      warehouseId: input.warehouseId,
+      kind: 'consumption',
+      refType: input.refType,
+      refId: input.refId,
+      note: input.note ?? null,
+      staffId: input.staffId ?? null,
+      idempotencyKey: input.idempotencyKey ?? null,
+      lines: resolved,
+    });
+    const lotById = new Map(
+      (
+        await tx.inventoryLot.findMany({
+          where: { id: { in: resolved.map((r) => r.lotId).filter((v): v is string => v != null) } },
+        })
+      ).map((l) => [l.id, l]),
+    );
+    return {
+      movementId: movement.id,
+      allocations: resolved.map((line) => ({
+        lotId: line.lotId,
+        lotCode: line.lotId ? (lotById.get(line.lotId)?.lotCode ?? null) : null,
+        expiresAt: line.lotId ? (lotById.get(line.lotId)?.expiresAt ?? null) : null,
+        qty: -line.qty,
+      })),
+    };
+  }
+
   // ── Mal kabul (kabul kriteri 1) ───────────────────────────────────────────
 
   async createReceipt(auth: AuthContext, dto: CreateReceiptDto, request: AuthRequest) {

@@ -56,7 +56,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     icon: Heart,
     items: [
       { label: 'Hasta Listesi', phase: 4, href: '/hastalar' },
-      { label: 'Aşı Takvimi', phase: 10 },
+      { label: 'Aşı Takvimi', phase: 10, href: '/asisler' },
     ],
   },
   {
@@ -79,8 +79,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     label: 'Aşı & Reçete',
     icon: Pill,
     items: [
-      { label: 'Reçeteler', phase: 10 },
-      { label: 'Aşı Hatırlatmaları', phase: 10 },
+      { label: 'Reçeteler', phase: 10, href: '/receteler' },
+      { label: 'Aşı Hatırlatmaları', phase: 10, href: '/asisler?tab=hatirlatmalar' },
     ],
   },
   {

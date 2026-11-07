@@ -2,6 +2,83 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.10.0] — Faz 10: Reçete, ilaç uygulaması, aşı ve takip (2026-11-08)
+
+### Eklendi
+- **Veri modeli (migration `faz10_prescriptions_vaccines`)**: `Prescription`
+  (status 'draft'|'signed'|'voided'; imzada klinik tekil `REC-####` numarası;
+  imzalı kayıt değişmez), `PrescriptionLine` (productId SetNull — katalog dışı
+  ilaç serbest adla yazılabilir; doz yardımcısı alanları `doseCalc*` ve
+  `doseApproved` onay künyesi), `DispenseEvent` (dağıtım kaydı; lotCode/SKT
+  partiden dondurulur; `movementId` ile stok defterine bağlı; `idempotencyKey`
+  tekil), `AdministrationEvent` (uygulama kaydı; dağıtımdan bağımsız;
+  `idempotencyKey` tekil), `VaccineProtocol` (klinik kapsamlı aşı protokolü:
+  ilk doz yaşı, tekrar aralığı, hatırlatma önceliği; klinik+ad tekil),
+  `VaccineEvent` (lot zorunlu; lotCode/SKT kayıt anında dondurulur; `nextDueAt`
+  protokolden; `idempotencyKey` tekil), `VaccineReminder`
+  (`@@unique([vaccineEventId, kind])` — aynı aşı kaydına aynı türden ikinci
+  hatırlatma yazılamaz; `dueAt` @db.Date). Yeni izinler: `prescription.manage`,
+  `prescription.sign`, `prescription.dispense`, `vaccine.manage`
+  (katalog 27 anahtar; veteriner +4, resepsiyon +2, stok +1).
+- **API — reçete** (`/prescriptions`): taslak oluşturma/satır düzenleme
+  (`prescription.manage`); doz yardımcısı `POST /prescriptions/dose-helper`
+  (kalıcılık yok — ağırlık × mg/kg aritmetiği, formül ve birimler görünür;
+  otomatik ilaç/doz önerisi üretilmez); doz onayı
+  `POST /prescriptions/:id/lines/:lineId/approve-dose` (yalnız
+  `prescription.sign`); imza `POST /prescriptions/:id/sign` — doz önerisi
+  taşıyan onaysız satır 409 `DOSE_NOT_APPROVED` ile imzayı bloklar; dağıtım
+  `POST /prescriptions/:id/dispense` (yalnız imzalı reçetede ve ürün
+  bağıntılı satırda): `DispenseEvent` + stok defterine `consumption` hareketi
+  tek transaction'da — lot verilmezse FEFO, expired/karantina 409
+  `LOT_BLOCKED`, yetersiz stok 409 `INSUFFICIENT_STOCK`, `idempotencyKey`
+  ile mobil tekrar denemesi tekilleşir; uygulama
+  `POST /prescriptions/administrations`. Prescribed/dispensed/administered
+  kayıtları üç ayrı tabloda tutulur ve reçete detayında ayrı listelerde döner.
+  Defter yazımı yeni ortak giriş `StockService.postConsumptionForRef` ile
+  tek noktadan yapılır (ADR-021 atomik azaltımı korunur).
+- **API — aşı** (`/vaccines`): protokol CRUD (klinik+ad tekil, 409
+  `VACCINE_PROTOCOL_DUPLICATE_NAME`); aşı kaydı `POST /vaccines/events` —
+  expired 409 `LOT_EXPIRED`, karantina 409 `LOT_BLOCKED`, uygulama stoğu
+  aynı transaction'da düşer, `protocolId` verilirse `nextDueAt` hesaplanır;
+  takvim `GET /vaccines/schedule/:patientId` — **yalnız kliniğin aktif
+  protokollerinden** türetilir (son aşı + tekrar aralığı, yoksa doğum + ilk
+  doz yaşı; protokolsüz hasta için girdi yok — sabit evrensel takvim yok);
+  hatırlatma `POST /vaccines/events/:id/reminders` (aynı event+kind 409
+  `VACCINE_REMINDER_DUPLICATE`) ve `POST /vaccines/reminders/:id/send`
+  (ikinci gönderim 409 `VACCINE_REMINDER_ALREADY_SENT`); yaklaşan/geciken
+  listeleri `GET /vaccines/reminders?window=upcoming|overdue`. Gerçek
+  bildirim trafiği Faz 12'ye bırakıldı (kanal alanı hazır).
+- **Web**: `/receteler` (durum filtreli liste + taslak diyaloğu),
+  `/receteler/[id]` (doz yardımcısı kartı — formül görünür; satır başına
+  doz onayı, dağıtım ve uygulama diyalogları; yazdırılabilir reçete bölümü
+  `print:` medya sorgusuyla), `/asisler` (Aşı Kayıtları / Takvim &
+  Hatırlatmalar / Protokoller sekmeleri; hasta bazlı takvim girdileri
+  gecikmiş-yaklaşan-ileri rozetleriyle; hatırlatma gönder/ertele).
+  Kenar çubuğunda Faz 10 için bekleyen üç bağlantı etkinleşti.
+- **Storybook**: Reçete Durum Rozeti, Doz Yardımcısı Kartı (etkileşimli
+  `play` — veteriner onay yetkili/yetkisiz görünümleri), Aşı Vade Rozeti,
+  Aşı Protokol Tablosu hikâyeleri (axe erişilebilirlik kapısı dahil).
+
+### Düzeltildi
+- **auth-flow test fikstürü** paylaşılan resepsiyon rolünün izinlerini
+  `deleteMany` ile silip geri koymadığından, paralel koşan spec dosyalarının
+  resepsiyonlu testleri 403'e düşüyordu → "izin sıfır" testi özel
+  `f03-izinsiz` rol + personel fikstürüne taşındı; fikstür artık resepsiyon
+  şablon izinlerini onarır.
+- **Seed'de bugün randevuları** UTC tarih parçalarından türetildiğinden,
+  İstanbul gece yarısı sınırında (UTC henüz dün) yanlış güne yazılıyordu;
+  takvim/akış panosu E2E'leri boş "bugün" görüyordu → UTC+3 ile doğrudan
+  hesaplama (ADR-019 ile aynı saat dilimi ilkesi).
+- Satır ekleme diyaloğu 900px görünümde taşarak kaydet düğmesine
+  ulaşılamıyordu → `max-h-[92vh] overflow-y-auto`.
+
+### Bilinen sınırlar
+- Reçete yazdırma istemci `print:` medya sorgusudur; sunucu tarafı PDF
+  Faz 12/14 belge hattına bırakıldı.
+- Hatırlatma "gönderim" kayıt + denetim düzeyindedir; SMS/e-posta sağlayıcı
+  bağlantısı Faz 12 bildirim entegrasyonudur.
+- Aşı uygulaması stoğu tek parti (doz) düşer; çoklu doz/ambalaj dönüşümü
+  Faz 08 hizmet-tüketim akışıyla birlikte değerlendirilecek.
 ## [0.9.0] — Faz 09: Kasa, tahsilat, cari hesap ve giderler (2026-11-08)
 
 ### Eklendi

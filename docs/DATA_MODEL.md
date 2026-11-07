@@ -56,6 +56,28 @@ ile somutlaştı:
   Clinic.timezone (Europe/Istanbul) ile hesaplanır; randevu ve bekleme kayıtlarında
   fiziksel silme yoktur (geçmiş bütünlüğü).
 
+
+### Faz 10 — fiziksel implementasyon (2026-11-08)
+Aşağıdaki varlıklar `prisma/schema.prisma` ve `faz10_prescriptions_vaccines` migration
+ile somutlaştı:
+- `Prescription` (branch+status endeksleri; klinik tekil `code` REC-####, imzada
+  atanır; status 'draft'|'signed'|'voided'; imzalı kayıt değişmez),
+  `PrescriptionLine` (productId SetNull — katalog dışı serbest ilaç drugName ile;
+  doz yardımcısı alanları doseCalc* + doseApproved/onaylayan personel),
+  `DispenseEvent` (stok defteri hareketine movementId ile bağlı; lotCode/expiresAt
+  partiden dondurulur; idempotencyKey tekil), `AdministrationEvent`
+  (prescriptionLine SetNull, product SetNull; idempotencyKey tekil),
+  `VaccineProtocol` (klinik+name tekil; speciesId SetNull; firstDoseAgeDays /
+  boosterIntervalDays / reminderLeadDays klinik politikası),
+  `VaccineEvent` (lotId Restrict + lotCode/expiresAt dondurulmuş; nextDueAt
+  protokolden; idempotencyKey tekil), `VaccineReminder`
+  (@@unique([vaccineEventId, kind]) — aynı aşı kaydına aynı türden ikinci
+  hatırlatma yazılamaz; dueAt @db.Date; status 'scheduled'|'sent'|'dismissed').
+- Kurallar: reçete/düzeltme politikası ADR-022; dağıtım ve aşı uygulaması stok
+  defterine 'consumption' hareketini ADR-021 atomik azaltımıyla aynı transaction
+  içinde yazar (StockService.postConsumptionForRef tek giriş); aşı partisi
+  expired/quarantine ise uygulama reddedilir.
+
 ## 3. Entity detail (minimum fields)
 
 ### Patient

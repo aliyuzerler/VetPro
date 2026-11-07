@@ -15,6 +15,9 @@ importers:
         specifier: ^6.2.15
         version: 6.2.15
     devDependencies:
+      '@embedded-postgres/linux-x64':
+        specifier: 17.5.0-beta.15
+        version: 17.5.0-beta.15
       '@prisma/client':
         specifier: ^6.11.1
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
@@ -11065,8 +11068,7 @@ snapshots:
   '@embedded-postgres/linux-ppc64@17.5.0-beta.15':
     optional: true
 
-  '@embedded-postgres/linux-x64@17.5.0-beta.15':
-    optional: true
+  '@embedded-postgres/linux-x64@17.5.0-beta.15': {}
 
   '@embedded-postgres/windows-x64@17.5.0-beta.15':
     optional: true

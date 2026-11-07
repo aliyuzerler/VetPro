@@ -37,6 +37,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "devDependencies": {
+    "@embedded-postgres/linux-x64": "17.5.0-beta.15",
     "@prisma/client": "^6.11.1",
     "@types/node": "^22.15.0",
     "embedded-postgres": "^17.5.0-beta.15",
@@ -52,5 +53,17 @@
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.15"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "embedded-postgres",
+      "@embedded-postgres/linux-x64",
+      "esbuild",
+      "@swc/core",
+      "prisma",
+      "@prisma/client",
+      "sharp",
+      "unrs-resolver"
+    ]
   }
 }

@@ -511,6 +511,68 @@ Mobil kırılımda tüketim diyaloğu ve ücret rozeti; sayfada yatay taşma yok
 Mobil kırılımda tablolar kart içinde yatay kaydırılabilir; sayfada yatay taşma
 yoktur (E2E iddiası).
 
+### Web — Reçeteler: taslak, doz onayı, imza (Faz 10)
+
+![Reçete taslağı ve doz yardımcısı](docs/screenshots/web-f10-02-doz-yardimcisi-satir.png)
+
+Reçete detayında doz yardımcısı formülü (`20 kg × 10 mg/kg = 200 mg`) görünür
+tutulur; öneri satıra işlendiğinde imza, açık veteriner onayı verilmeden
+bloklanır — kabul kriteri "hiçbir doz otomatik kesinleşmez".
+
+![İmza bloku](docs/screenshots/web-f10-03-imza-bloku.png)
+
+Onaysız doz önerisiyle imza denemesi hata zarfıyla reddedilir (409
+`DOSE_NOT_APPROVED`).
+
+![İmzalı reçete](docs/screenshots/web-f10-04-imzali-recete.png)
+
+Veteriner onayı sonrası imza reçeteye klinik tekil numarayı (`REC-####`)
+atar; imzalı reçete değişmez, dağıtım/uygulama kayıtları buradan yürür.
+
+![Dağıtım](docs/screenshots/web-f10-05-dagitim.png)
+
+Depodan dağıtım: FEFO önerili parti seçimi, stok defterine tüketim hareketi;
+event + hareket tek transaction'da.
+
+![Uygulama kaydı](docs/screenshots/web-f10-06-uygulama-kaydi.png)
+
+İlaç uygulama kaydı hastaya fiilen verilen dozu tutar; dağıtımdan
+(prescribed→dispensed→administered ayrışması) bağımsızdır.
+
+![Resepsiyon kısıtlı görünüm](docs/screenshots/web-f10-07-resepsiyon-kisitli.png)
+
+Resepsiyon rolünde imza ve doz onayı düğmeleri hiç üretilmez (izin bazlı UI).
+
+### Web — Aşı kaydı, takvim ve hatırlatmalar (Faz 10)
+
+![Aşı protokolü](docs/screenshots/web-f10-08-protokol-tanimi.png)
+
+Aşı takvimi klinik protokolüyle yapılandırılır: ilk doz yaşı, tekrar aralığı
+ve hatırlatma önceliği kliniğe aittir — sabit evrensel takvim yoktur.
+
+![Aşı kaydı parti + SKT](docs/screenshots/web-f10-09-asi-kaydi-lot-skt.png)
+
+Aşı kaydı lot kodu ve son kullanma tarihini partiden dondurur ve uygulama
+stoğunu aynı transaction'da düşürür; süresi geçmiş/karantinalı parti reddedilir.
+
+![Aşı takvimi](docs/screenshots/web-f10-10-asi-takvimi.png)
+
+Hasta aşı takvimi protokollerden türetilir; gecikmiş/yaklaşan/ileri tarih
+rozetleriyle listelenir.
+
+![Hatırlatma gönderimi](docs/screenshots/web-f10-11-hatirlatma-gonderimi.png)
+
+Hatırlatma aynı aşı kaydı için tekilleşir; gönderim işareti + denetim kaydı
+üretir, ikinci gönderim 409 döner.
+
+### Mobil — reçeteler ve aşılar (Faz 10)
+
+![Mobil reçeteler](docs/screenshots/mobil-f10-receteler.png)
+
+![Mobil aşılar](docs/screenshots/mobil-f10-asisler.png)
+
+Mobil kırılımda reçete listesi ve aşı sekmeleri taşmasız yüklenir (E2E iddiası).
+
 ### Web — Tasarım sistemi rehberi (`/stil-rehberi`)
 
 ![Stil rehberi](docs/screenshots/web-stil-rehberi.png)

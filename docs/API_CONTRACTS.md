@@ -245,3 +245,50 @@ Base path `/api/v1`. This is a module map; ZCode must define request/response sc
 - Return stable error codes; include correlation ID.
 - Redact sensitive data from logs.
 - Rate-limit authentication, search, file upload and export endpoints.
+
+### Faz 10 — uygulanan reçete ve aşı sözleşmesi (2026-11-08)
+- `POST /prescriptions` (prescription.manage) → taslak; `patientId`, opsiyonel
+  `encounterId`/`veterinarianId`, `lines[]` (productId opsiyonel — katalog dışı
+  serbest ilaç serbest adla yazılır). Doz yardımcısı girdileri
+  (`doseCalcWeightKg`, `doseCalcMgPerKg`) satırla birlikte gönderilebilir; sunucu
+  `computeDoseSuggestion` ile formül + tek doz üretir (`doseApproved=false`).
+- `POST /prescriptions/dose-helper` → `{ formula, singleDose, doseUnit, dailyDose,
+  courseTotal }` — kalıcılık yoktur, mg/kg veteriner girişidir (otomatik ilaç/doz
+  önerisi üretilmez).
+- `POST /prescriptions/:id/lines` / `DELETE /prescriptions/:id/lines/:lineId` →
+  yalnız taslakta; imzalı reçetede 409 `PRESCRIPTION_SIGNED`.
+- `POST /prescriptions/:id/lines/:lineId/approve-dose` (prescription.sign) →
+  doz önerisini kesinleştirir; `doseApprovedByStaffId` imzalayan veteriner olur.
+- `POST /prescriptions/:id/sign` (prescription.sign) → `REC-0001` biçiminde klinik
+  tekil numara atanır; doz önerisi taşıyan onaysız satır varsa 409
+  `DOSE_NOT_APPROVED` (unapprovedLineIds ile). İmzalı reçete değişmez.
+- `POST /prescriptions/:id/void` → yalnız taslakta, gerekçe zorunlu.
+- `POST /prescriptions/:id/dispense` (prescription.dispense) → yalnız imzalı
+  reçetede, ürün bağıntılı satırda: `DispenseEvent` + stok defterine
+  `consumption` hareketi refType `DispenseEvent` — tek transaction. Lot verilmezse
+  FEFO; expired/quarantine → 409 `LOT_BLOCKED`; yetersiz stok → 409
+  `INSUFFICIENT_STOCK`; `idempotencyKey` tekrar denemeleri tekilleştirir.
+- `POST /prescriptions/administrations` → ADMINISTERED kaydı (dağıtımdan bağımsız);
+  `idempotencyKey` tekilleştirir.
+- `GET /prescriptions` (status/patientId), `GET /prescriptions/:id` (satırlar +
+  dağıtımlar + uygulamalar ayrı listeler — prescribed/dispensed/administered
+  ayrışması), `GET /prescriptions/administrations`.
+- `GET /vaccines/protocols` / `POST /vaccines/protocols` /
+  `PATCH /vaccines/protocols/:id` (vaccine.manage) — klinik kapsamlı protokol
+  (ilk doz yaşı, tekrar aralığı, hatırlatma önceliği); ad klinikte tekil,
+  409 `VACCINE_PROTOCOL_DUPLICATE_NAME`.
+- `POST /vaccines/events` → lot zorunlu; lotCode + expiresAt kayıt anında
+  dondurulur; expired → 409 `LOT_EXPIRED`, karantina → 409 `LOT_BLOCKED`;
+  uygulama stoğu aynı transaction'da düşer (refType `VaccineEvent`);
+  `protocolId` verilirse `nextDueAt = administeredAt + boosterIntervalDays`.
+- `GET /vaccines/schedule/:patientId` → yalnız kliniğin aktif protokollerinden
+  türetilen takvim girdileri (son aşı + tekrar aralığı, yoksa doğum + ilk doz
+  yaşı); protokolsüz hasta için girdi üretilmez (sabit evrensel takvim yok).
+- `POST /vaccines/events/:id/reminders` → aynı (event, kind) ikinci kez
+  yazılamaz: 409 `VACCINE_REMINDER_DUPLICATE` (benzersiz kısıt + ön kontrol).
+- `POST /vaccines/reminders/:id/send` → gönderim işareti + denetim; ikinci
+  gönderim 409 `VACCINE_REMINDER_ALREADY_SENT`. Gerçek bildirim trafiği Faz 12.
+- `GET /vaccines/reminders?window=upcoming|overdue&horizonDays=N` → yaklaşan/geciken
+  aşı listeleri.
+- İzinler (katalog 27 anahtar): `prescription.manage`, `prescription.sign`,
+  `prescription.dispense`, `vaccine.manage`.

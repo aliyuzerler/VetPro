@@ -38,8 +38,8 @@ describe('Kontrol paneli (Genel Bakış)', () => {
     renderPage();
 
     expect(screen.getByRole('heading', { level: 1, name: 'Genel Bakış' })).toBeInTheDocument();
-    // CURRENT_PHASE_ID faz ilerledikçe güncellenir (Faz 07: stok yönetimi)
-    expect(screen.getByText('Faz 07 — Ürün, tedarikçi, parti ve stok yönetimi')).toBeInTheDocument();
+    // CURRENT_PHASE_ID faz ilerledikçe güncellenir (Faz 10: reçete, aşı ve hatırlatmalar)
+    expect(screen.getByText('Faz 10 — Reçete, aşı ve hatırlatmalar')).toBeInTheDocument();
 
     // KPI kartları — sentetik demo değerleri
     expect(screen.getByText('Bugünkü Randevular')).toBeInTheDocument();
@@ -51,7 +51,7 @@ describe('Kontrol paneli (Genel Bakış)', () => {
     expect(screen.getByText('Bugün için bekleyen görev yok')).toBeInTheDocument();
     expect(screen.getByText('Bu bölümü görme yetkiniz yok')).toBeInTheDocument();
 
-    // Faz planı 15 satır; Faz 07 sürdürülüyor
+    // Faz planı 15 satır; Faz 10 sürdürülüyor
     expect(screen.getByText('Faz planı')).toBeInTheDocument();
     expect(screen.getByText('Güvenlik, performans, dağıtım ve sürüm')).toBeInTheDocument();
 

@@ -166,4 +166,28 @@ export const PERMISSIONS = [
     name: 'Hizmet kataloğu yönetimi',
     description: 'Hizmet, fiyat ve tüketim kuralı tanımlarını yönetir',
   },
+  {
+    key: 'prescription.manage',
+    group: 'clinical',
+    name: 'Reçete yönetimi',
+    description: 'Reçete taslağı oluşturur, satır düzenler ve uygulama kaydı tutar',
+  },
+  {
+    key: 'prescription.sign',
+    group: 'clinical',
+    name: 'Reçete imzası',
+    description: 'Reçeteyi imzalar ve doz yardımcısı önerisini onaylar (yetkili veteriner)',
+  },
+  {
+    key: 'prescription.dispense',
+    group: 'clinical',
+    name: 'Reçete dağıtımı',
+    description: 'İmzalı reçete satırı için depodan ilaç sevk eder (stok düşümü ile)',
+  },
+  {
+    key: 'vaccine.manage',
+    group: 'clinical',
+    name: 'Aşı yönetimi',
+    description: 'Aşı protokolü, aşı kaydı ve hatırlatmaları yönetir',
+  },
 ] as const;

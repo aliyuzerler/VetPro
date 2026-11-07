@@ -63,6 +63,10 @@ model Clinic {
   cashMovements     CashMovement[]
   expenses          Expense[]
   supplierPayables  SupplierPayable[]
+  prescriptions     Prescription[]
+  vaccineProtocols  VaccineProtocol[]
+  vaccineEvents     VaccineEvent[]
+  vaccineReminders  VaccineReminder[]
 
   @@map("clinics")
 }
@@ -106,6 +110,9 @@ model Branch {
   cashMovements    CashMovement[]
   expenses         Expense[]
   supplierPayables SupplierPayable[]
+  prescriptions   Prescription[]
+  vaccineEvents   VaccineEvent[]
+  vaccineReminders VaccineReminder[]
 
   @@unique([clinicId, code])
   @@index([clinicId])
@@ -159,6 +166,13 @@ model Staff {
   createdCashMovements   CashMovement[]      @relation("CashMovementCreator")
   createdExpenses        Expense[]           @relation("ExpenseCreator")
   createdPayables        SupplierPayable[]   @relation("SupplierPayableCreator")
+  prescribedPrescriptions Prescription[]     @relation("PrescriptionVeterinarian")
+  signedPrescriptions     Prescription[]      @relation("PrescriptionSignedBy")
+  doseApprovedLines       PrescriptionLine[]  @relation("PrescriptionLineDoseApprover")
+  dispenseEvents          DispenseEvent[]
+  administrations         AdministrationEvent[]
+  administeredVaccines    VaccineEvent[]
+  sentVaccineReminders    VaccineReminder[]
 
   @@index([clinicId])
   @@map("staff")
@@ -332,6 +346,8 @@ model Warehouse {
   incomingTransfers StockTransfer[]  @relation("TransferToWarehouse")
   stockCounts       StockCount[]
   temperatureLogs   TemperatureLog[]
+  dispenseEvents    DispenseEvent[]
+  vaccineEvents     VaccineEvent[]
 
   @@unique([branchId, name])
   @@index([branchId])
@@ -350,6 +366,8 @@ model Species {
 
   breeds   Breed[]
   patients Patient[]
+
+  vaccineProtocols VaccineProtocol[]
 
   @@map("species")
 }
@@ -488,6 +506,10 @@ model Patient {
   encounters        Encounter[]
   vitals            VitalObservation[]
   charges           Charge[]
+  prescriptions        Prescription[]
+  administrationEvents AdministrationEvent[]
+  vaccineEvents        VaccineEvent[]
+  vaccineReminders     VaccineReminder[]
 
   @@unique([clinicId, code])
   @@unique([clinicId, microchip])
@@ -759,6 +781,7 @@ model Encounter {
   addendums      ClinicalAddendum[]
   serviceRecords ServiceRecord[]
   charges        Charge[]
+  prescriptions  Prescription[]
 
   @@index([branchId, status, startedAt])
   @@index([patientId, startedAt])
@@ -1109,6 +1132,12 @@ model Product {
   transferLines    StockTransferLine[]
   countLines       StockCountLine[]
   consumptionRules ServiceConsumptionRule[]
+  prescriptionLines PrescriptionLine[]
+  dispenseEvents    DispenseEvent[]
+  administrationEvents AdministrationEvent[]
+  vaccineProtocols  VaccineProtocol[]
+  vaccineEvents     VaccineEvent[]
+  vaccineReminders  VaccineReminder[]
 
   @@unique([clinicId, code])
   @@index([clinicId, active])
@@ -1185,6 +1214,8 @@ model InventoryLot {
   transferSources  StockTransferLine[] @relation("TransferSourceLot")
   transferReceipts StockTransferLine[] @relation("TransferReceivedLot")
   countLines       StockCountLine[]
+  dispenseEvents   DispenseEvent[]
+  vaccineEvents    VaccineEvent[]
 
   @@unique([productId, warehouseId, lotCode])
   @@index([productId, warehouseId, status])
@@ -1388,6 +1419,7 @@ model TemperatureLog {
   @@index([warehouseId, measuredAt])
   @@map("temperature_logs")
 }
+
 
 // ─── Faz 09 — Kasa, tahsilat, cari hesap ve giderler ───────────────────────
 // Politika: tüm finansal yazımlar append-only defter mantığındadır — tahsilat,
@@ -1624,3 +1656,306 @@ model SupplierPayable {
   @@index([branchId, status])
   @@map("supplier_payables")
 }
+
+
+// ─── Faz 10 — Reçete, ilaç uygulaması, aşı ve takip ─────────────────────────
+// Politikalar:
+// - Reçete yalnızca prescription.sign izni olan veteriner tarafından imzalanır;
+//   imzalı reçete değişmez (satır eklenemez, void edilemez).
+// - Doz yardımcısı yalnızca aritmetik ÖNERİ üretir: formül ve birimler görünür
+//   tutulur, satıra işlenen öneri veterinerin açık onayı (doseApproved) olmadan
+//   imzalamayı bloklar — hiçbir doz önerisi otomatik kesinleşmez.
+// - Prescribed (PrescriptionLine) / dispensed (DispenseEvent) / administered
+//   (AdministrationEvent) kayıtları ayrı tablolarda tutulur: ne yazıldığı,
+//   depodan ne çıktığı ve hastaya ne uygulandığı birbirinden bağımsız izlenir.
+// - Aşı kaydı lot + son kullanma tarihini kayıt anında dondurur; süresi geçmiş
+//   veya karantinalı partiden aşı uygulanamaz.
+// - Aşı takvimi klinik protokolüyle (VaccineProtocol) yapılandırılır; sabit
+//   evrensel takvim yoktur. Hatırlatma aynı aşı kaydı için tür bazında tekildir.
+
+/// Reçete — muayeneye bağlı, yetkili veteriner imzalı ilaç listesi.
+/// status: 'draft' | 'signed' | 'voided'. İmzada klinik içinde tekil code
+/// (REC-0001) atanır. Mevzuat alanları (officialRef) yapılandırılabilir;
+/// sabit e-reçete iddiası yoktur (sağlayıcı adaptörü ileri faz).
+model Prescription {
+  id             String    @id @default(uuid()) @db.Uuid
+  clinicId       String    @map("clinic_id") @db.Uuid
+  branchId       String    @map("branch_id") @db.Uuid
+  patientId      String    @map("patient_id") @db.Uuid
+  encounterId    String?   @map("encounter_id") @db.Uuid
+  /// Reçeteyi yazan veteriner; imza ayrıca prescription.sign izni ister
+  veterinarianId String    @map("veterinarian_id") @db.Uuid
+  /// İmzada atanan klinik tekil reçete numarası (REC-0001)
+  code           String?
+  /// 'draft' | 'signed' | 'voided'
+  status         String    @default("draft")
+  notes          String?
+  /// Resmi mevzuat alanı (e-reçete no, seri...) — zorunlu değil, yapılandırılabilir
+  officialRef    String?   @map("official_ref")
+  signedAt       DateTime? @map("signed_at")
+  signedById     String?   @map("signed_by_id") @db.Uuid
+  /// void yalnızca taslakta; imzalı reçete değişmez
+  voidedAt       DateTime? @map("voided_at")
+  voidedReason   String?   @map("voided_reason")
+  version        Int       @default(1)
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  clinic       Clinic     @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch       Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  patient      Patient    @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  encounter    Encounter? @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  veterinarian Staff      @relation("PrescriptionVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
+  signedBy     Staff?     @relation("PrescriptionSignedBy", fields: [signedById], references: [id], onDelete: SetNull)
+
+  lines    PrescriptionLine[]
+  dispenses DispenseEvent[]
+
+  @@unique([clinicId, code])
+  @@index([clinicId, status])
+  @@index([branchId, status])
+  @@index([patientId, createdAt])
+  @@index([encounterId])
+  @@map("prescriptions")
+}
+
+/// Reçete satırı — PRESCRIBED kayıt. Ürün katalogdan seçilebilir ya da serbest
+/// adla yazılabilir. Doz yardımcısı alanları (doseCalc*) yalnızca öneriyi ve
+/// formülü taşır; doseApproved=false iken imza bloklanır (kabul kriteri 2).
+model PrescriptionLine {
+  id             String  @id @default(uuid()) @db.Uuid
+  prescriptionId String  @map("prescription_id") @db.Uuid
+  productId      String? @map("product_id") @db.Uuid
+  /// Katalog dışı ilaç yazımına izin: serbest ilaç adı zorunlu
+  drugName       String  @map("drug_name")
+  /// Uygulama formu: 'tablet' | 'sirup' | 'enjeksiyon' | 'merhem' | 'damla' | 'diger'
+  form           String
+  /// Yazılan doz — miktar + birim (mg, ml, IU...); doz yardımcısından veya elle
+  doseAmount     Decimal? @map("dose_amount") @db.Decimal(10, 3)
+  doseUnit       String? @map("dose_unit")
+  /// Uygulama yolu: 'oral' | 'deri_alti' | 'kas_ici' | 'damar_ici' | 'topikal' | 'diger'
+  route          String
+  /// Sıklık serbest metin (ör. 'günde 2 kez')
+  frequency      String
+  durationDays   Int?    @map("duration_days")
+  /// Verilen miktar + birim (ambalaj/şişe/adet — dağıtım stok üzerinden yapılır)
+  quantity       Decimal @db.Decimal(12, 3)
+  quantityUnit   String  @map("quantity_unit")
+  instructions   String?
+
+  // Doz yardımcısı — aritmetik öneri ve görünür formül; onay bilgisi
+  doseCalcWeightKg  Decimal? @map("dose_calc_weight_kg") @db.Decimal(8, 3)
+  doseCalcMgPerKg   Decimal? @map("dose_calc_mg_per_kg") @db.Decimal(10, 3)
+  /// Görünür formül metni (ör. '20 kg × 10 mg/kg')
+  doseCalcFormula   String?  @map("dose_calc_formula")
+  doseCalcSuggested Decimal? @map("dose_calc_suggested") @db.Decimal(10, 3)
+  doseCalcUnit      String?  @map("dose_calc_unit")
+  /// Veteriner açık onayı — yalnızca prescription.sign izniyle true yapılabilir
+  doseApproved         Boolean   @default(false) @map("dose_approved")
+  doseApprovedByStaffId String?  @map("dose_approved_by_staff_id") @db.Uuid
+  doseApprovedAt       DateTime? @map("dose_approved_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  product      Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  doseApprovedBy Staff?     @relation("PrescriptionLineDoseApprover", fields: [doseApprovedByStaffId], references: [id], onDelete: SetNull)
+
+  dispenses          DispenseEvent[]
+  administrationEvents AdministrationEvent[]
+
+  @@index([prescriptionId])
+  @@index([productId])
+  @@map("prescription_lines")
+}
+
+/// Reçete dağıtım (sevk) kaydı — DISPENSED. Depodan çıkan gerçek miktarı tutar;
+/// stok defterine aynı işlemde 'consumption' hareketi yazar (refType
+/// 'DispenseEvent'). Parti seçimi açık lot ya da FEFO; expired/karantina bloklu.
+/// lotCode/expiresAt kayıt anında partiden dondurulur (izlenebilirlik).
+model DispenseEvent {
+  id                 String   @id @default(uuid()) @db.Uuid
+  clinicId           String   @map("clinic_id") @db.Uuid
+  branchId           String   @map("branch_id") @db.Uuid
+  prescriptionId     String   @map("prescription_id") @db.Uuid
+  prescriptionLineId String   @map("prescription_line_id") @db.Uuid
+  productId          String   @map("product_id") @db.Uuid
+  warehouseId        String   @map("warehouse_id") @db.Uuid
+  lotId              String?  @map("lot_id") @db.Uuid
+  lotCode            String?  @map("lot_code")
+  expiresAt          DateTime? @map("expires_at")
+  qty                Decimal  @db.Decimal(12, 3)
+  /// Yazılan stok defteri hareketi — mutabakat izlenebilirliği
+  movementId         String?  @map("movement_id") @db.Uuid
+  dispensedByStaffId String   @map("dispensed_by_staff_id") @db.Uuid
+  dispensedAt        DateTime @default(now()) @map("dispensed_at")
+  note               String?
+  /// Mobil tekrar denemelerinde tekilleştirme
+  idempotencyKey     String?  @map("idempotency_key") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  prescription     Prescription     @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  prescriptionLine PrescriptionLine @relation(fields: [prescriptionLineId], references: [id], onDelete: Cascade)
+  product          Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse        Warehouse        @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  lot              InventoryLot?    @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  dispensedBy      Staff            @relation(fields: [dispensedByStaffId], references: [id], onDelete: Restrict)
+
+  @@unique([idempotencyKey])
+  @@index([prescriptionId])
+  @@index([prescriptionLineId])
+  @@index([branchId, dispensedAt])
+  @@map("dispense_events")
+}
+
+/// İlaç uygulama kaydı — ADMINISTERED. Hastaya fiilen uygulanan dozu tutar;
+/// dağıtımdan (dispensed) bağımsızdır: klinikte veya sahipte uygulanan her doz
+/// ayrı kayıt. Aşı uygulamaları VaccineEvent'tedir (lot+SKT zorunlu).
+model AdministrationEvent {
+  id                    String   @id @default(uuid()) @db.Uuid
+  clinicId              String   @map("clinic_id") @db.Uuid
+  branchId              String   @map("branch_id") @db.Uuid
+  patientId             String   @map("patient_id") @db.Uuid
+  prescriptionLineId    String?  @map("prescription_line_id") @db.Uuid
+  encounterId           String?  @map("encounter_id") @db.Uuid
+  productId             String?  @map("product_id") @db.Uuid
+  drugName              String   @map("drug_name")
+  doseGiven             Decimal? @map("dose_given") @db.Decimal(10, 3)
+  doseUnit              String?  @map("dose_unit")
+  route                 String?
+  site                  String?
+  administeredByStaffId String   @map("administered_by_staff_id") @db.Uuid
+  administeredAt        DateTime @default(now()) @map("administered_at")
+  note                  String?
+  idempotencyKey        String?  @map("idempotency_key") @db.Uuid
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  patient          Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  prescriptionLine PrescriptionLine? @relation(fields: [prescriptionLineId], references: [id], onDelete: SetNull)
+  product          Product?          @relation(fields: [productId], references: [id], onDelete: SetNull)
+  administeredBy   Staff             @relation(fields: [administeredByStaffId], references: [id], onDelete: Restrict)
+
+  @@unique([idempotencyKey])
+  @@index([patientId, administeredAt])
+  @@index([branchId, administeredAt])
+  @@map("administration_events")
+}
+
+/// Aşı protokolü — klinik kapsamlı ve düzenlenebilir (kabul kriteri 5): sabit
+/// evrensel takvim yoktur; her klinik kendi protokolünü tür + ürün bazında
+/// tanımlar. speciesId null = türden bağımsız protokol.
+model VaccineProtocol {
+  id        String   @id @default(uuid()) @db.Uuid
+  clinicId  String   @map("clinic_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  speciesId String?  @map("species_id") @db.Uuid
+  name      String
+  /// İlk doz için önerilen yaş (gün) — hasta doğum tarihinden hesaplanır
+  firstDoseAgeDays    Int     @default(0) @map("first_dose_age_days")
+  /// Hatırlatıcı tekrar aralığı (gün) — örn. yıllık 365
+  boosterIntervalDays Int     @default(365) @map("booster_interval_days")
+  /// Aşı vadesinden kaç gün önce hatırlatma önerilir
+  reminderLeadDays    Int     @default(14) @map("reminder_lead_days")
+  doseLabel           String? @map("dose_label")
+  route               String?
+  notes               String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  clinic  Clinic   @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  product Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  species Species? @relation(fields: [speciesId], references: [id], onDelete: SetNull)
+
+  vaccineEvents VaccineEvent[]
+
+  @@unique([clinicId, name])
+  @@index([clinicId, active])
+  @@index([productId])
+  @@map("vaccine_protocols")
+}
+
+/// Aşı kaydı — uygulanan aşı; lot ve son kullanma tarihi kayıt anında partiden
+/// dondurulur (kabul kriteri 4). Süresi geçmiş/karantinalı partiden aşı
+/// uygulanamaz (409 LOT_EXPIRED / LOT_BLOCKED). Uygulama stoğu aynı işlemde
+/// düşer (refType 'VaccineEvent' tüketim hareketi). nextDueAt protokolden
+/// türetilir; protokol yoksa null kalır.
+model VaccineEvent {
+  id                    String    @id @default(uuid()) @db.Uuid
+  clinicId              String    @map("clinic_id") @db.Uuid
+  branchId              String    @map("branch_id") @db.Uuid
+  patientId             String    @map("patient_id") @db.Uuid
+  protocolId            String?   @map("protocol_id") @db.Uuid
+  productId             String    @map("product_id") @db.Uuid
+  warehouseId           String    @map("warehouse_id") @db.Uuid
+  lotId                 String    @map("lot_id") @db.Uuid
+  lotCode               String    @map("lot_code")
+  expiresAt             DateTime? @map("expires_at")
+  encounterId           String?   @map("encounter_id") @db.Uuid
+  administeredByStaffId String    @map("administered_by_staff_id") @db.Uuid
+  administeredAt        DateTime  @default(now()) @map("administered_at")
+  doseLabel             String?   @map("dose_label")
+  route                 String?
+  site                  String?
+  note                  String?
+  nextDueAt             DateTime? @map("next_due_at")
+  idempotencyKey        String?   @map("idempotency_key") @db.Uuid
+  createdAt             DateTime  @default(now()) @map("created_at")
+
+  clinic          Clinic          @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch          Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  patient         Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  protocol        VaccineProtocol? @relation(fields: [protocolId], references: [id], onDelete: SetNull)
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse       Warehouse       @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  lot             InventoryLot    @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  administeredBy  Staff           @relation(fields: [administeredByStaffId], references: [id], onDelete: Restrict)
+
+  reminders VaccineReminder[]
+
+  @@unique([idempotencyKey])
+  @@index([patientId, administeredAt])
+  @@index([branchId, administeredAt])
+  @@index([clinicId, productId])
+  @@index([protocolId])
+  @@map("vaccine_events")
+}
+
+/// Aşı hatırlatması — aynı aşı kaydı için aynı türde ikinci hatırlatma
+/// benzersiz kısıtla engellenir (kabul kriteri 6); gönderim ikinci kez
+/// istenirse 409 döner. Gönderim kanalı Faz 12 bildirim entegrasyonuna
+/// hazırdır (şimdilik kayıt + denetim yazımı). status: 'scheduled' | 'sent' |
+/// 'dismissed'.
+model VaccineReminder {
+  id             String    @id @default(uuid()) @db.Uuid
+  clinicId       String    @map("clinic_id") @db.Uuid
+  branchId       String?   @map("branch_id") @db.Uuid
+  patientId      String    @map("patient_id") @db.Uuid
+  vaccineEventId String?   @map("vaccine_event_id") @db.Uuid
+  productId      String?   @map("product_id") @db.Uuid
+  /// 'booster_due' | 'first_dose' | 'custom'
+  kind           String    @default("booster_due")
+  dueAt          DateTime  @map("due_at") @db.Date
+  status         String    @default("scheduled")
+  channel        String?
+  sentAt         DateTime? @map("sent_at")
+  sentByStaffId  String?   @map("sent_by_staff_id") @db.Uuid
+  note           String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  patient     Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  vaccineEvent VaccineEvent?  @relation(fields: [vaccineEventId], references: [id], onDelete: Cascade)
+  product     Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
+  branch      Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  sentBy      Staff?          @relation(fields: [sentByStaffId], references: [id], onDelete: SetNull)
+  clinic      Clinic          @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+
+  /// Aynı aşı kaydına aynı türden ikinci hatırlatma yazılamaz (NULL vaccineEventId
+  /// satırları PG'de tekil kısıta takılmaz — serbest hatırlatmalar için bilinir)
+  @@unique([vaccineEventId, kind])
+  @@index([clinicId, status, dueAt])
+  @@index([patientId])
+  @@map("vaccine_reminders")
+}
+

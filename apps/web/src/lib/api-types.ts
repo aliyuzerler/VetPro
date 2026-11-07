@@ -947,3 +947,201 @@ export type SupplierPayableDto = {
   settledAt: string | null;
   createdAt: string;
 };
+// ── Faz 10 — Reçete, ilaç uygulaması, aşı ve takip ─────────────────────────
+
+export type PrescriptionStatus = 'draft' | 'signed' | 'voided';
+
+export type PrescriptionLineDto = {
+  id: string;
+  productId: string | null;
+  drugName: string;
+  form: string;
+  doseAmount: string | number | null;
+  doseUnit: string | null;
+  route: string;
+  frequency: string;
+  durationDays: number | null;
+  quantity: string | number;
+  quantityUnit: string;
+  instructions: string | null;
+  doseCalcWeightKg: string | number | null;
+  doseCalcMgPerKg: string | number | null;
+  doseCalcFormula: string | null;
+  doseCalcSuggested: string | number | null;
+  doseCalcUnit: string | null;
+  doseApproved: boolean;
+  doseApprovedAt: string | null;
+  doseApprovedBy?: { id: string; firstName: string; lastName: string } | null;
+  product?: { id: string; code: string; name: string; baseUnit?: { name: string } } | null;
+  createdAt: string;
+};
+
+export type PrescriptionDto = {
+  id: string;
+  clinicId: string;
+  branchId: string;
+  status: PrescriptionStatus;
+  code: string | null;
+  notes: string | null;
+  officialRef: string | null;
+  version: number;
+  createdAt: string;
+  signedAt: string | null;
+  voidedAt: string | null;
+  voidedReason: string | null;
+  patient: { id: string; name: string; code: string };
+  veterinarian: { id: string; firstName: string; lastName: string };
+  signedBy?: { id: string; firstName: string; lastName: string } | null;
+  encounter?: { id: string; status: string; startedAt: string } | null;
+  lines: PrescriptionLineDto[];
+  _count?: { dispenses: number };
+};
+
+export type PrescriptionDetailDto = PrescriptionDto & {
+  dispenses: DispenseEventDto[];
+  administrations: AdministrationEventDto[];
+};
+
+export type DispenseEventDto = {
+  id: string;
+  prescriptionLineId: string;
+  productId: string;
+  warehouseId: string;
+  lotId: string | null;
+  lotCode: string | null;
+  expiresAt: string | null;
+  qty: string | number;
+  movementId: string | null;
+  dispensedAt: string;
+  note: string | null;
+  product?: { id: string; code: string; name: string } | null;
+  lot?: { id: string; lotCode: string; expiresAt: string | null } | null;
+  dispensedBy?: { id: string; firstName: string; lastName: string } | null;
+};
+
+export type AdministrationEventDto = {
+  id: string;
+  patientId: string;
+  prescriptionLineId: string | null;
+  drugName: string;
+  doseGiven: string | number | null;
+  doseUnit: string | null;
+  route: string | null;
+  site: string | null;
+  administeredAt: string;
+  note: string | null;
+  administeredBy?: { id: string; firstName: string; lastName: string } | null;
+  prescriptionLine?: {
+    id: string;
+    drugName: string;
+    prescription: { id: string; code: string | null };
+  } | null;
+};
+
+export type DoseHelperResultDto = {
+  formula: string;
+  singleDose: number;
+  doseUnit: string;
+  dailyDose: number | null;
+  courseTotal: number | null;
+  inputs: {
+    weightKg: number;
+    mgPerKg: number;
+    frequencyPerDay: number | null;
+    durationDays: number | null;
+  };
+};
+
+export type VaccineProtocolDto = {
+  id: string;
+  name: string;
+  firstDoseAgeDays: number;
+  boosterIntervalDays: number;
+  reminderLeadDays: number;
+  doseLabel: string | null;
+  route: string | null;
+  notes: string | null;
+  active: boolean;
+  product: { id: string; code: string; name: string };
+  species?: { id: string; key: string; name: string } | null;
+};
+
+export type VaccineEventDto = {
+  id: string;
+  patientId: string;
+  lotId: string;
+  lotCode: string;
+  expiresAt: string | null;
+  administeredAt: string;
+  nextDueAt: string | null;
+  doseLabel: string | null;
+  route: string | null;
+  site: string | null;
+  note: string | null;
+  patient: { id: string; name: string; code: string };
+  product: { id: string; code: string; name: string };
+  lot?: { id: string; lotCode: string; expiresAt: string | null; status: string } | null;
+  protocol?: { id: string; name: string; boosterIntervalDays: number } | null;
+  administeredBy?: { id: string; firstName: string; lastName: string } | null;
+};
+
+export type VaccineScheduleEntryDto = {
+  protocolId: string;
+  protocolName: string;
+  product: { id: string; code: string; name: string };
+  doseLabel: string | null;
+  dueAt: string;
+  basis: 'first_dose' | 'booster';
+  classification: 'overdue' | 'due_soon' | 'later';
+  lastEventId: string | null;
+};
+
+export type VaccineReminderDto = {
+  id: string;
+  patientId: string;
+  vaccineEventId: string | null;
+  kind: string;
+  dueAt: string;
+  status: string;
+  channel: string | null;
+  sentAt: string | null;
+  note: string | null;
+  patient: { id: string; name: string; code: string };
+  product?: { id: string; code: string; name: string } | null;
+  vaccineEvent?: {
+    id: string;
+    lotCode: string;
+    expiresAt: string | null;
+    administeredAt: string;
+  } | null;
+};
+
+export const PRESCRIPTION_FORM_CATALOG: readonly { value: string; label: string }[] = [
+  { value: 'tablet', label: 'Tablet' },
+  { value: 'sirup', label: 'Şurup' },
+  { value: 'enjeksiyon', label: 'Enjeksiyon' },
+  { value: 'merhem', label: 'Merhem' },
+  { value: 'damla', label: 'Damla' },
+  { value: 'diger', label: 'Diğer' },
+];
+
+export const PRESCRIPTION_ROUTE_CATALOG: readonly { value: string; label: string }[] = [
+  { value: 'oral', label: 'Oral' },
+  { value: 'deri_alti', label: 'Deri altı' },
+  { value: 'kas_ici', label: 'Kas içi' },
+  { value: 'damar_ici', label: 'Damar içi' },
+  { value: 'topikal', label: 'Topikal' },
+  { value: 'diger', label: 'Diğer' },
+];
+
+export const PRESCRIPTION_STATUS_CATALOG: readonly { value: PrescriptionStatus; label: string }[] = [
+  { value: 'draft', label: 'Taslak' },
+  { value: 'signed', label: 'İmzalı' },
+  { value: 'voided', label: 'İptal' },
+];
+
+export const VACCINE_REMINDER_KIND_CATALOG: readonly { value: string; label: string }[] = [
+  { value: 'booster_due', label: 'Tekrar doz vadesi' },
+  { value: 'first_dose', label: 'İlk doz' },
+  { value: 'custom', label: 'Serbest' },
+];

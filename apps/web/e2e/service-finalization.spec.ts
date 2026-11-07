@@ -9,7 +9,8 @@ import { DEMO, expectNoHorizontalOverflow, login, screenshot } from './helpers';
  *
  * Mutasyonlar yeni muayene kaydı üzerinden yapılır (seed demo verisine
  * dokunmaz); Tüketim: Genel Muayene→Eldiven (partisiz), Kuduz Asısı→ parti
- * takipli (R2601, seed 3 doz). Kuduz stoğu iki koşum (desktop+mobile) için
+ * takipli (R2601, seed 6 doz — Faz 10 aşı kayıtları da bu partiden tüketir;
+ * f08-03 iki kırılım + f10-09 iki kırılım + tampon).
  * yeterlidir; API e2e kendi verisini kendisi kurar.
  */
 

@@ -46,7 +46,16 @@ function itDb(name: string, fn: () => Promise<void>): void {
 
 const branchIds: Record<string, string> = {};
 let adminToken = '';
-let resepsiyonToken = '';
+let izinsizToken = '';
+
+/**
+ * Bu fikstür, "izin sıfır" personel testini PAYLAŞILAN resepsiyon rolünü bozmadan
+ * yürütür: özel 'f03-izinsiz' rolü + 'izinsiz@vetcore-demo.example' personeli.
+ * (Geçmişte resepsiyon rolünün izinleri siliniyordu; paralel spec koşumunda diğer
+ * dosyaların resepsiyon testlerini 403'e düşürüyordu — kesişim hatası.)
+ */
+const FIXTURE_ROLE_KEY = 'f03-izinsiz';
+const FIXTURE_EMAIL = 'izinsiz@vetcore-demo.example';
 
 async function login(email: string, password: string) {
   const response = await request(app.getHttpServer())
@@ -131,7 +140,47 @@ beforeAll(async () => {
     update: {},
     create: { clinicId: clinic.id, key: 'resepsiyon', name: 'Resepsiyon', isSystem: true },
   });
+  // Paylaşılan resepsiyon rolü bozulmaz — aksine kataloğu eşleşen şablon izinleri
+  // geri yüklenir (paralel/geçmiş koşumlardan kalan kirli durumu iyileştirir).
+  const canonicalResepsiyon = [
+    'owner.manage',
+    'patient.manage',
+    'appointment.manage',
+    'prescription.manage',
+    'vaccine.manage',
+  ];
   await prisma.rolePermission.deleteMany({ where: { roleId: resepsiyonRole.id } });
+  await prisma.rolePermission.createMany({
+    data: canonicalResepsiyon
+      .filter((key) => permissionKeys.includes(key))
+      .map((permissionKey) => ({ roleId: resepsiyonRole.id, permissionKey })),
+  });
+
+  // İzinsiz personel fikstürü — yalnız bu spec'in kullanımına özel rol.
+  const fixtureRole = await prisma.role.upsert({
+    where: { clinicId_key: { clinicId: clinic.id, key: FIXTURE_ROLE_KEY } },
+    update: { name: 'F03 İzinsiz Fikstür' },
+    create: {
+      clinicId: clinic.id,
+      key: FIXTURE_ROLE_KEY,
+      name: 'F03 İzinsiz Fikstür',
+      isSystem: false,
+    },
+  });
+  await prisma.rolePermission.deleteMany({ where: { roleId: fixtureRole.id } });
+
+  const izinsiz = await prisma.staff.upsert({
+    where: { email: FIXTURE_EMAIL },
+    update: { passwordHash: hash, active: true },
+    create: {
+      clinicId: clinic.id,
+      email: FIXTURE_EMAIL,
+      passwordHash: hash,
+      firstName: 'İzinsiz',
+      lastName: 'Fikstür',
+      title: 'F03 Fikstür',
+    },
+  });
 
   const admin = await prisma.staff.upsert({
     where: { email: 'admin@vetcore-demo.example' },
@@ -160,7 +209,7 @@ beforeAll(async () => {
 
   for (const [staffId, roleId] of [
     [admin.id, adminRole.id],
-    [resepsiyon.id, resepsiyonRole.id],
+    [izinsiz.id, fixtureRole.id],
   ] as const) {
     await prisma.staffRole.upsert({
       where: { staffId_roleId: { staffId, roleId } },
@@ -171,7 +220,7 @@ beforeAll(async () => {
   for (const [staffId, branchId] of [
     [admin.id, merkez.id],
     [admin.id, sube2.id],
-    [resepsiyon.id, merkez.id],
+    [izinsiz.id, merkez.id],
   ] as const) {
     await prisma.staffBranch.upsert({
       where: { staffId_branchId: { staffId, branchId } },
@@ -226,27 +275,27 @@ describe('Faz 03 kimlik akışı (API entegrasyon)', () => {
     expect(response.status).toBe(401);
   });
 
-  itDb('05 — resepsiyon girişi: izinsiz uç 403, şube kapsamı 403', async () => {
-    const loginResponse = await login('resepsiyon@vetcore-demo.example', DEMO_PASSWORD);
+  itDb('05 — izinsiz personel girişi: izinsiz uç 403, şube kapsamı 403', async () => {
+    const loginResponse = await login(FIXTURE_EMAIL, DEMO_PASSWORD);
     expect(loginResponse.status).toBe(200);
-    resepsiyonToken = loginResponse.body.accessToken;
+    izinsizToken = loginResponse.body.accessToken;
     expect(loginResponse.body.permissions).toHaveLength(0);
 
     const staffList = await request(app.getHttpServer())
       .get('/api/v1/staff')
-      .set('Authorization', `Bearer ${resepsiyonToken}`);
+      .set('Authorization', `Bearer ${izinsizToken}`);
     expect(staffList.status).toBe(403); // staff.manage izni yok
 
     const otherBranch = await request(app.getHttpServer())
       .get('/api/v1/rooms')
       .query({ branchId: branchIds.SUB2 })
-      .set('Authorization', `Bearer ${resepsiyonToken}`);
+      .set('Authorization', `Bearer ${izinsizToken}`);
     expect(otherBranch.status).toBe(403); // Şube B kapsamı
 
     const ownBranch = await request(app.getHttpServer())
       .get('/api/v1/rooms')
       .query({ branchId: branchIds.MRKZ })
-      .set('Authorization', `Bearer ${resepsiyonToken}`);
+      .set('Authorization', `Bearer ${izinsizToken}`);
     expect(ownBranch.status).toBe(200);
   });
 
@@ -263,18 +312,18 @@ describe('Faz 03 kimlik akışı (API entegrasyon)', () => {
     const roles = await request(app.getHttpServer())
       .get('/api/v1/roles')
       .set('Authorization', `Bearer ${adminToken}`);
-    const resepsiyonRole = roles.body.find((r: { key: string }) => r.key === 'resepsiyon');
-    expect(resepsiyonRole).toBeTruthy();
+    const fixtureRoleDto = roles.body.find((r: { key: string }) => r.key === FIXTURE_ROLE_KEY);
+    expect(fixtureRoleDto).toBeTruthy();
 
     const update = await request(app.getHttpServer())
-      .put(`/api/v1/roles/${resepsiyonRole.id}/permissions`)
+      .put(`/api/v1/roles/${fixtureRoleDto.id}/permissions`)
       .send({ permissionKeys: ['reports.export'] })
       .set('Authorization', `Bearer ${adminToken}`);
     expect(update.status).toBe(200);
 
     // Değişikliği geri al (temiz fixture): boş izinler
     const revert = await request(app.getHttpServer())
-      .put(`/api/v1/roles/${resepsiyonRole.id}/permissions`)
+      .put(`/api/v1/roles/${fixtureRoleDto.id}/permissions`)
       .send({ permissionKeys: [] })
       .set('Authorization', `Bearer ${adminToken}`);
     expect(revert.status).toBe(200);
@@ -293,7 +342,7 @@ describe('Faz 03 kimlik akışı (API entegrasyon)', () => {
   itDb('08 — audit.view izni olmayan personel denetimi göremez', async () => {
     const response = await request(app.getHttpServer())
       .get('/api/v1/audit-events')
-      .set('Authorization', `Bearer ${resepsiyonToken}`);
+      .set('Authorization', `Bearer ${izinsizToken}`);
     expect(response.status).toBe(403);
   });
 
@@ -364,7 +413,7 @@ describe('Faz 03 kimlik akışı (API entegrasyon)', () => {
     const roles = await request(app.getHttpServer())
       .get('/api/v1/roles')
       .set('Authorization', `Bearer ${freshToken}`);
-    const resepsiyonRole = roles.body.find((r: { key: string }) => r.key === 'resepsiyon');
+    const fixtureRoleDto = roles.body.find((r: { key: string }) => r.key === FIXTURE_ROLE_KEY);
 
     const email = `test-${randomUUID().slice(0, 8)}@vetcore-demo.example`;
     const created = await request(app.getHttpServer())
@@ -374,18 +423,18 @@ describe('Faz 03 kimlik akışı (API entegrasyon)', () => {
         password: 'TestParola-2026!',
         firstName: 'Test',
         lastName: 'Personel',
-        roleIds: [resepsiyonRole.id],
+        roleIds: [fixtureRoleDto.id],
         branchIds: [branchIds.MRKZ],
       })
       .set('Authorization', `Bearer ${freshToken}`);
     expect(created.status).toBe(201);
     const staffId = created.body.id;
 
-    // Resepsiyon personel yönetemez
+    // İzinsiz personel yönetemez
     const forbidden = await request(app.getHttpServer())
       .put(`/api/v1/staff/${staffId}/roles`)
-      .send({ roleIds: [resepsiyonRole.id] })
-      .set('Authorization', `Bearer ${resepsiyonToken}`);
+      .send({ roleIds: [fixtureRoleDto.id] })
+      .set('Authorization', `Bearer ${izinsizToken}`);
     expect(forbidden.status).toBe(403);
 
     // Yetkili atama denetim kaydına düşer

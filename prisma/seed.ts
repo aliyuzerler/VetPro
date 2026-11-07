@@ -109,6 +109,10 @@ async function main(): Promise<void> {
         'inventory.receive',
         'inventory.consume',
         'inventory.transfer',
+        'prescription.manage',
+        'prescription.sign',
+        'prescription.dispense',
+        'vaccine.manage',
       ],
     },
     {
@@ -122,6 +126,8 @@ async function main(): Promise<void> {
         'patient.manage',
         'appointment.manage',
         'finance.pay',
+        'prescription.manage',
+        'vaccine.manage',
       ],
     },
     {
@@ -138,6 +144,7 @@ async function main(): Promise<void> {
         'product.manage',
         'supplier.manage',
         'warehouse.manage',
+        'prescription.dispense',
       ],
     },
     {
@@ -742,10 +749,14 @@ async function main(): Promise<void> {
     new Date(Date.UTC(y, m - 1, d, h - 3, min));
 
   const today = new Date();
-  const ty = today.getUTCFullYear();
-  const tm = today.getUTCMonth() + 1;
-  const td = today.getUTCDate();
-  // Yerel (İstanbul) bugünün tarih parçaları — UTC+3 ile UTC tarihi fark verebilir
+  // İstanbul yerel tarih parçaları: UTC+3 sabit; UTC tarih parçalarından
+  // türetmek gece yarısı sınırında (UTC henüz dün iken İstanbul bugün)
+  // randevuları yanlış güne yazar ve takvim/pano E2E'leri boş bugün görür.
+  const istanbulParts = new Date(today.getTime() + 3 * 3_600_000);
+  const ty = istanbulParts.getUTCFullYear();
+  const tm = istanbulParts.getUTCMonth() + 1;
+  const td = istanbulParts.getUTCDate();
+  // Yerel (İstanbul) bugünün tarih parçaları — yukarıda doğrudan hesaplanır
   const istanbulToday = istanbulInstant(ty, tm, td, 12, 0);
   const iy = istanbulToday.getUTCFullYear();
   const im = istanbulToday.getUTCMonth() + 1;
@@ -1447,7 +1458,7 @@ async function main(): Promise<void> {
   // Kuduz aşısı: minimum stok eşiğinin altında (düşük stok uyarısı senaryosu)
   await seedReceipt({
     product: kuduz, warehouse: merkezWarehouse, lotCode: 'R2601',
-    expiresAt: day(45), unitCost: 180, qty: 3, supplierId: vetpharm.id,
+    expiresAt: day(45), unitCost: 180, qty: 6, supplierId: vetpharm.id,
     trackingType: 'lot', idempotencyKey: 'a1000000-0000-4000-8000-000000000004',
   });
   // Hemogram kiti: karantina partisi (tüketim bloklu senaryosu)
