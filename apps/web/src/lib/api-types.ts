@@ -71,3 +71,142 @@ export type AuditListResponse = {
   items: AuditEvent[];
   total: number;
 };
+
+/* ---------- Faz 04: sahip, hasta, tür/ırk, uyarı, kilo, dosya ---------- */
+
+export type SpeciesOption = {
+  id: string;
+  key: string;
+  name: string;
+  breeds: { id: string; name: string }[];
+};
+
+export type OwnerContact = {
+  id: string;
+  kind: 'phone' | 'email';
+  value: string;
+  normalized: string;
+  label: string | null;
+  isPrimary: boolean;
+};
+
+export type OwnerConsent = {
+  id: string;
+  kind: string;
+  granted: boolean;
+  grantedAt: string | null;
+  revokedAt: string | null;
+};
+
+export type OwnerSummary = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  identityNo: string | null;
+  address: string | null;
+  notes: string | null;
+  archivedAt: string | null;
+  archivedReason: string | null;
+  mergedIntoOwnerId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  contacts: OwnerContact[];
+  consents: OwnerConsent[];
+  _count?: { patients: number };
+};
+
+export type PatientAlert = {
+  id: string;
+  kind: 'allergy' | 'chronic' | 'warning';
+  label: string;
+  severity: 'low' | 'medium' | 'high';
+  active: boolean;
+  resolvedAt: string | null;
+  createdAt: string;
+};
+
+export type OwnerPatient = {
+  id: string;
+  code: string;
+  name: string;
+  species: { id: string; name: string };
+  breed: { id: string; name: string } | null;
+  gender: string;
+  birthDate: string | null;
+  archivedAt: string | null;
+  alerts: PatientAlert[];
+};
+
+export type OwnerDetail = OwnerSummary & {
+  mergedIntoOwner: { id: string; firstName: string; lastName: string } | null;
+  patients: OwnerPatient[];
+};
+
+export type OwnerDuplicateCandidate = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  reasons: ('phone' | 'email' | 'name')[];
+  primaryContact: { kind: string; value: string } | null;
+};
+
+export type PatientSummary = {
+  id: string;
+  code: string;
+  name: string;
+  microchip: string | null;
+  gender: string;
+  birthDate: string | null;
+  neutered: boolean;
+  color: string | null;
+  bloodType: string | null;
+  archivedAt: string | null;
+  archivedReason: string | null;
+  mergedIntoPatientId: string | null;
+  species: { id: string; name: string };
+  breed: { id: string; name: string } | null;
+  owner: { id: string; firstName: string; lastName: string };
+  alerts: PatientAlert[];
+  _count?: { files: number };
+};
+
+export type WeightObservation = {
+  id: string;
+  weightKg: string | number;
+  measuredAt: string;
+  note: string | null;
+  createdByStaffId: string | null;
+};
+
+export type PatientDetail = PatientSummary & {
+  branch: { id: string; name: string; code: string };
+  mergedIntoPatient: { id: string; name: string; code: string } | null;
+  weights: WeightObservation[];
+};
+
+export type TimelineEvent = {
+  id: string;
+  type:
+    | 'weight'
+    | 'alert'
+    | 'alert-resolved'
+    | 'file'
+    | 'created'
+    | 'archived'
+    | 'merge'
+    | 'patient.update';
+  title: string;
+  description?: string | null;
+  at: string;
+  byStaff?: string | null;
+};
+
+export type FileAssetMeta = {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  kind: 'document' | 'image' | 'lab-result' | 'other';
+  createdAt: string;
+  uploadedByStaffId: string | null;
+};

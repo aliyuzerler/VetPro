@@ -12,9 +12,14 @@ import { RoomsControllerModule } from './rooms/rooms.module';
 import { WarehousesControllerModule } from './warehouses/warehouses.module';
 import { StaffControllerModule } from './staff/staff.module';
 import { RolesControllerModule } from './roles/roles.module';
+import { SpeciesModule } from './species/species.module';
+import { OwnersModule } from './owners/owners.module';
+import { PatientsModule } from './patients/patients.module';
+import { FilesModule } from './files/files.module';
 
 /**
  * Faz 03: kimlik, personel, rol/izin, şube kapsamı, oturum ve denetim modülleri.
+ * Faz 04: tür/ırk kataloğu, hasta sahibi, hasta (şube kapsamlı) ve özel dosya modülleri.
  * Guard zinciri (global): JwtAuthGuard → PermissionsGuard; şube kapsamlı uçlarda
  * ayrıca BranchScopeGuard devreye girer.
  */
@@ -32,6 +37,10 @@ import { RolesControllerModule } from './roles/roles.module';
     WarehousesControllerModule,
     StaffControllerModule,
     RolesControllerModule,
+    SpeciesModule,
+    OwnersModule,
+    PatientsModule,
+    FilesModule,
   ],
 })
 export class AppModule implements NestModule {

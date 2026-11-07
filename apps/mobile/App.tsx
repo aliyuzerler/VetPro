@@ -129,9 +129,7 @@ function MoreScreen() {
         <Text style={styles.moreItem}>Senkron merkezi — Faz 13&apos;te</Text>
         <Text style={styles.moreItem}>Destek ve gizlilik — Faz 15&apos;te</Text>
       </View>
-      <Text style={styles.version}>
-        VetCore mobil kabuk · Faz 02 · Sentetik demo verisi
-      </Text>
+      <Text style={styles.version}>VetCore mobil kabuk · Faz 02 · Sentetik demo verisi</Text>
     </View>
   );
 }
@@ -153,8 +151,8 @@ export default function App() {
           <StatusChip tone="info" label="Merkez Şube" />
         </View>
         <Text style={styles.headerNote}>
-          Mobil kabuk önizlemesi — kimlik doğrulama Faz 03&apos;te, gerçek akışlar sonraki
-          fazlarda eklenir.
+          Mobil kabuk önizlemesi — kimlik doğrulama Faz 03&apos;te, gerçek akışlar sonraki fazlarda
+          eklenir.
         </Text>
       </View>
 

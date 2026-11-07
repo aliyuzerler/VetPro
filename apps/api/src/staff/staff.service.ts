@@ -1,4 +1,10 @@
-import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { PasswordService } from '../common/auth/password.service';
@@ -52,11 +58,13 @@ export class StaffService {
   private async assertRolesAndBranches(clinicId: string, roleIds: string[], branchIds: string[]) {
     if (roleIds.length > 0) {
       const count = await this.prisma.role.count({ where: { id: { in: roleIds }, clinicId } });
-      if (count !== roleIds.length) throw new NotFoundException('Bir veya daha fazla rol bulunamadı');
+      if (count !== roleIds.length)
+        throw new NotFoundException('Bir veya daha fazla rol bulunamadı');
     }
     if (branchIds.length > 0) {
       const count = await this.prisma.branch.count({ where: { id: { in: branchIds }, clinicId } });
-      if (count !== branchIds.length) throw new NotFoundException('Bir veya daha fazla şube bulunamadı');
+      if (count !== branchIds.length)
+        throw new NotFoundException('Bir veya daha fazla şube bulunamadı');
     }
   }
 
@@ -111,7 +119,14 @@ export class StaffService {
         // Parola değişikliği açık oturumları geçersiz kılar.
         ...(dto.password ? { passwordHash: this.passwords.hash(dto.password) } : {}),
         ...(dto.active === false || dto.password
-          ? { sessions: { updateMany: { where: { revokedAt: null }, data: { revokedAt: new Date(), revokedReason: 'logout' } } } }
+          ? {
+              sessions: {
+                updateMany: {
+                  where: { revokedAt: null },
+                  data: { revokedAt: new Date(), revokedReason: 'logout' },
+                },
+              },
+            }
           : {}),
       },
       select: STAFF_LIST_SELECT,
@@ -132,7 +147,10 @@ export class StaffService {
   }
 
   async setRoles(auth: AuthContext, id: string, roleIds: string[]) {
-    const staff = await this.prisma.staff.findFirst({ where: { id, clinicId: auth.clinicId }, select: { id: true } });
+    const staff = await this.prisma.staff.findFirst({
+      where: { id, clinicId: auth.clinicId },
+      select: { id: true },
+    });
     if (!staff) throw new NotFoundException('Personel bulunamadı');
     await this.assertRolesAndBranches(auth.clinicId, roleIds, []);
     if (roleIds.length === 0) throw new ForbiddenException('Personel en az bir role sahip olmalı');
@@ -142,7 +160,9 @@ export class StaffService {
     });
     await this.prisma.$transaction([
       this.prisma.staffRole.deleteMany({ where: { staffId: id } }),
-      this.prisma.staffRole.createMany({ data: roleIds.map((roleId) => ({ staffId: id, roleId })) }),
+      this.prisma.staffRole.createMany({
+        data: roleIds.map((roleId) => ({ staffId: id, roleId })),
+      }),
     ]);
     await this.audit.record({
       clinicId: auth.clinicId,
@@ -159,7 +179,10 @@ export class StaffService {
   }
 
   async setBranches(auth: AuthContext, id: string, branchIds: string[]) {
-    const staff = await this.prisma.staff.findFirst({ where: { id, clinicId: auth.clinicId }, select: { id: true } });
+    const staff = await this.prisma.staff.findFirst({
+      where: { id, clinicId: auth.clinicId },
+      select: { id: true },
+    });
     if (!staff) throw new NotFoundException('Personel bulunamadı');
     await this.assertRolesAndBranches(auth.clinicId, [], branchIds);
     if (branchIds.length === 0) throw new ForbiddenException('Personel en az bir şubeye atanmalı');

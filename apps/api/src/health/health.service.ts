@@ -30,16 +30,12 @@ export class HealthService {
   }
 
   async getLiveness(): Promise<HealthResponse> {
-    const checks: HealthCheck[] = [
-      { name: 'api', status: 'ok', detail: 'Süreç çalışıyor' },
-    ];
+    const checks: HealthCheck[] = [{ name: 'api', status: 'ok', detail: 'Süreç çalışıyor' }];
     return { ...this.baseFields('ok'), checks };
   }
 
   async getReadiness(): Promise<HealthResponse> {
-    const checks: HealthCheck[] = [
-      { name: 'api', status: 'ok', detail: 'Süreç çalışıyor' },
-    ];
+    const checks: HealthCheck[] = [{ name: 'api', status: 'ok', detail: 'Süreç çalışıyor' }];
 
     const dbCheck = await this.checkDatabase();
     checks.push(dbCheck);

@@ -15,6 +15,7 @@ export const DEMO = {
   admin: { email: 'admin@vetcore-demo.example', password: 'VetCore2026!' },
   veteriner: { email: 'veteriner@vetcore-demo.example', password: 'VetCore2026!' },
   resepsiyon: { email: 'resepsiyon@vetcore-demo.example', password: 'VetCore2026!' },
+  stok: { email: 'stok@vetcore-demo.example', password: 'VetCore2026!' },
 };
 
 export async function screenshot(page: Page, name: string, fullPage = true): Promise<void> {

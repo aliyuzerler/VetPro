@@ -2,12 +2,7 @@
 
 import { useState } from 'react';
 import { HeartPulse } from 'lucide-react';
-import {
-  ACCENT_COLORS,
-  BRAND_COLORS,
-  NEUTRAL_COLORS,
-  STATUS_COLORS,
-} from '@vetcore/ui-tokens';
+import { ACCENT_COLORS, BRAND_COLORS, NEUTRAL_COLORS, STATUS_COLORS } from '@vetcore/ui-tokens';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -149,9 +144,7 @@ export default function StyleGuidePage() {
           </span>
         </div>
         <div className="rounded-md border border-border bg-brand-50 p-4">
-          <p className="text-base font-medium">
-            Türkçe glif kontrolü: İ ı Ş ş Ğ ğ Ü ü Ö ö Ç ç
-          </p>
+          <p className="text-base font-medium">Türkçe glif kontrolü: İ ı Ş ş Ğ ğ Ü ü Ö ö Ç ç</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Cümle örneği: İğne ve şişe ödünç kayıtları Çarşamba günü Üsküdar Şubesi&apos;nde
             güncellendi; kâğıt formlar yoğun bakım arşivine taşındı, ödemeler Öğleden sonra

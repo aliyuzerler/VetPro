@@ -21,7 +21,10 @@ export class WarehousesService {
   }
 
   private async assertClinicBranch(clinicId: string, branchId: string): Promise<void> {
-    const branch = await this.prisma.branch.findFirst({ where: { id: branchId, clinicId }, select: { id: true } });
+    const branch = await this.prisma.branch.findFirst({
+      where: { id: branchId, clinicId },
+      select: { id: true },
+    });
     if (!branch) throw new ForbiddenException('Şube bu kliniğe ait değil');
   }
 
@@ -65,7 +68,10 @@ export class WarehousesService {
       action: 'warehouse.update',
       entityType: 'warehouse',
       entityId: id,
-      metadata: { before: { name: before.name, active: before.active }, after: { name: warehouse.name, active: warehouse.active } },
+      metadata: {
+        before: { name: before.name, active: before.active },
+        after: { name: warehouse.name, active: warehouse.active },
+      },
     });
     return warehouse;
   }

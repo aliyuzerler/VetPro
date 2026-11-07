@@ -11,10 +11,14 @@ pkill -f "dev-postgres.mjs" 2>/dev/null
 pkill -f "embedded-postgres" 2>/dev/null
 pkill -f "bin/postgres" 2>/dev/null
 pkill -f "vetcore-api" 2>/dev/null
+pkill -f "nest start" 2>/dev/null
+pkill -f "apps/api" 2>/dev/null
 sleep 3
-for i in $(seq 1 10); do
-  node -e "const net=require('net');const s=net.connect(5433,'127.0.0.1');s.on('connect',()=>process.exit(0));s.on('error',()=>process.exit(1))" 2>/dev/null || { echo "Port 5433 boş"; break; }
-  sleep 1
+for PORT in 5433 4000; do
+  for i in $(seq 1 10); do
+    node -e "const net=require('net');const s=net.connect(${PORT},'127.0.0.1');s.on('connect',()=>process.exit(0));s.on('error',()=>process.exit(1))" 2>/dev/null || { echo "Port ${PORT} boş"; break; }
+    sleep 1
+  done
 done
 
 echo "=== 1. PostgreSQL (gömülü, taze küme) ==="
@@ -57,7 +61,12 @@ echo "Readiness:"; curl -s http://localhost:4000/api/v1/health/readiness | head 
 
 echo "=== 4. Playwright E2E ==="
 set -e
-pnpm --filter @vetcore/web e2e
+# E2E_FILTER verilirse yalnız o testler koşar (hata ayıklama için)
+if [ -n "${E2E_FILTER:-}" ]; then
+  pnpm --filter @vetcore/web exec playwright test ${E2E_FILTER}
+else
+  pnpm --filter @vetcore/web e2e
+fi
 E2E_CODE=$?
 set +e
 

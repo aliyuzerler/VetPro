@@ -268,12 +268,7 @@ export default function DashboardPage() {
           icon={Wallet}
           trend={{ direction: 'down', text: '%3 dünküye göre' }}
         />
-        <KpiCard
-          label="Kritik Stok"
-          value="7"
-          hint="Kalem minimum eşik altında"
-          icon={PackageX}
-        />
+        <KpiCard label="Kritik Stok" value="7" hint="Kalem minimum eşik altında" icon={PackageX} />
       </section>
 
       <div className="grid gap-4 xl:grid-cols-3">
@@ -366,8 +361,8 @@ export default function DashboardPage() {
       {/* Alt bilgi + yenile */}
       <footer className="flex flex-wrap items-center justify-between gap-4 pb-2 text-xs text-muted-foreground">
         <span>
-          Demo/sentetik veri ile çalışır; gerçek klinik verisi kullanılmaz. Türkçe karakterler:
-          İ ı Ş ş Ğ ğ Ü ü Ö ö Ç ç.
+          Demo/sentetik veri ile çalışır; gerçek klinik verisi kullanılmaz. Türkçe karakterler: İ ı
+          Ş ş Ğ ğ Ü ü Ö ö Ç ç.
         </span>
         <Button
           variant="outline"

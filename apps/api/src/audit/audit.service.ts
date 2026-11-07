@@ -61,7 +61,12 @@ export class AuditService {
       ...(params.staffId ? { staffId: params.staffId } : {}),
       ...(params.action ? { action: params.action } : {}),
       ...(params.from || params.to
-        ? { createdAt: { ...(params.from ? { gte: params.from } : {}), ...(params.to ? { lte: params.to } : {}) } }
+        ? {
+            createdAt: {
+              ...(params.from ? { gte: params.from } : {}),
+              ...(params.to ? { lte: params.to } : {}),
+            },
+          }
         : {}),
     };
     const [items, total] = await Promise.all([

@@ -1,6 +1,16 @@
 'use client';
 
-import { Bell, Building2, ChevronDown, CircleHelp, LogOut, Menu, Search, Settings, ShieldCheck } from 'lucide-react';
+import {
+  Bell,
+  Building2,
+  ChevronDown,
+  CircleHelp,
+  LogOut,
+  Menu,
+  Search,
+  Settings,
+  ShieldCheck,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -14,12 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { StatusChip } from '@/components/design-system/status-chip';
 import { useAuth } from '@/lib/auth-context';
 
@@ -117,7 +122,12 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
         {/* Bildirimler — sentetik demo içerik */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative size-11" aria-label="Bildirimler">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="relative size-11"
+              aria-label="Bildirimler"
+            >
               <Bell className="size-5" aria-hidden="true" />
               <span
                 className="absolute right-2.5 top-2.5 size-2 rounded-full bg-status-danger"

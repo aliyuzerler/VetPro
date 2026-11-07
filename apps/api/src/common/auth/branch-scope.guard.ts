@@ -1,4 +1,11 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  type CanActivate,
+  type ExecutionContext,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { BRANCH_SCOPED_KEY } from './decorators';
 import type { AuthRequest } from './auth-context';
@@ -20,13 +27,18 @@ export class BranchScopeGuard implements CanActivate {
     ]);
     if (!scoped) return true;
 
-    const request = context
-      .switchToHttp()
-      .getRequest<AuthRequest & { headers: Record<string, string | string[] | undefined>; query?: Record<string, unknown>; body?: Record<string, unknown> }>();
+    const request = context.switchToHttp().getRequest<
+      AuthRequest & {
+        headers: Record<string, string | string[] | undefined>;
+        query?: Record<string, unknown>;
+        body?: Record<string, unknown>;
+      }
+    >();
     const auth = request.auth;
     if (!auth) throw new ForbiddenException('Kimlik bağlamı yok');
 
-    const fromQuery = typeof request.query?.branchId === 'string' ? request.query.branchId : undefined;
+    const fromQuery =
+      typeof request.query?.branchId === 'string' ? request.query.branchId : undefined;
     const headerValue = request.headers['x-branch-id'];
     const fromHeader = typeof headerValue === 'string' ? headerValue : undefined;
     const fromBody = typeof request.body?.branchId === 'string' ? request.body.branchId : undefined;

@@ -31,7 +31,7 @@ jobs:
 
     env:
       DATABASE_URL: postgresql://vetcore:vetcore@localhost:5432/vetcore?schema=public
-      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_TELEMETRY_DISABLED: '1'
 
     steps:
       - uses: actions/checkout@v4

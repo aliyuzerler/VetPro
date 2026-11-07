@@ -2,6 +2,76 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.3.0] — Faz 04: Hasta sahibi ve hayvan hasta yönetimi (2026-11-07)
+
+### Eklendi
+- **Veri modeli (migration `faz04_owners_patients`)**: `Species` (global katalog, seed:
+  6 tür / 26 ırk), `Breed`, `Owner`, `OwnerContact` (normalize telefon `90…` / e-posta),
+  `OwnerConsent` (KVKK, SMS, e-posta, WhatsApp, pazarlama), `Patient` (şube kapsamlı,
+  klinik içinde tekil `HP-000N` kodu ve mikroçip), `PatientAlert` (alerji/kronik/uyarı,
+  önem dereceli), `WeightObservation`, `FileAsset` (private storage meta verisi).
+- **API — sahipler** (`/owners`): CRUD, serbest arama (ad-soyad **kelime bazlı** —
+  sıra bağımsız; telefon **normalize** — biçimden bağımsız; e-posta), mükerrer kontrol
+  uç noktası (`GET /owners/duplicates` — telefon/e-posta güçlü, ad-soyad zayıf sinyal;
+  otomatik merge YOK), arşivleme/arşivden çıkarma (sebep zorunlu, aktif hastası olan
+  sahip arşivlenemez), açık merge (`POST /owners/:id/merge` — hastalar hedefe taşınır,
+  kaynak arşivlenir ve `mergedIntoOwnerId` işaretlenir).
+- **API — hastalar** (`/patients`, `/owners/:id/patients`): CRUD, arama (ad, kod,
+  mikroçip, sahip adı/telefonu), **şube kapsamı** (yetkisiz şube listelerde görmez,
+  doğrudan erişimde 403), mükerrer mikroçip 409 + `GET /patients/duplicates` uyarısı,
+  uyarı ekle/çöz/yeniden aç, kilo gözlemleri, hasta başına zaman çizelgesi iskeleti
+  (kilo + uyarı + dosya + denetim olayları; SOAP olayları Faz 06'da bağlanacak).
+- **API — tür/ırk kataloğu** (`/species`): aktif katalog + ırklar (okuma tüm personel),
+  ırk ekleme `master.manage` izniyle.
+- **API — dosyalar** (`/file-assets`): multipart yükleme (MIME beyaz listesi, 10 MB
+  sınır), metadata listesi (storage key dönmaz), **yetkili indirme** (Bearer + şube
+  kapsamı; kimliksiz 401, yetkisiz şube 403). `LocalPrivateStorageAdapter`: UUID dosya
+  adları, `PRIVATE_STORAGE_DIR` (HTTP servis edilmez, gitignore), path traversal
+  koruması (ADR-018).
+- **İzinler**: `owner.manage`, `patient.manage`, `master.manage` (katalog
+  `prisma/permissions.ts` tek kaynağa taşındı); veteriner ve resepsiyon şablonlarına
+  sahip/hasta yönetimi eklendi.
+- **Web — `/sahipler`**: arama + liste, yeni sahip formu (iletişim + rızalar) ve
+  **mükerrer uyarı akışı** (adaylar + eşleşme nedenleri → "Yine de kaydet" açık onayı).
+- **Web — `/sahipler/[id]`**: iletişim/rıza kartları, hasta tablosu (çoklu hasta),
+  yeni hasta formu (tür→ırk kademeli seçim, mikroçip, ilk kilo, başlangıç uyarısı),
+  arşivleme + merge diyalogları.
+- **Web — `/hastalar`**: arama (ad/kod/çip/sahip) + tür filtresi; alerji/kronik uyarı
+  rozetleri listede görünür (kabul kriteri).
+- **Web — `/hastalar/[id]`**: uyarı kartı (ekle/çöz/yeniden aç), kilo geçmişi,
+  dosyalar (yükleme + yetkili indirme), zaman çizelgesi iskeleti.
+- **Storybook (ADR-017)**: 5 yeni story dosyası — Sahip Listesi, Mükerrer Kayıt
+  Uyarısı, Hasta Listesi, Hasta Uyarıları, Zaman Çizelgesi/Kilo/Dosyalar, Sahip Hasta
+  Tablosu + Hasta Formu (toplam 22 yeni story; test-runner **40/40 PASS**, play
+  etkileşim testleri + axe kapısı dahil; 43 görüntü `docs/screenshots/storybook/`).
+- **Playwright E2E (ADR-013)**: `owners-patients.spec.ts` — 11 senaryo × 2 proje =
+  22 yeni test (liste/arama, mükerrer uyarı akışı, çoklu hasta, uyarı rozetleri,
+  mikroçip araması, uyarı ekle/çöz, kilo, dosya yükleme/indirme, arşiv akışı, yetkisiz
+  şube görünümü, mobil düzen). Tam zincir **46/46 PASS**; ekran görüntüleri
+  `apps/web/e2e/screenshots/` + README bölümü.
+- **API testleri**: 27 yeni unit test (telefon/e-posta/mikroçip normalizasyonu, mükerrer
+  eşleştirme kuralları, private storage sözleşmesi) + 10 senaryoluk API e2e kabul
+  kriteri doğrulaması (gerçek DB + guard zinciri; 401/403/409/415 durumları dahil).
+
+### Düzeltildi (Faz 04 QA doğrulaması — 2026-11-07)
+- **Kritik — vitest/esbuild `emitDecoratorMetadata` eksikliği**: API e2e testlerinde
+  `design:paramtypes` üretilmediği için ValidationPipe DTO metatipini göremiyor ve
+  doğrulamayı **sessizce atlıyordu** (boş gövde 400 yerine işleyiciye düşüyordu).
+  `unplugin-swc` eklentisiyle test ortamı üretim (`nest build`/tsc) paritesine
+  getirildi; eksik doğrulama testleri artık gerçekten 400 döndürüyor.
+- **Faz 03 `auth-flow` test fikstürü**: sabit 11 izinlik liste, paralel dosya koşumunda
+  admin izinlerini eski kümeye geri alıyordu (Faz 04 testlerini kırıyordu). Fikstür
+  artık katalogdaki tüm izinleri dinamik eşitliyor (fazdan bağımsız).
+- **Hasta detayı yalnız aktif uyarıları döndürüyordu**: çözülen uyarılar kayboluyor,
+  "Yeniden aç" akışı çalışmıyordu → detay sorgusu tüm uyarıları döndürür.
+- **Ad-soyad araması tam isimle eşleşmiyordu** ("E2E Test Sahibi" → ad VE soyad ayrı
+  alanlarda olduğundan sonuç boştu) → kelime bazlı AND/OR eşleşme (sıra bağımsız).
+- **Erişilebilirlik (axe)**: mükerrer uyarı kutusunda muted metin uyarı zemini üstünde
+  4.49:1 (tam ön plan rengine çekildi), uyarı kartında saydamlıklı alt metin kontrast
+  ihlali veriyordu (opaklık kaldırıldı).
+- `files.controller` yükleme işleyicisinde `@Body()` dekoratörü eksikti (multipart alanı
+  işleyiciye ulaşmıyor, 500 dönüyordu).
+
 ## [0.2.1] — Storybook bileşen atölyesi ve a11y token düzeltmesi (2026-11-07)
 
 ### Eklendi

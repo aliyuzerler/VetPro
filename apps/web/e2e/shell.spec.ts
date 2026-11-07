@@ -1,10 +1,5 @@
 import { expect, test } from '@playwright/test';
-import {
-  DEMO,
-  expectNoHorizontalOverflow,
-  login,
-  screenshot,
-} from './helpers';
+import { DEMO, expectNoHorizontalOverflow, login, screenshot } from './helpers';
 
 /**
  * VetCore — uygulama kabuğu ve tasarım sistemi E2E testleri (Faz 03 güncel).
@@ -27,9 +22,7 @@ test.describe('Uygulama kabuğu (masaüstü, kimlikli)', () => {
 
     await expect(page.getByTestId('app-sidebar')).toBeVisible();
     await expect(page.getByTestId('app-topbar')).toBeVisible();
-    await expect(
-      page.getByText('Faz 03 — kimlik ve şube kapsamı'),
-    ).toBeVisible();
+    await expect(page.getByText('Faz 03 — kimlik ve şube kapsamı')).toBeVisible();
 
     // Aktif şube seçici oturumdan gelir (seed: Merkez Şube varsayılan)
     await expect(page.getByTestId('branch-selector')).toContainText('Merkez Şube');
@@ -129,9 +122,7 @@ test.describe('Uygulama kabuğu (masaüstü, kimlikli)', () => {
     await drawer.getByRole('button', { name: 'Yönetim' }).click();
     await drawer.getByRole('link', { name: 'Tasarım Sistemi' }).click();
 
-    await expect(
-      page.getByRole('heading', { name: 'Tasarım Sistemi', level: 1 }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Tasarım Sistemi', level: 1 })).toBeVisible();
     await expectNoHorizontalOverflow(page);
 
     // Çekmece kapanma animasyonu bittikten sonra görüntü al
@@ -153,10 +144,7 @@ test.describe('Uygulama kabuğu (masaüstü, kimlikli)', () => {
 
 test.describe('Mobil görünüm (iPhone 14, kimlikli)', () => {
   test('08 — mobilde düzen bozulmaz, çekmece menü çalışır', async ({ page }) => {
-    test.skip(
-      test.info().project.name !== 'chromium-mobile',
-      'Yalnızca mobil projesinde çalışır',
-    );
+    test.skip(test.info().project.name !== 'chromium-mobile', 'Yalnızca mobil projesinde çalışır');
 
     await login(page, DEMO.admin);
     await expect(page.getByRole('heading', { name: 'Genel Bakış', level: 1 })).toBeVisible();

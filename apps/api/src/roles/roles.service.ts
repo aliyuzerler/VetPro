@@ -16,7 +16,9 @@ export class RolesService {
       where: { clinicId },
       orderBy: [{ name: 'asc' }],
       include: {
-        rolePermissions: { select: { permissionKey: true, permission: { select: { name: true, group: true } } } },
+        rolePermissions: {
+          select: { permissionKey: true, permission: { select: { name: true, group: true } } },
+        },
         _count: { select: { staffRoles: true } },
       },
     });
@@ -99,7 +101,10 @@ export class RolesService {
     const uniqueKeys = [...new Set(permissionKeys)];
     await this.assertPermissionKeys(uniqueKeys);
 
-    const before = await this.prisma.rolePermission.findMany({ where: { roleId: id }, select: { permissionKey: true } });
+    const before = await this.prisma.rolePermission.findMany({
+      where: { roleId: id },
+      select: { permissionKey: true },
+    });
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.rolePermission.deleteMany({ where: { roleId: id } });
       if (uniqueKeys.length > 0) {

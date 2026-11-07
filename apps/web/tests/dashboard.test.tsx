@@ -52,9 +52,7 @@ describe('Faz 02 kontrol paneli (Genel Bakış)', () => {
 
     // Faz planı 15 satır; Faz 02 sürdürülüyor
     expect(screen.getByText('Faz planı')).toBeInTheDocument();
-    expect(
-      screen.getByText('Güvenlik, performans, dağıtım ve sürüm'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Güvenlik, performans, dağıtım ve sürüm')).toBeInTheDocument();
 
     // Türkçe karakterli sentetik veri tabloya yazılmış
     const table = screen.getByRole('table');

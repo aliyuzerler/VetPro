@@ -38,7 +38,20 @@ export class ClinicService {
       action: 'clinic.update',
       entityType: 'clinic',
       entityId: clinicId,
-      metadata: { before: { name: before.name, timezone: before.timezone, locale: before.locale, currency: before.currency }, after: { name: updated.name, timezone: updated.timezone, locale: updated.locale, currency: updated.currency } },
+      metadata: {
+        before: {
+          name: before.name,
+          timezone: before.timezone,
+          locale: before.locale,
+          currency: before.currency,
+        },
+        after: {
+          name: updated.name,
+          timezone: updated.timezone,
+          locale: updated.locale,
+          currency: updated.currency,
+        },
+      },
     });
     return updated;
   }

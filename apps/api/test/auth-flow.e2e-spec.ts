@@ -14,7 +14,8 @@ import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { PasswordService } from '../src/common/auth/password.service';
 
-process.env.DATABASE_URL ??= 'postgresql://vetcore:vetcore-dev@localhost:5433/vetcore?schema=public';
+process.env.DATABASE_URL ??=
+  'postgresql://vetcore:vetcore-dev@localhost:5433/vetcore?schema=public';
 process.env.AUTH_JWT_SECRET ??= 'vetcore-test-secret-0123456789abcdef';
 
 const DEMO_PASSWORD = 'VetCore2026!';
@@ -75,7 +76,9 @@ beforeAll(async () => {
     return;
   }
 
-  // --- Düzeltici düzene (idempotent test fikstürü, seed ile aynı katalog) ---
+  // --- Düzeltici düzne (idempotent test fikstürü) ---
+  // Faz 04'ten itibaren izin kataloğu faza göre büyür; sabit liste tutmak yerine
+  // katalogdaki TÜM izinler admin rolüne eşitlenir (seed'in ALL davranışıyla paralel).
   const passwords = app.get(PasswordService);
   const hash = passwords.hash(DEMO_PASSWORD);
 
@@ -98,26 +101,25 @@ beforeAll(async () => {
   branchIds.MRKZ = merkez.id;
   branchIds.SUB2 = sube2.id;
 
-  const permissionKeys = [
-    'clinical.sign', 'inventory.adjust', 'finance.refund', 'reports.export', 'audit.view',
-    'settings.manage', 'branch.manage', 'staff.manage', 'roles.manage', 'room.manage', 'warehouse.manage',
-  ];
-  for (const key of permissionKeys) {
-    await prisma.permission.upsert({
-      where: { key },
-      update: {},
-      create: {
-        key,
-        group: key.split('.')[0] ?? 'other',
-        name: key,
-      },
-    });
+  // Katalog, seed tarafından tutulur (prisma/permissions.ts tek kaynaktır); test
+  // fikstürü fazdan bağımsız olarak katalogdaki TÜM izinleri admin'e eşitler.
+  const permissionKeys = (await prisma.permission.findMany({ select: { key: true } })).map(
+    (p) => p.key,
+  );
+  if (permissionKeys.length === 0) {
+    throw new Error('İzin kataloğu boş — önce `pnpm db:seed` çalıştırın');
   }
 
   const adminRole = await prisma.role.upsert({
     where: { clinicId_key: { clinicId: clinic.id, key: 'admin' } },
     update: { allBranches: true },
-    create: { clinicId: clinic.id, key: 'admin', name: 'Klinik Yöneticisi', isSystem: true, allBranches: true },
+    create: {
+      clinicId: clinic.id,
+      key: 'admin',
+      name: 'Klinik Yöneticisi',
+      isSystem: true,
+      allBranches: true,
+    },
   });
   await prisma.rolePermission.deleteMany({ where: { roleId: adminRole.id } });
   await prisma.rolePermission.createMany({
@@ -156,7 +158,10 @@ beforeAll(async () => {
     },
   });
 
-  for (const [staffId, roleId] of [[admin.id, adminRole.id], [resepsiyon.id, resepsiyonRole.id]] as const) {
+  for (const [staffId, roleId] of [
+    [admin.id, adminRole.id],
+    [resepsiyon.id, resepsiyonRole.id],
+  ] as const) {
     await prisma.staffRole.upsert({
       where: { staffId_roleId: { staffId, roleId } },
       update: {},
@@ -164,7 +169,9 @@ beforeAll(async () => {
     });
   }
   for (const [staffId, branchId] of [
-    [admin.id, merkez.id], [admin.id, sube2.id], [resepsiyon.id, merkez.id],
+    [admin.id, merkez.id],
+    [admin.id, sube2.id],
+    [resepsiyon.id, merkez.id],
   ] as const) {
     await prisma.staffBranch.upsert({
       where: { staffId_branchId: { staffId, branchId } },
@@ -203,7 +210,13 @@ describe('Faz 03 kimlik akışı (API entegrasyon)', () => {
       .set('Authorization', `Bearer ${adminToken}`);
     expect(response.status).toBe(200);
     const keys = response.body.map((p: { key: string }) => p.key);
-    for (const required of ['clinical.sign', 'inventory.adjust', 'finance.refund', 'reports.export', 'audit.view']) {
+    for (const required of [
+      'clinical.sign',
+      'inventory.adjust',
+      'finance.refund',
+      'reports.export',
+      'audit.view',
+    ]) {
       expect(keys).toContain(required);
     }
   });

@@ -1,10 +1,34 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { api, clearTokens, getRefreshToken, onSessionExpired, refreshSession, setTokens, TOKEN_STORAGE } from '@/lib/api-client';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import {
+  api,
+  clearTokens,
+  getRefreshToken,
+  onSessionExpired,
+  refreshSession,
+  setTokens,
+  TOKEN_STORAGE,
+} from '@/lib/api-client';
 
 export type MePayload = {
-  staff: { id: string; email: string; firstName: string; lastName: string; fullName: string; title: string | null };
+  staff: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    title: string | null;
+  };
   roles: { key: string; name: string }[];
   permissions: string[];
   allBranches: boolean;
@@ -70,25 +94,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      const payload = await api<{
+  const login = useCallback(async (email: string, password: string) => {
+    const payload = await api<
+      {
         accessToken: string;
         refreshToken: string;
-      } & MePayload>('/auth/login', { method: 'POST', body: { email, password }, skipRefresh: true });
-      setTokens(payload.accessToken, payload.refreshToken);
-      setSession({
-        staff: payload.staff,
-        roles: payload.roles,
-        permissions: payload.permissions,
-        allBranches: payload.allBranches,
-        branches: payload.branches,
-        activeBranch: payload.activeBranch,
-      });
-      setStatus('auth');
-    },
-    [],
-  );
+      } & MePayload
+    >('/auth/login', { method: 'POST', body: { email, password }, skipRefresh: true });
+    setTokens(payload.accessToken, payload.refreshToken);
+    setSession({
+      staff: payload.staff,
+      roles: payload.roles,
+      permissions: payload.permissions,
+      allBranches: payload.allBranches,
+      branches: payload.branches,
+      activeBranch: payload.activeBranch,
+    });
+    setStatus('auth');
+  }, []);
 
   const logout = useCallback(async () => {
     const refreshToken = getRefreshToken();

@@ -29,22 +29,46 @@ export function KlinikProfili() {
     queryFn: () => api<ClinicProfile>('/clinic'),
   });
 
-  type ClinicForm = { name: string; legalName: string; timezone: string; locale: string; currency: string };
-  const EMPTY_FORM: ClinicForm = { name: '', legalName: '', timezone: '', locale: '', currency: '' };
+  type ClinicForm = {
+    name: string;
+    legalName: string;
+    timezone: string;
+    locale: string;
+    currency: string;
+  };
+  const EMPTY_FORM: ClinicForm = {
+    name: '',
+    legalName: '',
+    timezone: '',
+    locale: '',
+    currency: '',
+  };
 
   /** Taslak desen: sunucu verisi temel, kullanıcı düzenlemesi draft'ta — effect yok. */
   const [draft, setDraft] = useState<ClinicForm | null>(null);
   const data = query.data;
-  const form: ClinicForm = draft ?? (data
-    ? { name: data.name, legalName: data.legalName ?? '', timezone: data.timezone, locale: data.locale, currency: data.currency }
-    : EMPTY_FORM);
+  const form: ClinicForm =
+    draft ??
+    (data
+      ? {
+          name: data.name,
+          legalName: data.legalName ?? '',
+          timezone: data.timezone,
+          locale: data.locale,
+          currency: data.currency,
+        }
+      : EMPTY_FORM);
 
   const mutation = useMutation({
-    mutationFn: (payload: ClinicForm) => api<ClinicProfile>('/clinic', { method: 'PATCH', body: payload }),
+    mutationFn: (payload: ClinicForm) =>
+      api<ClinicProfile>('/clinic', { method: 'PATCH', body: payload }),
     onSuccess: () => {
       setDraft(null);
       void queryClient.invalidateQueries({ queryKey: ['clinic'] });
-      toast({ title: 'Klinik profili güncellendi', description: 'Değişiklik denetim kaydına yazıldı.' });
+      toast({
+        title: 'Klinik profili güncellendi',
+        description: 'Değişiklik denetim kaydına yazıldı.',
+      });
     },
     onError: (error: Error) => {
       toast({ title: 'Güncelleme başarısız', description: error.message, variant: 'destructive' });

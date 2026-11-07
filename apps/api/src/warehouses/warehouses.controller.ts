@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Inject, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { WarehousesService } from './warehouses.service';
 import { CreateWarehouseDto, UpdateWarehouseDto } from '../master/master.dto';
@@ -21,7 +32,11 @@ export class WarehousesController {
 
   @Post()
   @RequirePermissions('warehouse.manage')
-  create(@Body() dto: CreateWarehouseDto, @CurrentAuth() auth: AuthContext, @Req() request: AuthRequest) {
+  create(
+    @Body() dto: CreateWarehouseDto,
+    @CurrentAuth() auth: AuthContext,
+    @Req() request: AuthRequest,
+  ) {
     return this.warehousesService.create(auth, dto, request.branchId!);
   }
 

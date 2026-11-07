@@ -48,14 +48,14 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     icon: Building2,
     items: [
       { label: 'Şubeler ve Personel', phase: 3, href: '/ayarlar' },
-      { label: 'Hasta Sahipleri', phase: 4 },
+      { label: 'Hasta Sahipleri', phase: 4, href: '/sahipler' },
     ],
   },
   {
     label: 'Hastalar',
     icon: Heart,
     items: [
-      { label: 'Hasta Listesi', phase: 4 },
+      { label: 'Hasta Listesi', phase: 4, href: '/hastalar' },
       { label: 'Aşı Takvimi', phase: 10 },
     ],
   },

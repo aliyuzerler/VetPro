@@ -1,15 +1,15 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+  - 'apps/*'
+  - 'packages/*'
 
 # pnpm 10 çalıştırmaya izin verilen derleme betikleri (güvenli liste)
 onlyBuiltDependencies:
-  - "@prisma/client"
-  - "@prisma/engines"
-  - "@tailwindcss/oxide"
-  - "esbuild"
-  - "prisma"
-  - "sharp"
-  - "unrs-resolver"
-  - "embedded-postgres"
-  - "@embedded-postgres/linux-x64"
+  - '@prisma/client'
+  - '@prisma/engines'
+  - '@tailwindcss/oxide'
+  - 'esbuild'
+  - 'prisma'
+  - 'sharp'
+  - 'unrs-resolver'
+  - 'embedded-postgres'
+  - '@embedded-postgres/linux-x64'

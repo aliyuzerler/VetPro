@@ -26,9 +26,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(`BullMQ bağlantısı hazırlanıyor: ${this.env.REDIS_URL}`);
     // Faz 01'de işleyici bulunmadığından kalıcı tüketici başlatılmaz.
     // Redis bağlantı sağlığı Faz 08+ işlemleriyle birlikte aktif izlenecektir.
-    this.logger.log(
-      `Tanımlı kuyruklar: ${Object.values(QUEUE_NAMES).join(', ')} (işleyici yok)`,
-    );
+    this.logger.log(`Tanımlı kuyruklar: ${Object.values(QUEUE_NAMES).join(', ')} (işleyici yok)`);
   }
 
   async onModuleDestroy(): Promise<void> {

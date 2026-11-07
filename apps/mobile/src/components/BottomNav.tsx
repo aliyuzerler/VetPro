@@ -42,7 +42,10 @@ function TabIcon({ tab, active }: { tab: BottomNavTab; active: boolean }) {
         <View style={[{ width: size, height: size }, styles.center, styles.row]} accessible={false}>
           <View style={[styles.head, { borderColor: c, width: 12, height: 12 }]} />
           <View
-            style={[styles.head, { borderColor: c, width: 8, height: 8, marginLeft: -4, marginTop: 4 }]}
+            style={[
+              styles.head,
+              { borderColor: c, width: 8, height: 8, marginLeft: -4, marginTop: 4 },
+            ]}
           />
         </View>
       );
@@ -73,10 +76,7 @@ function TabIcon({ tab, active }: { tab: BottomNavTab; active: boolean }) {
       return (
         <View style={[{ width: size, height: size }, styles.center, styles.row]} accessible={false}>
           {[0, 1, 2].map((i) => (
-            <View
-              key={i}
-              style={[styles.moreDot, { backgroundColor: c, marginHorizontal: 2 }]}
-            />
+            <View key={i} style={[styles.moreDot, { backgroundColor: c, marginHorizontal: 2 }]} />
           ))}
         </View>
       );
@@ -110,7 +110,13 @@ export function BottomNav({
             style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
           >
             <TabIcon tab={tab.id} active={isActive} />
-            <Text style={[styles.tabLabel, { color: isActive ? COLORS.brand600 : COLORS.neutral600 }, isActive && styles.tabLabelActive]}>
+            <Text
+              style={[
+                styles.tabLabel,
+                { color: isActive ? COLORS.brand600 : COLORS.neutral600 },
+                isActive && styles.tabLabelActive,
+              ]}
+            >
               {tab.label}
             </Text>
             {isActive && <View style={styles.activeDot} />}

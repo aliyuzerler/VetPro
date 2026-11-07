@@ -37,11 +37,21 @@ function AyarlarIcerik() {
 
       <Tabs value={currentTab} onValueChange={onTabChange}>
         <TabsList className="flex w-full flex-wrap justify-start gap-1 sm:w-auto">
-          <TabsTrigger value="klinik" className="min-h-11">Klinik Profili</TabsTrigger>
-          <TabsTrigger value="subeler" className="min-h-11">Şubeler</TabsTrigger>
-          <TabsTrigger value="personel" className="min-h-11">Personel</TabsTrigger>
-          <TabsTrigger value="roller" className="min-h-11">Roller ve İzinler</TabsTrigger>
-          <TabsTrigger value="denetim" className="min-h-11" data-testid="tab-denetim">Denetim Kaydı</TabsTrigger>
+          <TabsTrigger value="klinik" className="min-h-11">
+            Klinik Profili
+          </TabsTrigger>
+          <TabsTrigger value="subeler" className="min-h-11">
+            Şubeler
+          </TabsTrigger>
+          <TabsTrigger value="personel" className="min-h-11">
+            Personel
+          </TabsTrigger>
+          <TabsTrigger value="roller" className="min-h-11">
+            Roller ve İzinler
+          </TabsTrigger>
+          <TabsTrigger value="denetim" className="min-h-11" data-testid="tab-denetim">
+            Denetim Kaydı
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="klinik" className="mt-4">

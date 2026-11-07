@@ -42,9 +42,7 @@ export function KpiCard({
                 trend.direction === 'flat' && 'text-muted-foreground',
               )}
             >
-              {trend.direction === 'up' && (
-                <ArrowUpRight className="size-3" aria-hidden="true" />
-              )}
+              {trend.direction === 'up' && <ArrowUpRight className="size-3" aria-hidden="true" />}
               {trend.direction === 'down' && (
                 <ArrowDownRight className="size-3" aria-hidden="true" />
               )}

@@ -7,12 +7,24 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@/components/ui/table';
 import { EmptyState, ErrorState, UnauthorizedState } from '@/components/design-system/state-views';
 import { useToast } from '@/hooks/use-toast';
@@ -28,8 +40,13 @@ export function Personel() {
   const canManage = hasPermission('staff.manage');
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({
-    email: '', password: '', firstName: '', lastName: '', title: '',
-    roleIds: [] as string[], branchIds: [] as string[],
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    title: '',
+    roleIds: [] as string[],
+    branchIds: [] as string[],
   });
 
   const staffQuery = useQuery({
@@ -57,17 +74,35 @@ export function Personel() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['staff'] });
       setCreateOpen(false);
-      setForm({ email: '', password: '', firstName: '', lastName: '', title: '', roleIds: [], branchIds: [] });
+      setForm({
+        email: '',
+        password: '',
+        firstName: '',
+        lastName: '',
+        title: '',
+        roleIds: [],
+        branchIds: [],
+      });
       toast({ title: 'Personel oluşturuldu', description: 'Denetim kaydına yazıldı.' });
     },
-    onError: (error: Error) => toast({ title: 'Personel oluşturulamadı', description: error.message, variant: 'destructive' }),
+    onError: (error: Error) =>
+      toast({
+        title: 'Personel oluşturulamadı',
+        description: error.message,
+        variant: 'destructive',
+      }),
   });
 
   const toggleActive = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) =>
       api<StaffMember>(`/staff/${id}`, { method: 'PATCH', body: { active } }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['staff'] }),
-    onError: (error: Error) => toast({ title: 'Personel güncellenemedi', description: error.message, variant: 'destructive' }),
+    onError: (error: Error) =>
+      toast({
+        title: 'Personel güncellenemedi',
+        description: error.message,
+        variant: 'destructive',
+      }),
   });
 
   function onCreate(event: FormEvent<HTMLFormElement>) {
@@ -93,7 +128,9 @@ export function Personel() {
     return (
       <ErrorState
         title="Personel yüklenemedi"
-        description={staffQuery.error instanceof Error ? staffQuery.error.message : 'Bilinmeyen hata'}
+        description={
+          staffQuery.error instanceof Error ? staffQuery.error.message : 'Bilinmeyen hata'
+        }
         onRetry={() => void staffQuery.refetch()}
       />
     );
@@ -122,25 +159,55 @@ export function Personel() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="staff-first">Ad</Label>
-                  <Input id="staff-first" required minLength={2} value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
+                  <Input
+                    id="staff-first"
+                    required
+                    minLength={2}
+                    value={form.firstName}
+                    onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+                  />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="staff-last">Soyad</Label>
-                  <Input id="staff-last" required minLength={2} value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
+                  <Input
+                    id="staff-last"
+                    required
+                    minLength={2}
+                    value={form.lastName}
+                    onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+                  />
                 </div>
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="staff-email">E-posta</Label>
-                <Input id="staff-email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                <Input
+                  id="staff-email"
+                  type="email"
+                  required
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="staff-pass">Parola</Label>
-                  <Input id="staff-pass" type="password" required minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                  <Input
+                    id="staff-pass"
+                    type="password"
+                    required
+                    minLength={8}
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="staff-title">Unvan</Label>
-                  <Input id="staff-title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="örn. Veteriner Hekim" />
+                  <Input
+                    id="staff-title"
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    placeholder="örn. Veteriner Hekim"
+                  />
                 </div>
               </div>
               <div className="flex flex-col gap-2">
@@ -149,7 +216,9 @@ export function Personel() {
                   <label key={role.id} className="flex items-center gap-2 text-sm">
                     <Checkbox
                       checked={form.roleIds.includes(role.id)}
-                      onCheckedChange={() => setForm({ ...form, roleIds: toggleIn(form.roleIds, role.id) })}
+                      onCheckedChange={() =>
+                        setForm({ ...form, roleIds: toggleIn(form.roleIds, role.id) })
+                      }
                     />
                     {role.name}
                   </label>
@@ -161,15 +230,28 @@ export function Personel() {
                   <label key={branch.id} className="flex items-center gap-2 text-sm">
                     <Checkbox
                       checked={form.branchIds.includes(branch.id)}
-                      onCheckedChange={() => setForm({ ...form, branchIds: toggleIn(form.branchIds, branch.id) })}
+                      onCheckedChange={() =>
+                        setForm({ ...form, branchIds: toggleIn(form.branchIds, branch.id) })
+                      }
                     />
                     {branch.name}
                   </label>
                 ))}
               </div>
               <DialogFooter>
-                <Button type="submit" disabled={createMutation.isPending || form.roleIds.length === 0 || form.branchIds.length === 0}>
-                  {createMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                <Button
+                  type="submit"
+                  disabled={
+                    createMutation.isPending ||
+                    form.roleIds.length === 0 ||
+                    form.branchIds.length === 0
+                  }
+                >
+                  {createMutation.isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Plus className="size-4" />
+                  )}
                   Oluştur
                 </Button>
               </DialogFooter>
@@ -196,21 +278,27 @@ export function Personel() {
                 <TableRow key={member.id} data-testid={`staff-row-${member.email}`}>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-medium">{member.firstName} {member.lastName}</span>
+                      <span className="font-medium">
+                        {member.firstName} {member.lastName}
+                      </span>
                       <span className="text-xs text-muted-foreground">{member.email}</span>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {member.staffRoles.map((sr) => (
-                        <Badge key={sr.role.id} variant="secondary">{sr.role.name}</Badge>
+                        <Badge key={sr.role.id} variant="secondary">
+                          {sr.role.name}
+                        </Badge>
                       ))}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {member.staffBranches.map((sb) => (
-                        <Badge key={sb.branch.id} variant="outline">{sb.branch.code}</Badge>
+                        <Badge key={sb.branch.id} variant="outline">
+                          {sb.branch.code}
+                        </Badge>
                       ))}
                     </div>
                   </TableCell>

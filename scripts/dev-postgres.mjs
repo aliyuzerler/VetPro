@@ -32,7 +32,9 @@ async function up() {
       initdbFlags: ['--lc-messages=C'],
     });
     await pg.start();
-    console.log(`Gömülü PostgreSQL hazır (mevcut küme): postgresql://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}`);
+    console.log(
+      `Gömülü PostgreSQL hazır (mevcut küme): postgresql://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}`,
+    );
     console.log('Durdurmak için: pkill -f dev-postgres.mjs (veriler .tmp-pg/ içinde kalır)');
     attachSignalHandlers(pg);
     return;
@@ -54,7 +56,9 @@ async function up() {
   await pg.start();
   await pg.createDatabase(POSTGRES_DB);
 
-  console.log(`Gömülü PostgreSQL hazır: postgresql://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}`);
+  console.log(
+    `Gömülü PostgreSQL hazır: postgresql://${POSTGRES_USER}:***@localhost:${PORT}/${POSTGRES_DB}`,
+  );
   console.log('Durdurmak için: pkill -f dev-postgres.mjs (veriler .tmp-pg/ içinde kalır)');
 
   attachSignalHandlers(pg);

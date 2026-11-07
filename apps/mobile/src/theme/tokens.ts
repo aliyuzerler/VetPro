@@ -8,7 +8,7 @@ export const COLORS = {
   brand50: '#F1FAF8',
   brand100: '#DDF3EF',
   brand500: '#37A197',
-  brand600: '#267F77',   /* a11y: beyaz metin üstünde 4.81:1 */
+  brand600: '#267F77' /* a11y: beyaz metin üstünde 4.81:1 */,
   brand700: '#216A64',
   brand800: '#1C514D',
   brand900: '#173B39',

@@ -22,6 +22,14 @@ export const EnvSchema = z.object({
   AUTH_REFRESH_TTL_SEC: z.coerce.number().int().positive().default(2_592_000), // 30 gün
   CLINIC_TIMEZONE: z.string().default('Europe/Istanbul'),
   DEFAULT_LOCALE: z.string().default('tr-TR'),
+  /// Faz 04 — private dosya saklama kök dizini (HTTP tarafından servis edilmez).
+  PRIVATE_STORAGE_DIR: z.string().default('.uploads'),
+  /// Faz 04 — tek dosya için üst boyut sınırı (byte).
+  MAX_UPLOAD_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(10 * 1024 * 1024),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

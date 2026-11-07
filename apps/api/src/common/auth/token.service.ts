@@ -62,7 +62,9 @@ export class TokenService {
     const payloadB64 = parts[1];
     const signatureB64 = parts[2];
     if (!headerB64 || !payloadB64 || !signatureB64) return null;
-    const expected = createHmac('sha256', this.secret).update(`${headerB64}.${payloadB64}`).digest();
+    const expected = createHmac('sha256', this.secret)
+      .update(`${headerB64}.${payloadB64}`)
+      .digest();
     let actual: Buffer;
     try {
       actual = Buffer.from(signatureB64, 'base64url');
@@ -73,13 +75,19 @@ export class TokenService {
 
     let parsed: JwtParts['payload'];
     try {
-      parsed = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')) as JwtParts['payload'];
+      parsed = JSON.parse(
+        Buffer.from(payloadB64, 'base64url').toString('utf8'),
+      ) as JwtParts['payload'];
     } catch {
       return null;
     }
     if (parsed.iss !== 'vetcore' || parsed.aud !== 'vetcore-api') return null;
     if (typeof parsed.exp !== 'number' || parsed.exp * 1000 <= Date.now()) return null;
-    if (typeof parsed.sub !== 'string' || typeof parsed.sid !== 'string' || typeof parsed.cid !== 'string') {
+    if (
+      typeof parsed.sub !== 'string' ||
+      typeof parsed.sid !== 'string' ||
+      typeof parsed.cid !== 'string'
+    ) {
       return null;
     }
     return {

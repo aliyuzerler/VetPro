@@ -57,3 +57,5 @@ blob-report/
 
 # ADR-010: tek kilit dosyası — pnpm-lock.yaml
 bun.lock
+# Faz 04 — private file storage (yerel adaptör; dosyalar repoya girmez)
+.uploads/

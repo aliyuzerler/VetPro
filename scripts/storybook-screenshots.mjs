@@ -14,7 +14,9 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 // pnpm sıkı düzeni: @playwright/test yalnızca apps/web bağlamında çözümlenir
-const { chromium } = createRequire(path.join(ROOT, 'apps', 'web', 'package.json'))('@playwright/test');
+const { chromium } = createRequire(path.join(ROOT, 'apps', 'web', 'package.json'))(
+  '@playwright/test',
+);
 const OUT_DIR = path.join(ROOT, 'docs', 'screenshots', 'storybook');
 const INDEX = path.join(ROOT, 'apps', 'web', 'storybook-static', 'index.json');
 const BASE = process.argv[2] ?? 'http://127.0.0.1:6006';
@@ -56,7 +58,9 @@ for (const id of MOBILE_IDS) {
 // Storybook yönetim arayüzü — kenar çubuğu + dokümantasyon paneli görünsün
 const ui = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 try {
-  await ui.goto(`${BASE}/?path=/story/design-system-statuschip--tum-tonlar`, { waitUntil: 'networkidle' });
+  await ui.goto(`${BASE}/?path=/story/design-system-statuschip--tum-tonlar`, {
+    waitUntil: 'networkidle',
+  });
   await ui.evaluate(() => document.fonts.ready);
   await ui.waitForTimeout(600);
   await ui.screenshot({ path: path.join(OUT_DIR, 'storybook-arayuzu.png') });

@@ -9,7 +9,7 @@ export const BRAND_COLORS = {
   50: '#F1FAF8',
   100: '#DDF3EF',
   500: '#37A197',
-  600: '#267F77',   /* a11y: beyaz metin üstünde 4.81:1 */
+  600: '#267F77' /* a11y: beyaz metin üstünde 4.81:1 */,
   700: '#216A64',
   800: '#1C514D',
   900: '#173B39',

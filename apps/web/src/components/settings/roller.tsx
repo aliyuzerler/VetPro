@@ -6,13 +6,25 @@ import { KeyRound, Loader2, Plus, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@/components/ui/table';
 import { ErrorState, UnauthorizedState } from '@/components/design-system/state-views';
 import { useToast } from '@/hooks/use-toast';
@@ -52,7 +64,8 @@ export function Roller() {
       setForm({ name: '', key: '', description: '' });
       toast({ title: 'Rol oluşturuldu', description: 'Denetim kaydına yazıldı.' });
     },
-    onError: (error: Error) => toast({ title: 'Rol oluşturulamadı', description: error.message, variant: 'destructive' }),
+    onError: (error: Error) =>
+      toast({ title: 'Rol oluşturulamadı', description: error.message, variant: 'destructive' }),
   });
 
   const matrixMutation = useMutation({
@@ -60,9 +73,13 @@ export function Roller() {
       api<Role>(`/roles/${roleId}/permissions`, { method: 'PUT', body: { permissionKeys } }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['roles'] });
-      toast({ title: 'İzin matrisi güncellendi', description: 'Değişiklik denetim kaydına yazıldı.' });
+      toast({
+        title: 'İzin matrisi güncellendi',
+        description: 'Değişiklik denetim kaydına yazıldı.',
+      });
     },
-    onError: (error: Error) => toast({ title: 'Matris güncellenemedi', description: error.message, variant: 'destructive' }),
+    onError: (error: Error) =>
+      toast({ title: 'Matris güncellenemedi', description: error.message, variant: 'destructive' }),
   });
 
   const permissionGroups = useMemo(() => {
@@ -106,7 +123,9 @@ export function Roller() {
     return (
       <ErrorState
         title="Roller yüklenemedi"
-        description={rolesQuery.error instanceof Error ? rolesQuery.error.message : 'Bilinmeyen hata'}
+        description={
+          rolesQuery.error instanceof Error ? rolesQuery.error.message : 'Bilinmeyen hata'
+        }
         onRetry={() => void rolesQuery.refetch()}
       />
     );
@@ -136,19 +155,41 @@ export function Roller() {
             <form onSubmit={onCreate} className="flex flex-col gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="role-name">Rol adı</Label>
-                <Input id="role-name" required minLength={2} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                <Input
+                  id="role-name"
+                  required
+                  minLength={2}
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="role-key">Anahtar (tekil)</Label>
-                <Input id="role-key" required minLength={2} maxLength={40} placeholder="örn. hizmet-muduru" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} />
+                <Input
+                  id="role-key"
+                  required
+                  minLength={2}
+                  maxLength={40}
+                  placeholder="örn. hizmet-muduru"
+                  value={form.key}
+                  onChange={(e) => setForm({ ...form, key: e.target.value })}
+                />
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="role-desc">Açıklama</Label>
-                <Input id="role-desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                <Input
+                  id="role-desc"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                />
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                  {createMutation.isPending ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Plus className="size-4" />
+                  )}
                   Oluştur
                 </Button>
               </DialogFooter>
@@ -172,7 +213,10 @@ export function Roller() {
               {permissionGroups.map(([group, permissions]) =>
                 permissions.map((permission) => (
                   <TableHead key={permission.key} className="text-center">
-                    <span title={permission.description ?? permission.name} className="text-[11px] font-normal">
+                    <span
+                      title={permission.description ?? permission.name}
+                      className="text-[11px] font-normal"
+                    >
                       {permission.key}
                     </span>
                   </TableHead>
@@ -197,7 +241,9 @@ export function Roller() {
                 </TableCell>
                 {permissionGroups.map(([, permissions]) =>
                   permissions.map((permission) => {
-                    const enabled = role.rolePermissions.some((rp) => rp.permissionKey === permission.key);
+                    const enabled = role.rolePermissions.some(
+                      (rp) => rp.permissionKey === permission.key,
+                    );
                     return (
                       <TableCell key={permission.key} className="text-center">
                         <Switch

@@ -134,3 +134,64 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   }
   return data as T;
 }
+
+/**
+ * Faz 04 — multipart dosya yükleme (private storage). JSON gövde göndermez;
+ * FormData alanları olduğu gibi iletilir. 401'de bir kez sessiz yenileme denenir.
+ */
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const doFetch = (): Promise<Response> => {
+    const headers: Record<string, string> = {};
+    const token = getAccessToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return fetch(`/api/v1${path}`, { method: 'POST', headers, body: formData });
+  };
+
+  let res = await doFetch();
+  if (res.status === 401 && getRefreshToken()) {
+    const refreshed = await refreshSession();
+    if (refreshed) {
+      res = await doFetch();
+    } else {
+      notifySessionExpired();
+      throw new ApiError(401, 'Oturum süresi doldu');
+    }
+  }
+  const data: unknown = await res.json().catch(() => null);
+  if (!res.ok) {
+    const message =
+      data && typeof data === 'object' && 'message' in data
+        ? String((data as { message: unknown }).message)
+        : `Yükleme başarısız (${res.status})`;
+    throw new ApiError(res.status, message);
+  }
+  return data as T;
+}
+
+/**
+ * Faz 04 — yetkili dosya indirme: Bearer başlığıyla akış çeker ve tarayıcıda
+ * kaydetmeyi tetikler. İndirme URL'si dışarıya sızmaz (private storage sözleşmesi).
+ */
+export async function apiDownload(path: string, fileName: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  const token = getAccessToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`/api/v1${path}`, { headers });
+  if (!res.ok) {
+    const body: unknown = await res.json().catch(() => null);
+    const message =
+      body && typeof body === 'object' && 'message' in body
+        ? String((body as { message: unknown }).message)
+        : `İndirme başarısız (${res.status})`;
+    throw new ApiError(res.status, message);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}

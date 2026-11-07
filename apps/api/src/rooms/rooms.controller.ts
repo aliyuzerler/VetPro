@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Inject, Param, ParseUUIDPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RoomsService } from './rooms.service';
 import { CreateRoomDto, UpdateRoomDto } from '../master/master.dto';
@@ -21,7 +32,11 @@ export class RoomsController {
 
   @Post()
   @RequirePermissions('room.manage')
-  create(@Body() dto: CreateRoomDto, @CurrentAuth() auth: AuthContext, @Req() request: AuthRequest) {
+  create(
+    @Body() dto: CreateRoomDto,
+    @CurrentAuth() auth: AuthContext,
+    @Req() request: AuthRequest,
+  ) {
     return this.roomsService.create(auth, dto, request.branchId!);
   }
 

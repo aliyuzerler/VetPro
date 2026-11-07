@@ -1,4 +1,15 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Ip, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Ip,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { ActiveBranchDto, LoginDto, LogoutDto, RefreshDto } from './dto/auth.dto';
@@ -18,10 +29,7 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  login(
-    @Body() dto: LoginDto,
-    @Ip() ip?: string,
-  ) {
+  login(@Body() dto: LoginDto, @Ip() ip?: string) {
     return this.auth.login(dto.email, dto.password, this.meta(ip, undefined));
   }
 
@@ -42,14 +50,22 @@ export class AuthController {
   @ApiBearerAuth()
   @Get('me')
   me(@CurrentAuth() auth: AuthContext) {
-    return this.auth.me({ staffId: auth.staffId, clinicId: auth.clinicId, sessionId: auth.sessionId });
+    return this.auth.me({
+      staffId: auth.staffId,
+      clinicId: auth.clinicId,
+      sessionId: auth.sessionId,
+    });
   }
 
   @ApiBearerAuth()
   // JwtAuthGuard globaldir; burada yalnızca şube kapsamı çözülür.
   @UseGuards(BranchScopeGuard)
   @Patch('active-branch')
-  setActiveBranch(@Body() dto: ActiveBranchDto, @CurrentAuth() auth: AuthContext, @Ip() ip?: string) {
+  setActiveBranch(
+    @Body() dto: ActiveBranchDto,
+    @CurrentAuth() auth: AuthContext,
+    @Ip() ip?: string,
+  ) {
     return this.auth.setActiveBranch(
       {
         staffId: auth.staffId,

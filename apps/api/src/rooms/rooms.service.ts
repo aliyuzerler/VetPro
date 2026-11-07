@@ -27,14 +27,17 @@ export class RoomsService {
   }
 
   private async assertClinicBranch(clinicId: string, branchId: string): Promise<void> {
-    const branch = await this.prisma.branch.findFirst({ where: { id: branchId, clinicId }, select: { id: true } });
+    const branch = await this.prisma.branch.findFirst({
+      where: { id: branchId, clinicId },
+      select: { id: true },
+    });
     if (!branch) throw new ForbiddenException('Şube bu kliniğe ait değil');
   }
 
   async create(auth: AuthContext, dto: CreateRoomDto, branchId: string) {
     await this.assertClinicBranch(auth.clinicId, branchId);
     const kind = ROOM_KINDS.includes((dto.kind ?? 'examination') as (typeof ROOM_KINDS)[number])
-      ? dto.kind ?? 'examination'
+      ? (dto.kind ?? 'examination')
       : 'examination';
     const room = await this.prisma.room.create({
       data: { branchId, name: dto.name.trim(), kind },
@@ -63,7 +66,9 @@ export class RoomsService {
       where: { id },
       data: {
         ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
-        ...(dto.kind !== undefined && ROOM_KINDS.includes(dto.kind as (typeof ROOM_KINDS)[number]) ? { kind: dto.kind } : {}),
+        ...(dto.kind !== undefined && ROOM_KINDS.includes(dto.kind as (typeof ROOM_KINDS)[number])
+          ? { kind: dto.kind }
+          : {}),
         ...(dto.active !== undefined ? { active: dto.active } : {}),
       },
     });
@@ -74,7 +79,10 @@ export class RoomsService {
       action: 'room.update',
       entityType: 'room',
       entityId: id,
-      metadata: { before: { name: before.name, active: before.active }, after: { name: room.name, active: room.active } },
+      metadata: {
+        before: { name: before.name, active: before.active },
+        after: { name: room.name, active: room.active },
+      },
     });
     return room;
   }

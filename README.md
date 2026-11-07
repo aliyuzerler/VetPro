@@ -111,6 +111,29 @@ pnpm dev:mobile     # Expo DevTools (QR ile cihaz/emülatör)
   warehouse.manage; sistem rol şablonları (Klinik Yöneticisi, Veteriner Hekim, Resepsiyon,
   Stok Yöneticisi, Finans) düzenlenebilir.
 
+## Hasta sahipleri ve hastalar (Faz 04)
+
+- `/sahipler` — sahip arama (ad-soyad kelime bazlı, telefon biçimden bağımsız normalize)
+  ve listesi; yeni sahip formu gönderiminde **mükerrer kayıt uyarısı** (aynı telefon/
+  e-posta güçlü, aynı ad-soyad zayıf sinyal) — otomatik birleştirme yapılmaz, kullanıcı
+  "Yine de kaydet" ile açık karar verir.
+- `/sahipler/[id]` — iletişim kanalları ve KVKK/iletişim rızaları; **bir sahip altında
+  çoklu hasta** tablosu; yeni hasta formu (tür → ırk kademeli seçim, mikroçip, ilk kilo,
+  başlangıç uyarısı); arşivleme (sebep zorunlu) ve **açık merge** (hastalar hedef
+  sahibe taşınır, kaynak arşivlenir). Silme yoktur (ADR-018).
+- `/hastalar` — hasta arama (ad, `HP-000N` kodu, mikroçip, sahip adı/telefonu) + tür
+  filtresi; **alerji ve kronik hastalık uyarıları listede rozet olarak görünür**.
+  Yalnız erişim yetkisi olan şubelerin kayıtları listelenir.
+- `/hastalar/[id]` — uyarı yönetimi (ekle/çöz/yeniden aç), kilo geçmişi (doz hesabı
+  için tüm ölçümler), **private storage dosyaları** (yükleme + yetkili indirme — dış
+  URL sızmaz) ve **zaman çizelgesi iskeleti** (kilo/uyarı/dosya/denetim olayları;
+  muayene akışı Faz 06'da bağlanacak).
+- **Şube kapsamı (API düzeyinde):** hasta kayıtları kayıt şubesine bağlıdır; başka
+  şubenin personeli listelerde görmez ve doğrudan erişimde 403 alır. Dosya indirme
+  aynı kapsamla korunur (kimliksiz istek 401).
+- **Yeni izinler:** `owner.manage`, `patient.manage`, `master.manage` (veteriner ve
+  resepsiyon şablonlarında sahip/hasta yönetimi).
+
 ## Ekran Görüntüleri
 
 Aşağıdaki görüntüler standart faz sonu Playwright E2E koşusundan alınmıştır
@@ -176,6 +199,61 @@ Silinmez denetim defteri: giriş, yetki ve ayar değişiklikleri; eylem filtresi
 
 staff.manage / audit.view izni olmayan personel kilitli durum hikâyesini görür; API
 guard'ı aynı uçları 403 ile korur.
+
+
+### Web — Sahip listesi (`/sahipler`, Faz 04)
+
+![Sahip listesi](docs/screenshots/web-sahipler-listesi.png)
+
+### Web — Mükerrer kayıt uyarısı (Faz 04)
+
+![Mükerrer uyarı](docs/screenshots/web-mukerrer-uyarisi.png)
+
+Aynı telefonla yeni sahip kaydı girildiğinde adaylar ve eşleşme nedenleri gösterilir;
+otomatik birleştirme yapılmaz — "Yine de kaydet" açık onayı gerekir.
+
+### Web — Sahip detayı ve çoklu hasta (Faz 04)
+
+![Sahip detayı](docs/screenshots/web-sahip-detay-hastalar.png)
+
+### Web — Hasta listesi, uyarı rozetleri (Faz 04)
+
+![Hasta listesi uyarılar](docs/screenshots/web-hasta-listesi-uyarilar.png)
+
+Alerji/kronik uyarıları listede önem derecesine göre renkli rozet + ikon + metinle
+görünür (renk tek başına bilgi taşımaz).
+
+### Web — Hasta detayı: uyarılar, kilo, dosyalar (Faz 04)
+
+![Hasta detayı](docs/screenshots/web-hasta-detay.png)
+
+### Web — Hasta zaman çizelgesi iskeleti (Faz 04)
+
+![Zaman çizelgesi](docs/screenshots/web-hasta-zaman-cizelgesi.png)
+
+### Web — Dosya yükleme, private storage (Faz 04)
+
+![Dosyalar](docs/screenshots/web-hasta-dosyalar.png)
+
+İndirme yalnızca Bearer kimlik + şube kapsamı doğrulayan API ucuyla akar; dosya URL'si
+dışarıya sızmaz (ADR-018).
+
+### Web — Hasta arşivleme (sebep zorunlu, Faz 04)
+
+![Hasta arşiv](docs/screenshots/web-hasta-arsiv.png)
+
+### Web — Yetkisiz şube görünümü (stok rolü, Faz 04)
+
+![Yetkisiz şube](docs/screenshots/web-yetkisiz-sube-hastalar.png)
+
+Yalnızca İkinci Şube'ye erişimi olan personel Merkez hastalarını listelerde görmez;
+API aynı kayda doğrudan erişimde 403 döner.
+
+### Mobil — sahipler ve hastalar (Faz 04)
+
+![Mobil sahipler](docs/screenshots/mobil-sahipler.png)
+
+![Mobil hastalar](docs/screenshots/mobil-hastalar.png)
 
 ### Mobil — giriş sayfası (Faz 03)
 

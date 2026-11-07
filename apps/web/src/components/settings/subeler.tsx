@@ -6,13 +6,25 @@ import { Building2, Loader2, Plus, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@/components/ui/table';
 import { EmptyState, ErrorState } from '@/components/design-system/state-views';
 import { useToast } from '@/hooks/use-toast';
@@ -43,14 +55,16 @@ export function Subeler() {
       setNewBranch({ name: '', code: '', address: '' });
       toast({ title: 'Şube oluşturuldu', description: 'Denetim kaydına yazıldı.' });
     },
-    onError: (error: Error) => toast({ title: 'Şube oluşturulamadı', description: error.message, variant: 'destructive' }),
+    onError: (error: Error) =>
+      toast({ title: 'Şube oluşturulamadı', description: error.message, variant: 'destructive' }),
   });
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) =>
       api<Branch>(`/branches/${id}`, { method: 'PATCH', body: { active } }),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['branches'] }),
-    onError: (error: Error) => toast({ title: 'Şube güncellenemedi', description: error.message, variant: 'destructive' }),
+    onError: (error: Error) =>
+      toast({ title: 'Şube güncellenemedi', description: error.message, variant: 'destructive' }),
   });
 
   function onCreate(event: FormEvent<HTMLFormElement>) {
@@ -96,19 +110,41 @@ export function Subeler() {
               <form onSubmit={onCreate} className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="branch-name">Şube adı</Label>
-                  <Input id="branch-name" required minLength={2} value={newBranch.name} onChange={(e) => setNewBranch({ ...newBranch, name: e.target.value })} />
+                  <Input
+                    id="branch-name"
+                    required
+                    minLength={2}
+                    value={newBranch.name}
+                    onChange={(e) => setNewBranch({ ...newBranch, name: e.target.value })}
+                  />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="branch-code">Şube kodu</Label>
-                  <Input id="branch-code" required minLength={2} maxLength={8} placeholder="örn. SUB3" value={newBranch.code} onChange={(e) => setNewBranch({ ...newBranch, code: e.target.value })} />
+                  <Input
+                    id="branch-code"
+                    required
+                    minLength={2}
+                    maxLength={8}
+                    placeholder="örn. SUB3"
+                    value={newBranch.code}
+                    onChange={(e) => setNewBranch({ ...newBranch, code: e.target.value })}
+                  />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="branch-address">Adres</Label>
-                  <Input id="branch-address" value={newBranch.address} onChange={(e) => setNewBranch({ ...newBranch, address: e.target.value })} />
+                  <Input
+                    id="branch-address"
+                    value={newBranch.address}
+                    onChange={(e) => setNewBranch({ ...newBranch, address: e.target.value })}
+                  />
                 </div>
                 <DialogFooter>
                   <Button type="submit" disabled={createMutation.isPending}>
-                    {createMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                    {createMutation.isPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Plus className="size-4" />
+                    )}
                     Oluştur
                   </Button>
                 </DialogFooter>
@@ -119,10 +155,7 @@ export function Subeler() {
       </CardHeader>
       <CardContent>
         {branches.length === 0 ? (
-          <EmptyState
-            title="Henüz şube yok"
-            description="İlk şubeyi oluşturarak başlayın."
-          />
+          <EmptyState title="Henüz şube yok" description="İlk şubeyi oluşturarak başlayın." />
         ) : (
           <Table>
             <TableHeader>
@@ -140,11 +173,17 @@ export function Subeler() {
                   <TableCell className="font-medium">
                     {branch.name}
                     {branch.isPrimary ? (
-                      <Badge variant="secondary" className="ml-2">Ana şube</Badge>
+                      <Badge variant="secondary" className="ml-2">
+                        Ana şube
+                      </Badge>
                     ) : null}
                   </TableCell>
-                  <TableCell><code className="text-xs">{branch.code}</code></TableCell>
-                  <TableCell className="max-w-56 truncate text-muted-foreground">{branch.address ?? '—'}</TableCell>
+                  <TableCell>
+                    <code className="text-xs">{branch.code}</code>
+                  </TableCell>
+                  <TableCell className="max-w-56 truncate text-muted-foreground">
+                    {branch.address ?? '—'}
+                  </TableCell>
                   <TableCell>
                     <Badge variant={branch.active ? 'default' : 'outline'}>
                       {branch.active ? 'Etkin' : 'Pasif'}
@@ -154,7 +193,9 @@ export function Subeler() {
                     <TableCell className="text-right">
                       <Switch
                         checked={branch.active}
-                        onCheckedChange={(checked) => toggleMutation.mutate({ id: branch.id, active: checked })}
+                        onCheckedChange={(checked) =>
+                          toggleMutation.mutate({ id: branch.id, active: checked })
+                        }
                         aria-label={`${branch.name} etkinlik durumu`}
                       />
                     </TableCell>

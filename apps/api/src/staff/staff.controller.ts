@@ -1,7 +1,22 @@
-import { Body, Controller, Get, Inject, Param, ParseUUIDPipe, Patch, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { StaffService } from './staff.service';
-import { CreateStaffDto, SetStaffBranchesDto, SetStaffRolesDto, UpdateStaffDto } from '../master/master.dto';
+import {
+  CreateStaffDto,
+  SetStaffBranchesDto,
+  SetStaffRolesDto,
+  UpdateStaffDto,
+} from '../master/master.dto';
 import { CurrentAuth, RequirePermissions } from '../common/auth/decorators';
 import type { AuthContext } from '../common/auth/auth-context';
 

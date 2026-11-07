@@ -18,10 +18,7 @@ export function EmptyState({
   phaseHint?: string;
 }) {
   return (
-    <View
-      accessibilityRole="text"
-      style={styles.box}
-    >
+    <View accessibilityRole="text" style={styles.box}>
       <View style={styles.iconHolder} accessible={false}>
         <View style={styles.iconLine} />
         <View style={[styles.iconLine, { width: '60%' }]} />

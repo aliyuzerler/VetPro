@@ -1,4 +1,9 @@
-import { SetMetadata, createParamDecorator, type ExecutionContext, type CustomDecorator } from '@nestjs/common';
+import {
+  SetMetadata,
+  createParamDecorator,
+  type ExecutionContext,
+  type CustomDecorator,
+} from '@nestjs/common';
 import type { AuthContext, AuthRequest } from './auth-context';
 
 export const IS_PUBLIC_KEY = 'vetcore:isPublic';

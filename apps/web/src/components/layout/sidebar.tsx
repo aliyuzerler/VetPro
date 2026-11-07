@@ -40,17 +40,12 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </span>
         <span className="flex flex-col leading-tight">
           <span className="text-base font-bold tracking-tight">VetCore</span>
-          <span className="text-[11px] text-sidebar-foreground/70">
-            Veteriner Klinik Yönetimi
-          </span>
+          <span className="text-[11px] text-sidebar-foreground/70">Veteriner Klinik Yönetimi</span>
         </span>
       </div>
 
       {/* Navigasyon */}
-      <nav
-        aria-label="Ana navigasyon"
-        className="flex-1 overflow-y-auto px-2 py-3"
-      >
+      <nav aria-label="Ana navigasyon" className="flex-1 overflow-y-auto px-2 py-3">
         <ul className="flex flex-col gap-0.5">
           {NAV_GROUPS.map((group) => {
             const isOpen = openGroups[group.label] ?? false;
@@ -129,10 +124,14 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="shrink-0 border-t border-sidebar-border p-3">
         <div className="flex items-center gap-2.5 rounded-md px-1 py-1" data-testid="sidebar-user">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
-            {session ? (session.staff.firstName[0] ?? '') + (session.staff.lastName[0] ?? '') : '??'}
+            {session
+              ? (session.staff.firstName[0] ?? '') + (session.staff.lastName[0] ?? '')
+              : '??'}
           </span>
           <span className="flex min-w-0 flex-col leading-tight">
-            <span className="truncate text-xs font-medium">{session?.staff.fullName ?? 'Misafir'}</span>
+            <span className="truncate text-xs font-medium">
+              {session?.staff.fullName ?? 'Misafir'}
+            </span>
             <span className="truncate text-[11px] text-sidebar-foreground/60">
               {session ? session.roles.map((role) => role.name).join(', ') : ''}
             </span>

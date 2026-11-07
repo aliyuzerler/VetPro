@@ -54,10 +54,25 @@ export class AuthService {
     const staff = await this.prisma.staff.findUnique({
       where: { email: email.toLowerCase().trim() },
       include: {
-        staffRoles: { select: { role: { select: { id: true, key: true, name: true, allBranches: true, rolePermissions: { select: { permissionKey: true } } } } } },
+        staffRoles: {
+          select: {
+            role: {
+              select: {
+                id: true,
+                key: true,
+                name: true,
+                allBranches: true,
+                rolePermissions: { select: { permissionKey: true } },
+              },
+            },
+          },
+        },
         staffBranches: {
           orderBy: [{ isDefault: 'desc' }],
-          select: { isDefault: true, branch: { select: { id: true, name: true, code: true, active: true } } },
+          select: {
+            isDefault: true,
+            branch: { select: { id: true, name: true, code: true, active: true } },
+          },
         },
       },
     });
@@ -134,7 +149,9 @@ export class AuthService {
         title: staff.title,
       },
       roles: roleViews.map((role) => ({ key: role.key, name: role.name })),
-      permissions: [...new Set(roleViews.flatMap((role) => role.rolePermissions.map((rp) => rp.permissionKey)))],
+      permissions: [
+        ...new Set(roleViews.flatMap((role) => role.rolePermissions.map((rp) => rp.permissionKey))),
+      ],
       allBranches,
       branches: activeBranches.map((sb) => ({
         id: sb.branch.id,
@@ -142,7 +159,9 @@ export class AuthService {
         code: sb.branch.code,
         isDefault: sb.isDefault,
       })),
-      activeBranch: defaultBranch ? { id: defaultBranch.id, name: defaultBranch.name, code: defaultBranch.code } : null,
+      activeBranch: defaultBranch
+        ? { id: defaultBranch.id, name: defaultBranch.name, code: defaultBranch.code }
+        : null,
     };
   }
 
@@ -156,10 +175,25 @@ export class AuthService {
       include: {
         staff: {
           include: {
-            staffRoles: { select: { role: { select: { id: true, key: true, name: true, allBranches: true, rolePermissions: { select: { permissionKey: true } } } } } },
+            staffRoles: {
+              select: {
+                role: {
+                  select: {
+                    id: true,
+                    key: true,
+                    name: true,
+                    allBranches: true,
+                    rolePermissions: { select: { permissionKey: true } },
+                  },
+                },
+              },
+            },
             staffBranches: {
               orderBy: [{ isDefault: 'desc' }],
-              select: { isDefault: true, branch: { select: { id: true, name: true, code: true, active: true } } },
+              select: {
+                isDefault: true,
+                branch: { select: { id: true, name: true, code: true, active: true } },
+              },
             },
           },
         },
@@ -272,7 +306,9 @@ export class AuthService {
         title: staff.title,
       },
       roles: roleViews.map((role) => ({ key: role.key, name: role.name })),
-      permissions: [...new Set(roleViews.flatMap((role) => role.rolePermissions.map((rp) => rp.permissionKey)))],
+      permissions: [
+        ...new Set(roleViews.flatMap((role) => role.rolePermissions.map((rp) => rp.permissionKey))),
+      ],
       allBranches: roleViews.some((role) => role.allBranches),
       branches: activeBranches.map((sb) => ({
         id: sb.branch.id,
@@ -311,10 +347,24 @@ export class AuthService {
     const staff = await this.prisma.staff.findUnique({
       where: { id: ctx.staffId },
       include: {
-        staffRoles: { select: { role: { select: { key: true, name: true, allBranches: true, rolePermissions: { select: { permissionKey: true } } } } } },
+        staffRoles: {
+          select: {
+            role: {
+              select: {
+                key: true,
+                name: true,
+                allBranches: true,
+                rolePermissions: { select: { permissionKey: true } },
+              },
+            },
+          },
+        },
         staffBranches: {
           orderBy: [{ isDefault: 'desc' }],
-          select: { isDefault: true, branch: { select: { id: true, name: true, code: true, active: true } } },
+          select: {
+            isDefault: true,
+            branch: { select: { id: true, name: true, code: true, active: true } },
+          },
         },
       },
     });
@@ -338,7 +388,9 @@ export class AuthService {
         title: staff.title,
       },
       roles: roleViews.map((role) => ({ key: role.key, name: role.name })),
-      permissions: [...new Set(roleViews.flatMap((role) => role.rolePermissions.map((rp) => rp.permissionKey)))],
+      permissions: [
+        ...new Set(roleViews.flatMap((role) => role.rolePermissions.map((rp) => rp.permissionKey))),
+      ],
       allBranches: roleViews.some((role) => role.allBranches),
       branches: activeBranches.map((sb) => ({
         id: sb.branch.id,
@@ -353,7 +405,13 @@ export class AuthService {
   }
 
   async setActiveBranch(
-    ctx: { staffId: string; clinicId: string; sessionId: string; allBranches: boolean; branchIds: string[] },
+    ctx: {
+      staffId: string;
+      clinicId: string;
+      sessionId: string;
+      allBranches: boolean;
+      branchIds: string[];
+    },
     branchId: string,
     meta: { ip?: string; userAgent?: string },
   ) {

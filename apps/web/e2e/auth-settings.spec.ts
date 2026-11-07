@@ -1,10 +1,5 @@
 import { expect, test } from '@playwright/test';
-import {
-  DEMO,
-  expectNoHorizontalOverflow,
-  login,
-  screenshot,
-} from './helpers';
+import { DEMO, expectNoHorizontalOverflow, login, screenshot } from './helpers';
 
 /**
  * VetCore Faz 03 — kimlik, personel, rol ve klinik ayarları E2E testleri.
@@ -37,10 +32,7 @@ test.describe('Faz 03 — kimlik akışı', () => {
   });
 
   test('04 — aktif şube değişimi üst çubuğa ve oturuma yansır', async ({ page }) => {
-    test.skip(
-      test.info().project.name !== 'chromium-desktop',
-      'Masaüstü şube seçici gerektirir',
-    );
+    test.skip(test.info().project.name !== 'chromium-desktop', 'Masaüstü şube seçici gerektirir');
 
     await login(page, DEMO.admin);
     await page.getByTestId('branch-selector').click();
@@ -145,10 +137,7 @@ test.describe('Faz 03 — klinik ayarları (masaüstü)', () => {
 
 test.describe('Faz 03 — yetkisiz görünüm (resepsiyon)', () => {
   test('12 — staff.manage izni olmayan personel kilitli görünüm görür', async ({ page }) => {
-    test.skip(
-      test.info().project.name !== 'chromium-desktop',
-      'Masaüstü projesi',
-    );
+    test.skip(test.info().project.name !== 'chromium-desktop', 'Masaüstü projesi');
 
     await login(page, DEMO.resepsiyon);
     await page.goto('/ayarlar');
@@ -163,10 +152,7 @@ test.describe('Faz 03 — yetkisiz görünüm (resepsiyon)', () => {
 
 test.describe('Faz 03 — mobil giriş', () => {
   test('13 — mobil giriş sayfası düzeni korunur', async ({ page }) => {
-    test.skip(
-      test.info().project.name !== 'chromium-mobile',
-      'Yalnızca mobil projesinde çalışır',
-    );
+    test.skip(test.info().project.name !== 'chromium-mobile', 'Yalnızca mobil projesinde çalışır');
 
     await page.goto('/giris');
     await expect(page.getByTestId('login-card')).toBeVisible();

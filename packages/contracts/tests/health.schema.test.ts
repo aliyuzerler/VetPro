@@ -17,9 +17,7 @@ describe('HealthResponseSchema', () => {
   });
 
   it('geçersiz status değerini reddeder', () => {
-    expect(
-      HealthResponseSchema.safeParse({ ...valid, status: 'unknown' }).success,
-    ).toBe(false);
+    expect(HealthResponseSchema.safeParse({ ...valid, status: 'unknown' }).success).toBe(false);
   });
 
   it('eksik checks alanını reddeder', () => {

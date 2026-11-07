@@ -66,7 +66,10 @@ export class BranchesService {
       action: 'branch.update',
       entityType: 'branch',
       entityId: id,
-      metadata: { before: { name: before.name, active: before.active }, after: { name: branch.name, active: branch.active } },
+      metadata: {
+        before: { name: before.name, active: before.active },
+        after: { name: branch.name, active: branch.active },
+      },
     });
     return branch;
   }

@@ -1,9 +1,11 @@
-// VetCore — Faz 03 şema.
+// VetCore — Faz 04 şema.
 // Kapsam: klinik/şube çekirdeği (Faz 01) + kimlik, personel, rol, izin, oturum ve denetim
-// (Faz 03) + oda ve depo placeholder master kayıtları. İş mantığı varlıkları (hasta,
-// randevu, stok, finans...) ilgili fazlarda eklenir.
+// (Faz 03) + hasta sahibi, hasta, tür/ırk, uyarı, kilo gözlemi ve özel dosya varlıkları
+// (Faz 04). Randevu, stok, finans... ilgili fazlarda eklenir.
 // Kurallar: UUID PK, UTC zaman damgaları, money/quantity için Decimal, silinmez defter ileriki fazlarda.
 // Güvenlik: şifre yalnızca scrypt hash saklanır; refresh token yalnızca SHA-256 hash saklanır.
+// Faz 04 politikası: sahip/hasta kayıtlarında fiziksel silme yok — arşivleme + açık merge
+// (otomatik birleştirme yok); dosyalar private storage arkasında, indirme yetki kontrollüdür.
 
 generator client {
   provider = "prisma-client-js"
@@ -33,6 +35,9 @@ model Clinic {
   staff Staff[]
   roles Role[]
   auditEvents AuditEvent[]
+  owners Owner[]
+  patients Patient[]
+  fileAssets FileAsset[]
 
   @@map("clinics")
 }
@@ -58,6 +63,7 @@ model Branch {
   warehouses Warehouse[]
   staffBranches StaffBranch[]
   auditEvents AuditEvent[]
+  patients Patient[]
 
   @@unique([clinicId, code])
   @@index([clinicId])
@@ -81,11 +87,14 @@ model Staff {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Restrict)
-  sessions      Session[]
-  staffRoles    StaffRole[]
-  staffBranches StaffBranch[]
-  auditEvents   AuditEvent[]
+  clinic            Clinic              @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  sessions          Session[]
+  staffRoles        StaffRole[]
+  staffBranches     StaffBranch[]
+  auditEvents       AuditEvent[]
+  patientAlerts    PatientAlert[]
+  weightObservations WeightObservation[]
+  uploadedFiles     FileAsset[]
 
   @@index([clinicId])
   @@map("staff")
@@ -254,4 +263,217 @@ model Warehouse {
   @@unique([branchId, name])
   @@index([branchId])
   @@map("warehouses")
+}
+
+/// Tür kataloğu — global sabit liste (klinikten bağımsız), seed ile doldurulur.
+/// Anahtarlar stabil: 'cat', 'dog', 'bird'... API ve raporlar anahtarla konuşur.
+model Species {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  breeds   Breed[]
+  patients Patient[]
+
+  @@map("species")
+}
+
+/// Irk — türe bağlı master kayıt. Klinik özel ırk ekleme master.manage izniyle serbest.
+model Breed {
+  id        String   @id @default(uuid()) @db.Uuid
+  speciesId String   @map("species_id") @db.Uuid
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  species  Species   @relation(fields: [speciesId], references: [id], onDelete: Restrict)
+  patients Patient[]
+
+  @@unique([speciesId, name])
+  @@index([speciesId])
+  @@map("breeds")
+}
+
+/// Hasta sahibi — klinik kapsamlı (şubeler arası görünür; hasta kaydı şube kapsamlıdır).
+/// Silme yok: arşiv (archivedAt) + açık merge (mergedIntoOwnerId; otomatik birleştirme yok).
+model Owner {
+  id        String    @id @default(uuid()) @db.Uuid
+  clinicId  String    @map("clinic_id") @db.Uuid
+  firstName String    @map("first_name")
+  lastName  String    @map("last_name")
+  /// TC kimlik no — opsiyonel; KVKK kapsamında en az gerek ilkesiyle toplanır.
+  identityNo String?  @map("identity_no")
+  address   String?
+  notes     String?
+  /// Doluysa kayıt arşivlenmiş sayılır; listelerde varsayılan gizli.
+  archivedAt     DateTime? @map("archived_at")
+  archivedReason String?   @map("archived_reason")
+  /// Bu kayıt başka sahibe birleştirildiyse hedefin kimliği (kaynak taraf).
+  mergedIntoOwnerId String? @map("merged_into_owner_id") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  clinic           Clinic          @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  mergedIntoOwner  Owner?          @relation("OwnerMerge", fields: [mergedIntoOwnerId], references: [id], onDelete: SetNull)
+  mergedOwners     Owner[]         @relation("OwnerMerge")
+  contacts         OwnerContact[]
+  consents         OwnerConsent[]
+  patients         Patient[]
+
+  @@index([clinicId])
+  @@index([clinicId, lastName, firstName])
+  @@map("owners")
+}
+
+/// Sahip iletişim kanalı — telefon/e-posta; arama normalize alan üzerinden yapılır.
+/// Telefon normalizasyonu: yalnızca rakamlar, TR ülke koduyla (905xxxxxxxxx).
+model OwnerContact {
+  id        String   @id @default(uuid()) @db.Uuid
+  ownerId   String   @map("owner_id") @db.Uuid
+  /// 'phone' | 'email'
+  kind      String
+  value     String
+  /// Normalize arama değeri: telefon → rakamlar (90..., TR), e-posta → küçük harf.
+  normalized String
+  /// 'Cep', 'İş', 'Ev'...
+  label     String?
+  isPrimary Boolean  @default(false) @map("is_primary")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  owner Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([normalized])
+  @@map("owner_contacts")
+}
+
+/// Sahip rızaları — KVKK ve iletişim tercihleri. Son durum tek satırda tutulur.
+model OwnerConsent {
+  id        String    @id @default(uuid()) @db.Uuid
+  ownerId   String    @map("owner_id") @db.Uuid
+  /// 'kvkk' | 'sms' | 'email' | 'whatsapp' | 'marketing'
+  kind      String
+  granted   Boolean   @default(false)
+  grantedAt DateTime? @map("granted_at")
+  revokedAt DateTime? @map("revoked_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  owner Owner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerId, kind])
+  @@map("owner_consents")
+}
+
+/// Hasta (hayvan) kaydı — şube kapsamlı: kayıt şubesine erişimi olmayan personel
+/// listelerde görmez ve doğrudan erişimde 403 alır. Kod klinik içinde tekildir.
+model Patient {
+  id        String    @id @default(uuid()) @db.Uuid
+  clinicId  String    @map("clinic_id") @db.Uuid
+  branchId  String    @map("branch_id") @db.Uuid
+  ownerId   String    @map("owner_id") @db.Uuid
+  speciesId String    @map("species_id") @db.Uuid
+  breedId   String?   @map("breed_id") @db.Uuid
+  name      String
+  /// Klinik içinde tekil insan tarafından okunur kod (HP-0001...).
+  code      String
+  /// Mikroçip numarası — normalize (rakamlar/büyük harf), klinik içinde tekil.
+  microchip String?
+  /// 'female' | 'male' | 'unknown'
+  gender    String    @default("unknown")
+  birthDate DateTime? @map("birth_date") @db.Date
+  neutered  Boolean   @default(false)
+  color     String?
+  bloodType String?   @map("blood_type")
+  archivedAt      DateTime? @map("archived_at")
+  archivedReason  String?   @map("archived_reason")
+  mergedIntoPatientId String? @map("merged_into_patient_id") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  clinic    Clinic    @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch    Branch    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  owner     Owner     @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  species   Species   @relation(fields: [speciesId], references: [id], onDelete: Restrict)
+  breed     Breed?    @relation(fields: [breedId], references: [id], onDelete: SetNull)
+  mergedIntoPatient Patient?          @relation("PatientMerge", fields: [mergedIntoPatientId], references: [id], onDelete: SetNull)
+  mergedPatients    Patient[]         @relation("PatientMerge")
+  alerts    PatientAlert[]
+  weights   WeightObservation[]
+  files     FileAsset[]
+
+  @@unique([clinicId, code])
+  @@unique([clinicId, microchip])
+  @@index([clinicId])
+  @@index([branchId])
+  @@index([ownerId])
+  @@index([clinicId, name])
+  @@map("patients")
+}
+
+/// Hasta uyarısı — alerji, kronik hastalık veya kritik not. Aktif uyarılar listede
+/// ve detayda görünür (kabul kriteri); çözülünce geçmişe düşer.
+model PatientAlert {
+  id               String    @id @default(uuid()) @db.Uuid
+  patientId        String    @map("patient_id") @db.Uuid
+  /// 'allergy' | 'chronic' | 'warning'
+  kind             String
+  label            String
+  /// 'low' | 'medium' | 'high'
+  severity         String    @default("medium")
+  active           Boolean   @default(true)
+  createdByStaffId String?   @map("created_by_staff_id") @db.Uuid
+  resolvedAt       DateTime? @map("resolved_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  patient        Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  createdByStaff Staff?  @relation(fields: [createdByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([patientId, active])
+  @@map("patient_alerts")
+}
+
+/// Kilo gözlemi — ilaç doz hesabı ve eğilim için geçmiş saklanır (yalnızca son değer değil).
+model WeightObservation {
+  id               String   @id @default(uuid()) @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  weightKg         Decimal  @map("weight_kg") @db.Decimal(6, 3)
+  measuredAt       DateTime @map("measured_at")
+  note             String?
+  createdByStaffId String?  @map("created_by_staff_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  patient        Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  createdByStaff Staff?  @relation(fields: [createdByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([patientId, measuredAt])
+  @@map("weight_observations")
+}
+
+/// Hasta dosyası — private storage adapter arkasında tutulur; storage_key dışarı sızmaz.
+/// İndirme yalnızca yetki + şube kapsamı doğrulayan API ucuyla akar (public URL yok).
+model FileAsset {
+  id                String   @id @default(uuid()) @db.Uuid
+  clinicId          String   @map("clinic_id") @db.Uuid
+  patientId         String   @map("patient_id") @db.Uuid
+  uploadedByStaffId String?  @map("uploaded_by_staff_id") @db.Uuid
+  /// Orijinal dosya adı (yalnızca görüntüleme; saklamada UUID anahtar kullanılır).
+  fileName          String   @map("file_name")
+  storageKey        String   @map("storage_key")
+  mimeType          String   @map("mime_type")
+  sizeBytes         Int      @map("size_bytes")
+  /// 'document' | 'image' | 'lab-result' | 'other'
+  kind              String   @default("document")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  clinic     Clinic  @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  patient    Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  uploadedBy Staff?  @relation(fields: [uploadedByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([patientId])
+  @@index([clinicId])
+  @@map("file_assets")
 }

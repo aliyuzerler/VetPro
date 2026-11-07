@@ -53,17 +53,15 @@ export default function GirisPage() {
             <PawPrint className="size-6" aria-hidden="true" />
           </span>
           <h1 className="text-2xl font-bold tracking-tight">VetCore</h1>
-          <p className="text-sm text-muted-foreground">
-            Veteriner klinik yönetim platformu
-          </p>
+          <p className="text-sm text-muted-foreground">Veteriner klinik yönetim platformu</p>
         </div>
 
         <Card data-testid="login-card">
           <CardHeader>
             <CardTitle>Personel Girişi</CardTitle>
             <CardDescription>
-              Klinik hesabınızla oturum açın. Oturumlar kısa ömürlü token ile
-              yönetilir; şube seçiminiz kaydedilir.
+              Klinik hesabınızla oturum açın. Oturumlar kısa ömürlü token ile yönetilir; şube
+              seçiminiz kaydedilir.
             </CardDescription>
           </CardHeader>
           <CardContent>

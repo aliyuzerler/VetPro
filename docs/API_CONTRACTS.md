@@ -26,6 +26,37 @@ Base path `/api/v1`. This is a module map; ZCode must define request/response sc
 - Tüm mutation uçları `audit_events` tablosuna yazar (auth, clinic, branch, room,
   warehouse, staff, role).
 
+### Faz 04 — uygulanan sahip/hasta sözleşmesi (2026-11-07)
+- `GET /species` → tür kataloğu + aktif ırklar (tüm kimlikli personel);
+  `POST /species/:id/breeds` → ırk ekleme (`master.manage`).
+- Sahipler klinik kapsamlıdır: `GET /owners?search=&includeArchived=&take=` (arama:
+  ad-soyad kelime bazlı, telefon normalize `contains`, e-posta), `POST /owners`
+  (`owner.manage`; contacts[] + consents{kvkk,sms,email,whatsapp,marketing}),
+  `GET /owners/:id` (hastalarıyla), `PATCH /owners/:id`,
+  `GET /owners/duplicates?firstName=&lastName=&phone=&email=` → mükerrer adaylar
+  ({reasons: phone|email|name, primaryContact}; yalnız uyarı — otomatik merge yok),
+  `PATCH /owners/:id/archive` {reason} (aktif hastası varsa 409),
+  `PATCH /owners/:id/unarchive`, `POST /owners/:id/merge` {intoOwnerId, reason}
+  (hastalar hedefe taşınır, kaynak arşivlenir + mergedIntoOwnerId).
+- Hastalar ŞUBE KAPSAMLI (BranchScopeGuard; yetkisiz şube liste dışı + doğrudan 403):
+  `GET /patients?search=&branchId=&speciesId=` (arama: ad/kod/mikroçip normalize/
+  sahip adı-soyadı/telefonu), `POST /owners/:id/patients` (`patient.manage`; kod
+  `HP-000N` otomatik, mikroçip klinik içinde tekil — çakışma 409), `GET /patients/:id`,
+  `PATCH /patients/:id`, `PATCH /patients/:id/archive` {reason} / `unarchive`,
+  `POST /patients/:id/merge` {intoPatientId, reason}, `GET /patients/duplicates`,
+  `POST /patients/:id/alerts` {kind: allergy|chronic|warning, label, severity},
+  `PATCH /patients/:id/alerts/:alertId` {active}, `POST /patients/:id/weights`
+  {weightKg, measuredAt?}, `GET /patients/:id/timeline` (kilo/uyarı/dosya/denetim
+  olayları — SOAP olayları Faz 06'da eklenecek iskelet).
+- Dosyalar private storage (ADR-018): `POST /file-assets/upload` (multipart `file` +
+  `patientId`; MIME beyaz listesi: PDF/JPEG/PNG/WebP/TXT/DOC(X), 10 MB; metadata döner,
+  storage key asla sızdırılmaz), `GET /file-assets?patientId=` (metadata),
+  `GET /file-assets/:id/download` (Bearer + şube kapsamı; kimliksiz 401, yetkisiz
+  şube 403; Content-Disposition ile akış).
+- Tüm mutation uçları `audit_events`'e yazar (owner.create/archive/merge,
+  patient.create/update/archive/merge, patient.alert.*, patient.weight.create,
+  patient.file.upload).
+
 ## Owners and patients
 - CRUD `/owners`, `/owners/:id/patients`, `/patients`
 - `GET /patients/search?q=`

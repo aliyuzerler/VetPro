@@ -9,7 +9,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from '@/components/ui/table';
 import { EmptyState, ErrorState, UnauthorizedState } from '@/components/design-system/state-views';
 import { api } from '@/lib/api-client';
@@ -33,7 +38,8 @@ function metadataSummary(metadata: Record<string, unknown> | null): string {
   if (Array.isArray(metadata.after)) parts.push(`sonra: ${metadata.after.length} kayıt`);
   if (typeof metadata.name === 'string') parts.push(metadata.name);
   if (typeof metadata.email === 'string') parts.push(metadata.email);
-  if (typeof metadata.passwordChanged === 'boolean' && metadata.passwordChanged) parts.push('parola değişti');
+  if (typeof metadata.passwordChanged === 'boolean' && metadata.passwordChanged)
+    parts.push('parola değişti');
   return parts.length > 0 ? parts.join(' · ') : JSON.stringify(metadata).slice(0, 60);
 }
 
@@ -125,7 +131,9 @@ export function Denetim() {
                       {event.staff ? `${event.staff.firstName} ${event.staff.lastName}` : 'Sistem'}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={event.action.startsWith('auth.login') ? 'secondary' : 'outline'}>
+                      <Badge
+                        variant={event.action.startsWith('auth.login') ? 'secondary' : 'outline'}
+                      >
                         {event.action}
                       </Badge>
                     </TableCell>

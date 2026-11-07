@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -46,7 +46,7 @@
   --color-brand-50: #f1faf8;
   --color-brand-100: #ddf3ef;
   --color-brand-500: #37a197;
-  --color-brand-600: #267f77;   /* a11y: beyaz metin üstünde 4.81:1 */
+  --color-brand-600: #267f77; /* a11y: beyaz metin üstünde 4.81:1 */
   --color-brand-700: #216a64;
   --color-brand-800: #1c514d;
   --color-brand-900: #173b39;
@@ -83,37 +83,37 @@
    Açık tema (varsayılan) — VetCore paleti
    ------------------------------------------------------------ */
 :root {
-  --background: #f7f9f8;        /* neutral.50 — sayfa zemini */
-  --foreground: #1b2528;        /* neutral.950 — metin */
-  --card: #ffffff;              /* neutral.white */
+  --background: #f7f9f8; /* neutral.50 — sayfa zemini */
+  --foreground: #1b2528; /* neutral.950 — metin */
+  --card: #ffffff; /* neutral.white */
   --card-foreground: #1b2528;
   --popover: #ffffff;
   --popover-foreground: #1b2528;
-  --primary: #267f77;           /* brand.600 — birincil eylem (WCAG AA 4.81:1) */
+  --primary: #267f77; /* brand.600 — birincil eylem (WCAG AA 4.81:1) */
   --primary-foreground: #ffffff;
-  --secondary: #f1faf8;         /* brand.50 — yumuşak yüzey */
+  --secondary: #f1faf8; /* brand.50 — yumuşak yüzey */
   --secondary-foreground: #173b39;
-  --muted: #f0f4f3;             /* neutral.100 */
-  --muted-foreground: #647175;  /* neutral.600 — beyaz/zemin üstünde ≥4.55:1 */
-  --accent: #ddf3ef;            /* brand.100 */
+  --muted: #f0f4f3; /* neutral.100 */
+  --muted-foreground: #647175; /* neutral.600 — beyaz/zemin üstünde ≥4.55:1 */
+  --accent: #ddf3ef; /* brand.100 */
   --accent-foreground: #173b39;
-  --destructive: #b24747;       /* status.danger (WCAG AA) */
+  --destructive: #b24747; /* status.danger (WCAG AA) */
   --destructive-foreground: #ffffff;
-  --border: #e2e8e7;            /* neutral.200 */
+  --border: #e2e8e7; /* neutral.200 */
   --input: #e2e8e7;
   --ring: #267f77;
 
-  --chart-1: #267f77;           /* brand.600 */
-  --chart-2: #37a197;           /* brand.500 */
-  --chart-3: #d97855;           /* accent.600 */
-  --chart-4: #346fa9;           /* status.info */
-  --chart-5: #926520;           /* status.warning */
+  --chart-1: #267f77; /* brand.600 */
+  --chart-2: #37a197; /* brand.500 */
+  --chart-3: #d97855; /* accent.600 */
+  --chart-4: #346fa9; /* status.info */
+  --chart-5: #926520; /* status.warning */
 
-  --sidebar: #102c2b;           /* brand.950 — derin teal kabuk */
+  --sidebar: #102c2b; /* brand.950 — derin teal kabuk */
   --sidebar-foreground: #f1faf8;
   --sidebar-primary: #267f77;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1c514d;    /* brand.800 — hover/aktif yüzey */
+  --sidebar-accent: #1c514d; /* brand.800 — hover/aktif yüzey */
   --sidebar-accent-foreground: #ddf3ef;
   --sidebar-border: #1c514d;
   --sidebar-ring: #37a197;
@@ -139,15 +139,15 @@
    Koyu tema — VetCore derin teal
    ------------------------------------------------------------ */
 .dark {
-  --background: #102c2b;        /* brand.950 */
+  --background: #102c2b; /* brand.950 */
   --foreground: #e8efee;
-  --card: #173b39;              /* brand.900 */
+  --card: #173b39; /* brand.900 */
   --card-foreground: #e8efee;
   --popover: #173b39;
   --popover-foreground: #e8efee;
-  --primary: #37a197;           /* brand.500 — koyuda daha açık eylem */
+  --primary: #37a197; /* brand.500 — koyuda daha açık eylem */
   --primary-foreground: #102c2b;
-  --secondary: #1c514d;         /* brand.800 */
+  --secondary: #1c514d; /* brand.800 */
   --secondary-foreground: #ddf3ef;
   --muted: #1c514d;
   --muted-foreground: #8c999c;
@@ -190,7 +190,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "tnum" 0; /* tabular rakamlar parasal/alansal metinde sınıfla açılır */
+    font-feature-settings: 'tnum' 0; /* tabular rakamlar parasal/alansal metinde sınıfla açılır */
   }
   ::selection {
     background: #ddf3ef;
@@ -204,7 +204,7 @@
 }
 
 /* Klavye odağı — görünür odak halkası (WCAG 2.2 AA) */
-:where(a, button, [role="button"], input, select, textarea, [tabindex]):focus-visible {
+:where(a, button, [role='button'], input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }

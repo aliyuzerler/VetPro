@@ -24,9 +24,17 @@ export const PHASES: readonly PhaseDefinition[] = [
   { id: 9, slug: 'finance-build', title: 'Finans, kasa ve alacaklar' },
   { id: 10, slug: 'prescriptions-vaccines-build', title: 'Reçete, aşı ve hatırlatmalar' },
   { id: 11, slug: 'lab-surgery-hospital-build', title: 'Laboratuvar, cerrahi ve yatış' },
-  { id: 12, slug: 'notifications-documents-build', title: 'Bildirimler, dokümanlar ve entegrasyonlar' },
+  {
+    id: 12,
+    slug: 'notifications-documents-build',
+    title: 'Bildirimler, dokümanlar ve entegrasyonlar',
+  },
   { id: 13, slug: 'mobile-offline-build', title: 'Mobil iş akışları ve çevrimdışı senkron' },
-  { id: 14, slug: 'reports-import-export-backup-build', title: 'Raporlar, içe/dışa aktarım ve yedekleme' },
+  {
+    id: 14,
+    slug: 'reports-import-export-backup-build',
+    title: 'Raporlar, içe/dışa aktarım ve yedekleme',
+  },
   { id: 15, slug: 'hardening-release-build', title: 'Güvenlik, performans, dağıtım ve sürüm' },
 ] as const;
 

@@ -1,4 +1,10 @@
-import { Inject, Injectable, type CanActivate, type ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  type CanActivate,
+  type ExecutionContext,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TokenService } from './token.service';
@@ -26,7 +32,9 @@ export class JwtAuthGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
-    const request = context.switchToHttp().getRequest<AuthRequest & { headers: Record<string, string | string[] | undefined> }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<AuthRequest & { headers: Record<string, string | string[] | undefined> }>();
     const headerValue = request.headers.authorization;
     const header = typeof headerValue === 'string' ? headerValue : undefined;
     if (!header || !header.startsWith('Bearer ')) {
@@ -45,7 +53,13 @@ export class JwtAuthGuard implements CanActivate {
           id: true,
           clinicId: true,
           active: true,
-          staffRoles: { select: { role: { select: { allBranches: true, rolePermissions: { select: { permissionKey: true } } } } } },
+          staffRoles: {
+            select: {
+              role: {
+                select: { allBranches: true, rolePermissions: { select: { permissionKey: true } } },
+              },
+            },
+          },
           staffBranches: { select: { branchId: true } },
         },
       }),
@@ -58,12 +72,19 @@ export class JwtAuthGuard implements CanActivate {
     if (!staff || !staff.active || staff.clinicId !== payload.cid) {
       throw new UnauthorizedException('Oturum geçersiz veya süresi doldu');
     }
-    if (!session || session.staffId !== staff.id || session.revokedAt || session.expiresAt.getTime() <= Date.now()) {
+    if (
+      !session ||
+      session.staffId !== staff.id ||
+      session.revokedAt ||
+      session.expiresAt.getTime() <= Date.now()
+    ) {
       throw new UnauthorizedException('Oturum kapatıldı; yeniden giriş yapın');
     }
 
     const roleViews = staff.staffRoles.map((staffRole) => staffRole.role);
-    const permissions = [...new Set(roleViews.flatMap((role) => role.rolePermissions.map((rp) => rp.permissionKey)))];
+    const permissions = [
+      ...new Set(roleViews.flatMap((role) => role.rolePermissions.map((rp) => rp.permissionKey))),
+    ];
     const auth: AuthContext = {
       staffId: staff.id,
       clinicId: staff.clinicId,

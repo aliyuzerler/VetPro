@@ -1,18 +1,19 @@
 /**
- * VetCore sentetik seed — yalnızca demo verisi (Faz 03 güncel sürümü).
+ * VetCore sentetik seed — yalnızca demo verisi (Faz 04 güncel sürümü).
  * GERÇEK klinik verisi asla kullanılmaz (agents.md kuralı).
  * Kapsam: klinik + şubeler, izin kataloğu, sistem rol şablonları, sentetik personel
- * (scrypt hash), personel-rol/şube eşlemeleri, oda ve depo placeholder kayıtları.
+ * (scrypt hash), personel-rol/şube eşlemeleri, oda ve depo placeholder kayıtları,
+ * tür/ırk kataloğu, sentetik sahip/hasta uyarı/kilo kayıtları (Faz 04).
  */
 import { randomBytes, scryptSync } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
+import { PERMISSIONS } from './permissions';
 
 const prisma = new PrismaClient();
 
 /** Demo parola (yalnızca sentetik demo hesapları için). */
 const DEMO_PASSWORD = 'VetCore2026!';
 
-/** API ile aynı format: scrypt:N:r:p:salt:key */
 function hashPassword(password: string): string {
   const salt = randomBytes(16);
   const N = 16384;
@@ -22,26 +23,16 @@ function hashPassword(password: string): string {
   return `scrypt:${N}:${r}:${p}:${salt.toString('hex')}:${key.toString('hex')}`;
 }
 
-const PERMISSIONS = [
-  { key: 'clinical.sign', group: 'clinical', name: 'Muayene imzası', description: 'Karar ve SOAP kayıtlarını imzalar' },
-  { key: 'inventory.adjust', group: 'inventory', name: 'Stok düzeltme', description: 'Sayım farkı ve manuel stok düzeltmesi yapar' },
-  { key: 'finance.refund', group: 'finance', name: 'İade', description: 'Tahsilat iadesi oluşturur' },
-  { key: 'reports.export', group: 'reports', name: 'Rapor dışa aktarma', description: 'Raporları dışa aktarır' },
-  { key: 'audit.view', group: 'audit', name: 'Denetim kaydı', description: 'Denetim defterini görüntüler' },
-  { key: 'settings.manage', group: 'settings', name: 'Klinik ayarları', description: 'Klinik profili ve ayarları düzenler' },
-  { key: 'branch.manage', group: 'settings', name: 'Şube yönetimi', description: 'Şube kayıtlarını yönetir' },
-  { key: 'staff.manage', group: 'staff', name: 'Personel yönetimi', description: 'Personel, rol ve şube atamalarını yönetir' },
-  { key: 'roles.manage', group: 'staff', name: 'Rol yönetimi', description: 'Rolleri ve izin matrisini düzenler' },
-  { key: 'room.manage', group: 'settings', name: 'Oda yönetimi', description: 'Muayene/operasyon odalarını yönetir' },
-  { key: 'warehouse.manage', group: 'inventory', name: 'Depo yönetimi', description: 'Depo tanımlarını yönetir' },
-] as const;
-
 async function main(): Promise<void> {
   // 1) İzin kataloğu (global)
   for (const permission of PERMISSIONS) {
     await prisma.permission.upsert({
       where: { key: permission.key },
-      update: { name: permission.name, description: permission.description, group: permission.group },
+      update: {
+        name: permission.name,
+        description: permission.description,
+        group: permission.group,
+      },
       create: permission,
     });
   }
@@ -92,11 +83,46 @@ async function main(): Promise<void> {
   // 4) Sistem rol şablonları (düzenlenebilir)
   const ALL = PERMISSIONS.map((permission) => permission.key);
   const roleDefs = [
-    { key: 'admin', name: 'Klinik Yöneticisi', description: 'Tüm izinler, tüm şubeler', isSystem: true, allBranches: true, permissions: ALL },
-    { key: 'veteriner', name: 'Veteriner Hekim', description: 'Klinik karar ve muayene imzası', isSystem: true, allBranches: false, permissions: ['clinical.sign'] },
-    { key: 'resepsiyon', name: 'Resepsiyon', description: 'Karşılama ve randevu (kısıtlı)', isSystem: true, allBranches: false, permissions: [] },
-    { key: 'stok', name: 'Stok Yöneticisi', description: 'Stok düzeltme ve depo yönetimi', isSystem: true, allBranches: false, permissions: ['inventory.adjust', 'warehouse.manage'] },
-    { key: 'finans', name: 'Finans', description: 'İade ve rapor dışa aktarma', isSystem: true, allBranches: false, permissions: ['finance.refund', 'reports.export'] },
+    {
+      key: 'admin',
+      name: 'Klinik Yöneticisi',
+      description: 'Tüm izinler, tüm şubeler',
+      isSystem: true,
+      allBranches: true,
+      permissions: ALL,
+    },
+    {
+      key: 'veteriner',
+      name: 'Veteriner Hekim',
+      description: 'Klinik karar, hasta ve sahip yönetimi',
+      isSystem: true,
+      allBranches: false,
+      permissions: ['clinical.sign', 'owner.manage', 'patient.manage'],
+    },
+    {
+      key: 'resepsiyon',
+      name: 'Resepsiyon',
+      description: 'Karşılama, sahip ve hasta kaydı (kısıtlı)',
+      isSystem: true,
+      allBranches: false,
+      permissions: ['owner.manage', 'patient.manage'],
+    },
+    {
+      key: 'stok',
+      name: 'Stok Yöneticisi',
+      description: 'Stok düzeltme ve depo yönetimi',
+      isSystem: true,
+      allBranches: false,
+      permissions: ['inventory.adjust', 'warehouse.manage'],
+    },
+    {
+      key: 'finans',
+      name: 'Finans',
+      description: 'İade ve rapor dışa aktarma',
+      isSystem: true,
+      allBranches: false,
+      permissions: ['finance.refund', 'reports.export'],
+    },
   ] as const;
 
   const roles = new Map<string, string>();
@@ -133,24 +159,47 @@ async function main(): Promise<void> {
   const passwordHash = hashPassword(DEMO_PASSWORD);
   const staffDefs = [
     {
-      email: 'admin@vetcore-demo.example', firstName: 'Deniz', lastName: 'Yıldız',
-      title: 'Klinik Yöneticisi', roleKey: 'admin', branchCodes: ['MRKZ', 'SUB2'], defaultBranch: 'MRKZ',
+      email: 'admin@vetcore-demo.example',
+      firstName: 'Deniz',
+      lastName: 'Yıldız',
+      title: 'Klinik Yöneticisi',
+      roleKey: 'admin',
+      branchCodes: ['MRKZ', 'SUB2'],
+      defaultBranch: 'MRKZ',
     },
     {
-      email: 'veteriner@vetcore-demo.example', firstName: 'Ayşe', lastName: 'Demir',
-      title: 'Veteriner Hekim', roleKey: 'veteriner', branchCodes: ['MRKZ'], defaultBranch: 'MRKZ',
+      email: 'veteriner@vetcore-demo.example',
+      firstName: 'Ayşe',
+      lastName: 'Demir',
+      title: 'Veteriner Hekim',
+      roleKey: 'veteriner',
+      branchCodes: ['MRKZ'],
+      defaultBranch: 'MRKZ',
     },
     {
-      email: 'resepsiyon@vetcore-demo.example', firstName: 'Mert', lastName: 'Kaya',
-      title: 'Resepsiyon', roleKey: 'resepsiyon', branchCodes: ['MRKZ'], defaultBranch: 'MRKZ',
+      email: 'resepsiyon@vetcore-demo.example',
+      firstName: 'Mert',
+      lastName: 'Kaya',
+      title: 'Resepsiyon',
+      roleKey: 'resepsiyon',
+      branchCodes: ['MRKZ'],
+      defaultBranch: 'MRKZ',
     },
     {
-      email: 'stok@vetcore-demo.example', firstName: 'Elif', lastName: 'Şahin',
-      title: 'Stok Sorumlusu', roleKey: 'stok', branchCodes: ['SUB2'], defaultBranch: 'SUB2',
+      email: 'stok@vetcore-demo.example',
+      firstName: 'Elif',
+      lastName: 'Şahin',
+      title: 'Stok Sorumlusu',
+      roleKey: 'stok',
+      branchCodes: ['SUB2'],
+      defaultBranch: 'SUB2',
     },
   ] as const;
 
-  const branchByCode = new Map([['MRKZ', merkez], ['SUB2', sube2]]);
+  const branchByCode = new Map([
+    ['MRKZ', merkez],
+    ['SUB2', sube2],
+  ]);
   for (const staffDef of staffDefs) {
     const staff = await prisma.staff.upsert({
       where: { email: staffDef.email },
@@ -223,17 +272,347 @@ async function main(): Promise<void> {
     });
   }
 
+  // 7) Tür/ırk kataloğu (global master veri) — Faz 04
+  const speciesDefs = [
+    {
+      key: 'cat',
+      name: 'Kedi',
+      breeds: [
+        'Tekir',
+        'British Shorthair',
+        'Siyam',
+        'İran Kedisi',
+        'Scottish Fold',
+        'Maine Coon',
+        'Van Kedisi',
+      ],
+    },
+    {
+      key: 'dog',
+      name: 'Köpek',
+      breeds: [
+        'Kangal',
+        'Golden Retriever',
+        'Labrador Retriever',
+        'Alman Kurdu',
+        'Poodle',
+        'Beagle',
+        'Chihuahua',
+        'Siberian Husky',
+      ],
+    },
+    { key: 'bird', name: 'Kuş', breeds: ['Muhabbet Kuşu', 'Kanarya', 'Papağan'] },
+    { key: 'rabbit', name: 'Tavşan', breeds: ['Hollanda Tavşanı', 'Lop', 'Angora Tavşanı'] },
+    { key: 'rodent', name: 'Kemirgen', breeds: ['Hamster', 'Kobay'] },
+    { key: 'reptile', name: 'Sürüngen', breeds: ['Kaplumbağa', 'Kertenkele', 'Yılan'] },
+  ] as const;
+  const speciesByKey = new Map<string, string>();
+  for (const speciesDef of speciesDefs) {
+    const species = await prisma.species.upsert({
+      where: { key: speciesDef.key },
+      update: { name: speciesDef.name },
+      create: { key: speciesDef.key, name: speciesDef.name },
+    });
+    speciesByKey.set(speciesDef.key, species.id);
+    for (const breedName of speciesDef.breeds) {
+      await prisma.breed.upsert({
+        where: { speciesId_name: { speciesId: species.id, name: breedName } },
+        update: {},
+        create: { speciesId: species.id, name: breedName },
+      });
+    }
+  }
+
+  // 8) Sentetik sahip + hasta kayıtları — Faz 04 (idempotent: telefonla bul, yoksa oluştur)
+  const normalizeTrPhone = (raw: string): string => {
+    const digits = raw.replace(/\D/g, '');
+    if (digits.length === 10 && digits.startsWith('5')) return `90${digits}`;
+    if (digits.length === 11 && digits.startsWith('0')) return `90${digits.slice(1)}`;
+    if (digits.length === 12 && digits.startsWith('90')) return digits;
+    return digits;
+  };
+
+  const breedId = async (speciesKey: string, breedName: string): Promise<string> => {
+    const speciesId = speciesByKey.get(speciesKey);
+    if (!speciesId) throw new Error(`Tür bulunamadı: ${speciesKey}`);
+    const breed = await prisma.breed.findFirst({ where: { speciesId, name: breedName } });
+    if (!breed) throw new Error(`Irk bulunamadı: ${breedName}`);
+    return breed.id;
+  };
+
+  const ownerDefs = [
+    {
+      firstName: 'Zeynep',
+      lastName: 'Aksoy',
+      identityNo: null,
+      address: 'Bahariye Cad. No:12, Kadıköy/İstanbul',
+      notes: 'Sentetik demo kaydı',
+      contacts: [
+        {
+          kind: 'phone',
+          value: '+90 532 111 22 33',
+          normalized: '905321112233',
+          label: 'Cep',
+          isPrimary: true,
+        },
+        {
+          kind: 'phone',
+          value: '0216 111 22 33',
+          normalized: '902161112233',
+          label: 'Ev',
+          isPrimary: false,
+        },
+        {
+          kind: 'email',
+          value: 'zeynep.aksoy@example.com',
+          normalized: 'zeynep.aksoy@example.com',
+          label: null,
+          isPrimary: true,
+        },
+      ],
+      consents: { kvkk: true, sms: true, email: false, whatsapp: false, marketing: false },
+      patients: [
+        {
+          code: 'HP-0001',
+          name: 'Pamuk',
+          speciesKey: 'cat',
+          breedName: 'Tekir',
+          branchCode: 'MRKZ',
+          gender: 'female',
+          birthDate: new Date('2022-04-10'),
+          neutered: true,
+          color: 'Gri tekir',
+          microchip: '985101000000001',
+          alerts: [{ kind: 'chronic', label: 'Kronik böbrek yetmezliği', severity: 'medium' }],
+          weights: [
+            { weightKg: 4.2, measuredAt: new Date('2026-08-15'), note: 'Routine' },
+            { weightKg: 4.35, measuredAt: new Date('2026-10-20'), note: null },
+          ],
+        },
+        {
+          code: 'HP-0002',
+          name: 'Karabaş',
+          speciesKey: 'dog',
+          breedName: 'Kangal',
+          branchCode: 'MRKZ',
+          gender: 'male',
+          birthDate: new Date('2020-01-15'),
+          neutered: true,
+          color: 'Sarı',
+          microchip: '985101000000002',
+          alerts: [],
+          weights: [{ weightKg: 32.5, measuredAt: new Date('2026-09-01'), note: null }],
+        },
+      ],
+    },
+    {
+      firstName: 'Mehmet',
+      lastName: 'Yılmaz',
+      identityNo: null,
+      address: 'Demo Mah. 3. Sk. No:7, Üsküdar/İstanbul',
+      notes: null,
+      contacts: [
+        {
+          kind: 'phone',
+          value: '0533 444 55 66',
+          normalized: '905334445566',
+          label: 'Cep',
+          isPrimary: true,
+        },
+      ],
+      consents: { kvkk: true, sms: true, email: false, whatsapp: false, marketing: false },
+      patients: [
+        {
+          code: 'HP-0003',
+          name: 'Duman',
+          speciesKey: 'cat',
+          breedName: 'British Shorthair',
+          branchCode: 'MRKZ',
+          gender: 'male',
+          birthDate: new Date('2021-08-21'),
+          neutered: false,
+          color: 'Mavi-gri',
+          microchip: '985101000000003',
+          alerts: [{ kind: 'allergy', label: 'Kuduz aşısı sonrası reaksiyon', severity: 'high' }],
+          weights: [{ weightKg: 5.1, measuredAt: new Date('2026-10-05'), note: null }],
+        },
+      ],
+    },
+    {
+      firstName: 'Ayşe',
+      lastName: 'Kaya',
+      identityNo: null,
+      address: 'Örnek Cad. No:44, Beşiktaş/İstanbul',
+      notes: null,
+      contacts: [
+        {
+          kind: 'phone',
+          value: '+90 542 777 88 99',
+          normalized: '905427778899',
+          label: 'Cep',
+          isPrimary: true,
+        },
+        {
+          kind: 'email',
+          value: 'ayse.kaya@example.com',
+          normalized: 'ayse.kaya@example.com',
+          label: null,
+          isPrimary: true,
+        },
+      ],
+      consents: { kvkk: true, sms: false, email: true, whatsapp: false, marketing: false },
+      patients: [
+        {
+          code: 'HP-0004',
+          name: 'Boncuk',
+          speciesKey: 'dog',
+          breedName: 'Golden Retriever',
+          branchCode: 'SUB2',
+          gender: 'female',
+          birthDate: new Date('2019-05-30'),
+          neutered: true,
+          color: 'Altın',
+          microchip: null,
+          alerts: [{ kind: 'chronic', label: 'Kalça displazisi', severity: 'medium' }],
+          weights: [{ weightKg: 28.0, measuredAt: new Date('2026-09-18'), note: null }],
+        },
+      ],
+    },
+  ] as const;
+
+  const branchByCode2 = new Map([
+    ['MRKZ', merkez],
+    ['SUB2', sube2],
+  ]);
+  const adminStaff = await prisma.staff.findUnique({
+    where: { email: 'admin@vetcore-demo.example' },
+  });
+  for (const ownerDef of ownerDefs) {
+    // Idempotentlik: birincil telefon normalize değeriyle mevcut sahibi bul.
+    const primaryPhone = ownerDef.contacts.find(
+      (c) => c.kind === 'phone' && c.isPrimary,
+    )?.normalized;
+    let owner = primaryPhone
+      ? await prisma.owner.findFirst({
+          where: { clinicId: clinic.id, contacts: { some: { normalized: primaryPhone } } },
+        })
+      : null;
+    if (!owner) {
+      owner = await prisma.owner.create({
+        data: {
+          clinicId: clinic.id,
+          firstName: ownerDef.firstName,
+          lastName: ownerDef.lastName,
+          identityNo: ownerDef.identityNo,
+          address: ownerDef.address,
+          notes: ownerDef.notes,
+        },
+      });
+    }
+    for (const contact of ownerDef.contacts) {
+      const exists = await prisma.ownerContact.findFirst({
+        where: { ownerId: owner.id, normalized: contact.normalized },
+      });
+      if (!exists) {
+        await prisma.ownerContact.create({
+          data: {
+            ownerId: owner.id,
+            kind: contact.kind,
+            value: contact.value,
+            normalized: contact.normalized,
+            label: contact.label,
+            isPrimary: contact.isPrimary,
+          },
+        });
+      }
+    }
+    for (const [kind, granted] of Object.entries(ownerDef.consents)) {
+      await prisma.ownerConsent.upsert({
+        where: { ownerId_kind: { ownerId: owner.id, kind } },
+        update: {
+          granted,
+          grantedAt: granted ? new Date() : null,
+          revokedAt: granted ? null : new Date(),
+        },
+        create: { ownerId: owner.id, kind, granted, grantedAt: granted ? new Date() : null },
+      });
+    }
+    for (const patientDef of ownerDef.patients) {
+      const speciesId = speciesByKey.get(patientDef.speciesKey);
+      if (!speciesId) throw new Error(`Tür bulunamadı: ${patientDef.speciesKey}`);
+      const breedIdValue = await breedId(patientDef.speciesKey, patientDef.breedName);
+      const branch = branchByCode2.get(patientDef.branchCode);
+      if (!branch) throw new Error(`Şube bulunamadı: ${patientDef.branchCode}`);
+      const patient = await prisma.patient.upsert({
+        where: { clinicId_code: { clinicId: clinic.id, code: patientDef.code } },
+        update: { name: patientDef.name, ownerId: owner.id },
+        create: {
+          clinicId: clinic.id,
+          branchId: branch.id,
+          ownerId: owner.id,
+          speciesId,
+          breedId: breedIdValue,
+          code: patientDef.code,
+          name: patientDef.name,
+          microchip: patientDef.microchip,
+          gender: patientDef.gender,
+          birthDate: patientDef.birthDate,
+          neutered: patientDef.neutered,
+          color: patientDef.color,
+        },
+      });
+      for (const alert of patientDef.alerts) {
+        const exists = await prisma.patientAlert.findFirst({
+          where: { patientId: patient.id, label: alert.label, active: true },
+        });
+        if (!exists) {
+          await prisma.patientAlert.create({
+            data: {
+              patientId: patient.id,
+              kind: alert.kind,
+              label: alert.label,
+              severity: alert.severity,
+              createdByStaffId: adminStaff?.id ?? null,
+              active: true,
+            },
+          });
+        }
+      }
+      for (const weight of patientDef.weights) {
+        const exists = await prisma.weightObservation.findFirst({
+          where: { patientId: patient.id, measuredAt: weight.measuredAt },
+        });
+        if (!exists) {
+          await prisma.weightObservation.create({
+            data: {
+              patientId: patient.id,
+              weightKg: weight.weightKg,
+              measuredAt: weight.measuredAt,
+              note: weight.note,
+              createdByStaffId: adminStaff?.id ?? null,
+            },
+          });
+        }
+      }
+    }
+  }
+
   const [branchCount, staffCount, roleCount, permissionCount] = await Promise.all([
     prisma.branch.count({ where: { clinicId: clinic.id } }),
     prisma.staff.count({ where: { clinicId: clinic.id } }),
     prisma.role.count({ where: { clinicId: clinic.id } }),
     prisma.permission.count(),
   ]);
+  const [ownerCount, patientCount] = await Promise.all([
+    prisma.owner.count({ where: { clinicId: clinic.id } }),
+    prisma.patient.count({ where: { clinicId: clinic.id } }),
+  ]);
 
   console.log('Seed tamamlandı (sentetik demo verisi):');
   console.log(`  Klinik: ${clinic.name} (${clinic.slug})`);
   console.log(`  Şube sayısı: ${branchCount}`);
   console.log(`  Personel: ${staffCount} | Rol: ${roleCount} | İzin: ${permissionCount}`);
+  console.log(`  Sahip: ${ownerCount} | Hasta: ${patientCount} | Tür: ${speciesDefs.length}`);
   console.log(`  Demo parola (tüm sentetik hesaplar): ${DEMO_PASSWORD}`);
 }
 
