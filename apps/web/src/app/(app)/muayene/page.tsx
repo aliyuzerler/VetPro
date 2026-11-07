@@ -28,6 +28,7 @@ import type { ServiceLineInput } from '@/components/encounters/service-record-pa
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api-client';
 import type {
+  ConsumptionInput,
   EncounterDetail,
   EncounterListItem,
   EncounterVital,
@@ -204,7 +205,15 @@ export default function EncounterPage() {
   });
 
   const serviceRecordMutation = useMutation({
-    mutationFn: (payload: { id: string; lines?: ServiceLineInput[]; removeId?: string; finalizeId?: string }) => {
+    mutationFn: (payload: {
+      id: string;
+      lines?: ServiceLineInput[];
+      removeId?: string;
+      finalizeId?: string;
+      finalize?: { consumptions: ConsumptionInput[]; idempotencyKey: string };
+      reverseId?: string;
+      reason?: string;
+    }) => {
       if (payload.removeId) {
         return api<unknown>(`/encounters/${payload.id}/service-records/${payload.removeId}`, {
           method: 'DELETE',
@@ -212,10 +221,28 @@ export default function EncounterPage() {
         });
       }
       if (payload.finalizeId) {
-        return api<unknown>(`/encounters/${payload.id}/service-records/${payload.finalizeId}/finalize`, {
-          method: 'POST',
-          branchId: activeBranchId,
-        });
+        // Faz 08: atomik finalize — tüketim onayı + idempotency anahtarı (mobil retry).
+        return api<unknown>(
+          `/encounters/${payload.id}/service-records/${payload.finalizeId}/finalize`,
+          {
+            method: 'POST',
+            body: {
+              consumptions: payload.finalize?.consumptions ?? [],
+              idempotencyKey: payload.finalize?.idempotencyKey,
+            },
+            branchId: activeBranchId,
+          },
+        );
+      }
+      if (payload.reverseId) {
+        return api<unknown>(
+          `/encounters/${payload.id}/service-records/${payload.reverseId}/reverse`,
+          {
+            method: 'POST',
+            body: { reason: payload.reason ?? '' },
+            branchId: activeBranchId,
+          },
+        );
       }
       return api<unknown>(`/encounters/${payload.id}/service-records`, {
         method: 'POST',
@@ -442,8 +469,15 @@ export default function EncounterPage() {
             onRemoveServiceRecord={(recordId) =>
               serviceRecordMutation.mutate({ id: detail.id, removeId: recordId })
             }
-            onFinalizeServiceRecord={(recordId) =>
-              serviceRecordMutation.mutate({ id: detail.id, finalizeId: recordId })
+            onFinalizeServiceRecord={(recordId, consumptions, idempotencyKey) =>
+              serviceRecordMutation.mutate({
+                id: detail.id,
+                finalizeId: recordId,
+                finalize: { consumptions, idempotencyKey },
+              })
+            }
+            onReverseServiceRecord={(recordId, reason) =>
+              serviceRecordMutation.mutate({ id: detail.id, reverseId: recordId, reason })
             }
             onAddAddendum={(body) => addendumMutation.mutate({ id: detail.id, body })}
             onSign={() => signEncounter.mutate(detail.id)}

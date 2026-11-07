@@ -543,6 +543,81 @@ export class StockService {
     return resolved;
   }
 
+  /**
+   * Faz 08 — hizmet kesinleştirme/reversal hareketini VERİLEN transaction
+   * içinde deftere yazar. Stok bütünlüğü bu sarmalayıcıyla garanti edilir:
+   * - Tüketimde parti doğrulaması (varlık, depo, expired/quarantined) işlemin
+   *   İÇİNDE yeniden yapılır — preview ile finalize arasında stok değişse bile
+   *   defter tutarlı kalır.
+   * - Çıkış satırları atomik koşullu azaltımla yazılır: yetersiz stokta tek
+   *   satır bile etkilenmez ve tüm dış transaction geri döner (kabul kriteri 2).
+   * - refType 'ServiceRecord' + refId: lot no, SKT (lot üzerinden) ve kaynak
+   *   hizmet kaydı hareket üzerinde izlenebilir (kabul kriteri 5).
+   * - Reversal pozitif satırlarla stoğu iade eder; bakiye üst limiti yoktur.
+   */
+  async postServiceRecordMovement(
+    tx: Prisma.TransactionClient,
+    input: {
+      clinicId: string;
+      branchId: string;
+      warehouseId: string;
+      serviceRecordId: string;
+      kind: 'service_consumption' | 'service_reversal';
+      note?: string | null;
+      staffId?: string | null;
+      lines: { productId: string; lotId: string | null; qty: number; unitCost: number }[];
+    },
+  ) {
+    if (input.kind === 'service_consumption') {
+      for (const line of input.lines) {
+        if (line.qty >= 0) {
+          throw new BadRequestException({
+            code: 'VALIDATION',
+            message: 'Tüketim satırı negatif olmalı',
+          });
+        }
+        if (line.lotId) {
+          const lot = await tx.inventoryLot.findFirst({
+            where: { id: line.lotId, productId: line.productId, warehouseId: input.warehouseId },
+          });
+          if (!lot) {
+            throw new NotFoundException({
+              code: STOCK_ERROR_CODES.LOT_NOT_FOUND,
+              message: 'Parti bu depoda bulunamadı',
+            });
+          }
+          // Blok kontrolü: exhausted burada denetlenmez — gerçek tükenme koşullu
+          // azaltımın atomik denetimine kalır (eş zamanlı güvenli).
+          const blocked = isLotSelectable({
+            id: lot.id,
+            lotCode: lot.lotCode,
+            expiresAt: lot.expiresAt,
+            status: lot.status,
+            receivedAt: lot.receivedAt,
+            qtyOnHand: 1,
+          });
+          if (blocked === 'expired' || blocked === 'quarantined') {
+            throw new ConflictException({
+              code: STOCK_ERROR_CODES.LOT_BLOCKED,
+              message: `Parti ${lot.lotCode} tüketim için seçilemez (${blocked})`,
+            });
+          }
+        }
+      }
+    }
+    return this.postMovement(tx, {
+      clinicId: input.clinicId,
+      branchId: input.branchId,
+      warehouseId: input.warehouseId,
+      kind: input.kind,
+      refType: 'ServiceRecord',
+      refId: input.serviceRecordId,
+      note: input.note ?? null,
+      staffId: input.staffId ?? null,
+      lines: input.lines,
+    });
+  }
+
   // ── Tedarikçi iadesi ──────────────────────────────────────────────────────
 
   async createSupplierReturn(

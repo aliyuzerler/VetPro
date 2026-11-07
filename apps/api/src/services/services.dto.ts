@@ -129,7 +129,11 @@ export class CreateServicePriceDto {
 }
 
 export class CreateConsumptionRuleDto {
-  /** Faz 07'de Product FK'sı eklenecek; bu fazda alan yerinde ama dışarıdan girilmez. */
+  /** Faz 08 — kural artık ürüne bağlanır; ürünü olmayan kural plana alınmaz. */
+  @IsOptional()
+  @IsUUID()
+  productId?: string;
+
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: 3, allowNaN: false })
   @Min(0.001)

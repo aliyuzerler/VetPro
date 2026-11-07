@@ -263,9 +263,22 @@ export class ServicesService {
     request: AuthRequest,
   ) {
     const service = await this.detail(auth, serviceId);
+    // Faz 08 — ürün bağlantısı doğrulanır: klinik ürünü olmalı.
+    let productId: string | null = null;
+    if (dto.productId) {
+      const product = await this.prisma.product.findFirst({
+        where: { id: dto.productId, clinicId: auth.clinicId },
+        select: { id: true },
+      });
+      if (!product) {
+        throw new NotFoundException({ code: 'PRODUCT_NOT_FOUND', message: 'Ürün bulunamadı' });
+      }
+      productId = product.id;
+    }
     const rule = await this.prisma.serviceConsumptionRule.create({
       data: {
         serviceId: service.id,
+        productId,
         defaultQty: new Prisma.Decimal(dto.defaultQty.toFixed(3)),
         unit: dto.unit ?? null,
         required: dto.required ?? false,
@@ -279,7 +292,12 @@ export class ServicesService {
         action: 'SERVICE_RULE_CREATED',
         entityType: 'ServiceConsumptionRule',
         entityId: rule.id,
-        metadata: { serviceId: service.id, defaultQty: dto.defaultQty, unit: dto.unit ?? null },
+        metadata: {
+          serviceId: service.id,
+          productId,
+          defaultQty: dto.defaultQty,
+          unit: dto.unit ?? null,
+        },
       },
       request,
     );

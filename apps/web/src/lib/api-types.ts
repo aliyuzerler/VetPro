@@ -408,13 +408,78 @@ export type ServiceRecordLineDto = {
   service: { id: string; code: string; name: string; category: string };
 };
 
+/** Faz 08 — ücret satırı (append-only; reversal satırları negatif). */
+export type ChargeLineDto = {
+  id: string;
+  sourceType: string; // 'service' | 'service_reversal'
+  description: string;
+  qty: string;
+  unitPrice: string;
+  taxAmount: string;
+  total: string;
+};
+
+export type ChargeDto = {
+  id: string;
+  status: string; // 'open' | 'void'
+  total: string;
+  currency: string;
+  lines: ChargeLineDto[];
+};
+
 export type ServiceRecordDto = {
   id: string;
   status: string;
   performedBy: { firstName: string; lastName: string } | null;
   finalizedAt: string | null;
+  reversedAt: string | null;
+  reversedBy: { firstName: string; lastName: string } | null;
   createdAt: string;
   lines: ServiceRecordLineDto[];
+  charge: ChargeDto | null;
+};
+
+/** Faz 08 — kesinleştirme önizlemesi: tüketim planı + ücret. */
+export type ConsumptionPreviewLot = {
+  lotId: string;
+  lotCode: string;
+  warehouseId: string;
+  expiresAt: string | null;
+  qtyOnHand: number;
+  unitCost: number;
+  blockReason: string | null;
+};
+
+export type ConsumptionPreviewLine = {
+  ruleId: string;
+  productId: string;
+  productCode: string | null;
+  productName: string | null;
+  trackingType: string;
+  unit: string | null;
+  qty: number;
+  required: boolean;
+  allocationPolicy: string;
+  suggestedWarehouseId: string | null;
+  suggestedAllocations: { lotId: string; lotCode: string; qty: number }[];
+  shortfall: number;
+  warning: string | null;
+  lots: ConsumptionPreviewLot[];
+};
+
+export type ConsumptionPreview = {
+  record: { id: string; status: string };
+  consumptions: ConsumptionPreviewLine[];
+  issues: { code: string; message: string; serviceId?: string; ruleId?: string }[];
+  charge: { lines: { description: string; qty: number; unitPrice: number; taxAmount: number; total: number }[]; total: number };
+};
+
+/** Faz 08 — finalize gövdesinde gönderilen onaylı tüketim satırı. */
+export type ConsumptionInput = {
+  productId: string;
+  warehouseId: string;
+  lotId?: string;
+  qty: number;
 };
 
 export type EncounterDetail = {

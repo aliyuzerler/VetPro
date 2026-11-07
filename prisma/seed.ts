@@ -1335,6 +1335,62 @@ async function main(): Promise<void> {
   const vetpharm = suppliers.get('VetPharm Dağıtım A.Ş.')!;
   const anadolu = suppliers.get('Anadolu Veteriner Malzemeleri Ltd.')!;
 
+  // Faz 08 — tüketim kurallarına ürün bağla (hizmet → stok → ücret atomik planı).
+  // Kurallar hizmet bölümünde ürünle değil oluşturulur; ürünler buradan sonra
+  // var olduğundan bağlantı ürünlerden sonra idempotent güncellemeyle kurulur:
+  // - HIZ-001 Genel Muayene 'seans' → UR-ELDIVEN (partisiz, tüketim formu basit)
+  // - HIZ-002 Kuduz Asısı 'doz' → UR-KUDUZ01 (parti takipli, nearest_expiry)
+  // - HIZ-003 Kan Biyokimyası 'tüp' → UR-HEMOKIT (tamamı karantina → yetersiz
+  //   stok uyarısı senaryosu; arayüzde açıkça görünür)
+  // - HIZ-005 Kısırlaştırma 'anestezi dozu' → UR-AMOX250 (çok partili FEFO;
+  //   süresi geçmiş parti otomatik elenir)
+  // - HIZ-005 'operasyon' → UR-IVKAT22 (partisiz sarf)
+  const ruleLinks: {
+    serviceCode: string;
+    unit: string;
+    productId: string;
+    allocationPolicy: string;
+  }[] = [
+    { serviceCode: 'HIZ-001', unit: 'seans', productId: eldiven.id, allocationPolicy: 'fifo' },
+    {
+      serviceCode: 'HIZ-002',
+      unit: 'doz',
+      productId: kuduz.id,
+      allocationPolicy: 'nearest_expiry',
+    },
+    {
+      serviceCode: 'HIZ-003',
+      unit: 'tüp',
+      productId: hemokit.id,
+      allocationPolicy: 'nearest_expiry',
+    },
+    { serviceCode: 'HIZ-005', unit: 'anestezi dozu', productId: amox.id, allocationPolicy: 'fifo' },
+    {
+      serviceCode: 'HIZ-005',
+      unit: 'operasyon',
+      productId: kateter.id,
+      allocationPolicy: 'fifo',
+    },
+  ];
+  for (const link of ruleLinks) {
+    const svc = await prisma.service.findFirst({
+      where: { clinicId: clinic.id, code: link.serviceCode },
+      select: { id: true },
+    });
+    if (!svc) continue;
+    const existing = await prisma.serviceConsumptionRule.findFirst({
+      where: { serviceId: svc.id, unit: link.unit, active: true },
+    });
+    if (!existing) continue;
+    if (existing.productId === link.productId && existing.allocationPolicy === link.allocationPolicy) {
+      continue;
+    }
+    await prisma.serviceConsumptionRule.update({
+      where: { id: existing.id },
+      data: { productId: link.productId, allocationPolicy: link.allocationPolicy },
+    });
+  }
+
   // Merkez Ana Depo: FEFO/blok/süresi geçmiş senaryoları
   // AMOX-250: süresi geçmiş parti (bloklu) + yakın SKT (FEFO ilk sırada) + uzak SKT
   await seedReceipt({

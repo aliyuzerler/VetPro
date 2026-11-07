@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Check, Plus, Trash2 } from 'lucide-react';
+import { Check, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { ServiceDto, ServiceRecordDto } from '@/lib/api-types';
+import type { ConsumptionInput, ServiceDto, ServiceRecordDto } from '@/lib/api-types';
+import { ServiceFinalizeDialog } from './service-finalize-dialog';
+import { ServiceReverseDialog } from './service-reverse-dialog';
 
 function formatMoney(value: string | number): string {
   return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(
@@ -33,30 +35,42 @@ export type ServiceLineInput = { serviceId: string; qty: number };
 
 /**
  * Hizmet kaydı paneli — muayeneye hizmet ekleme (fiyat çözümü API'de: geçerlilik
- * + şube override), kesinleştirme. Faz 06'da kesinleştirme stok/finans post'u
- * tetiklemez (Faz 08 atomik işlemde bağlanır) — arayüzde açıkça belirtilir.
+ * + şube override) ve Faz 08 atomik kesinleştirme. Kesinleştirme, tüketim
+ * önizlemesi diyaloğuyla onaylanır: stok çıkışı + ücret tek işlemde yazılır.
+ * Kesinleşmiş kayıtta ücret özeti gösterilir; iptal (reversal) gerekçeyle
+ * yapılır ve ters hareket üretir — orijinal veriler asla silinmez.
  */
 export function ServiceRecordPanel({
   records,
   services,
+  encounterId,
+  branchId,
   editable,
   onAddRecord,
   onRemoveRecord,
   onFinalize,
+  onReverse,
   saving,
 }: {
   records: ServiceRecordDto[];
   services: ServiceDto[];
+  encounterId: string;
+  branchId: string;
   editable: boolean;
   onAddRecord?: (lines: ServiceLineInput[]) => void;
   onRemoveRecord?: (recordId: string) => void;
-  onFinalize?: (recordId: string) => void;
+  onFinalize?: (recordId: string, consumptions: ConsumptionInput[], idempotencyKey: string) => void;
+  onReverse?: (recordId: string, reason: string) => void;
   saving?: boolean;
 }) {
   const activeServices = useMemo(() => services.filter((s) => s.active), [services]);
   const [serviceId, setServiceId] = useState('');
   const [qty, setQty] = useState('1');
   const [lines, setLines] = useState<ServiceLineInput[]>([]);
+  const [finalizeSession, setFinalizeSession] = useState<{ recordId: string; key: string } | null>(
+    null,
+  );
+  const [reverseRecordId, setReverseRecordId] = useState<string | null>(null);
 
   const addLine = (): void => {
     const parsedQty = Number(qty.replace(',', '.'));
@@ -71,6 +85,9 @@ export function ServiceRecordPanel({
 
   const serviceName = (id: string): string =>
     services.find((s) => s.id === id)?.name ?? 'Bilinmeyen hizmet';
+
+  const finalizeRecord = records.find((r) => r.id === finalizeSession?.recordId) ?? null;
+  const reverseRecord = records.find((r) => r.id === reverseRecordId) ?? null;
 
   return (
     <div className="space-y-4" data-testid="service-record-panel">
@@ -167,39 +184,72 @@ export function ServiceRecordPanel({
               className="rounded-lg border border-border bg-card"
               data-testid="service-record"
             >
-              <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2">
-                <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className="text-xs">
                     {record.status === 'finalized' ? 'Kesinleşti' : 'Taslak'}
                   </Badge>
+                  {record.reversedAt ? (
+                    <Badge variant="secondary" className="text-xs" data-testid="service-record-reversed">
+                      İptal edildi
+                    </Badge>
+                  ) : null}
+                  {record.charge ? (
+                    <Badge
+                      variant={record.charge.status === 'void' ? 'secondary' : 'default'}
+                      className="text-xs"
+                      data-testid="service-record-charge"
+                    >
+                      Ücret: {formatMoney(record.charge.total)}
+                      {record.charge.status === 'void' ? ' (void)' : ''}
+                    </Badge>
+                  ) : null}
                   <span className="text-xs text-muted-foreground">
                     {record.lines.length} satır
                   </span>
                 </div>
-                {editable && record.status === 'draft' ? (
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      data-testid="service-record-finalize"
-                      onClick={() => onFinalize?.(record.id)}
-                    >
-                      <Check aria-hidden="true" />
-                      Kesinleştir
-                    </Button>
+                <div className="flex items-center gap-1.5">
+                  {editable && record.status === 'draft' ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        data-testid="service-record-finalize"
+                        // Idempotency anahtarı olay işleyicisinde üretilir:
+                        // oturum boyunca sabit → mobil tekrar denemesi güvenli.
+                        onClick={() =>
+                          setFinalizeSession({ recordId: record.id, key: crypto.randomUUID() })
+                        }
+                      >
+                        <Check aria-hidden="true" />
+                        Kesinleştir
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Hizmet kaydını sil"
+                        data-testid="service-record-delete"
+                        onClick={() => onRemoveRecord?.(record.id)}
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </Button>
+                    </>
+                  ) : null}
+                  {editable && record.status === 'finalized' && !record.reversedAt ? (
                     <Button
                       type="button"
                       variant="ghost"
-                      size="icon"
-                      aria-label="Hizmet kaydını sil"
-                      data-testid="service-record-delete"
-                      onClick={() => onRemoveRecord?.(record.id)}
+                      size="sm"
+                      data-testid="service-record-reverse"
+                      onClick={() => setReverseRecordId(record.id)}
                     >
-                      <Trash2 aria-hidden="true" />
+                      <RotateCcw aria-hidden="true" />
+                      İptal (Reversal)
                     </Button>
-                  </div>
-                ) : null}
+                  ) : null}
+                </div>
               </div>
               <Table>
                 <TableHeader>
@@ -226,14 +276,62 @@ export function ServiceRecordPanel({
                   ))}
                 </TableBody>
               </Table>
+              {record.charge && record.charge.lines.length > 0 ? (
+                <div className="border-t border-border px-4 py-2" data-testid="service-record-charge-lines">
+                  <ul className="space-y-0.5 text-xs text-muted-foreground">
+                    {record.charge.lines.map((line) => (
+                      <li key={line.id} className="flex justify-between gap-4">
+                        <span>
+                          {line.sourceType === 'service_reversal' ? '↩ ' : ''}
+                          {line.description} × {Number(line.qty)}
+                        </span>
+                        <span>{formatMoney(line.total)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           ))}
           <p className="text-xs text-muted-foreground">
-            Kesinleştirilen hizmet kayıtları Faz 08&apos;de gerçek stok çıkışı ve ücret
-            oluşturma ile bağlanır; bu fazda yalnızca kayıt durumu değişir.
+            Kesinleştirme: tüketim onayı → stok defteri çıkışı + ücret tek işlemde.
+            İptal: ters hareket + negatif ücret satırı — orijinal veriler korunur.
           </p>
         </div>
       )}
+
+      {finalizeRecord && finalizeSession ? (
+        <ServiceFinalizeDialog
+          record={finalizeRecord}
+          encounterId={encounterId}
+          branchId={branchId}
+          idempotencyKey={finalizeSession.key}
+          open
+          onOpenChange={(open) => {
+            if (!open) setFinalizeSession(null);
+          }}
+          onConfirm={(recordId, consumptions, idempotencyKey) => {
+            onFinalize?.(recordId, consumptions, idempotencyKey);
+            setFinalizeSession(null);
+          }}
+          saving={saving}
+        />
+      ) : null}
+
+      {reverseRecord ? (
+        <ServiceReverseDialog
+          record={reverseRecord}
+          open
+          onOpenChange={(open) => {
+            if (!open) setReverseRecordId(null);
+          }}
+          onConfirm={(recordId, reason) => {
+            onReverse?.(recordId, reason);
+            setReverseRecordId(null);
+          }}
+          saving={saving}
+        />
+      ) : null}
     </div>
   );
 }

@@ -224,10 +224,52 @@ export class CreateServiceRecordDto {
 
 export class ReplaceServiceRecordLinesDto extends CreateServiceRecordDto {}
 
+/**
+ * Faz 08 — kesinleştirmede tüketilecek malzeme satırı. Kullanıcı preview
+ * üzerinden gerçek miktarı, depoyu ve partiyi onaylar/düzenler; lot takipli
+ * üründe lotId zorunludur (servis katmanında doğulanır).
+ */
+export class ConsumptionInputDto {
+  @IsUUID()
+  productId!: string;
+
+  @IsUUID()
+  warehouseId!: string;
+
+  @IsOptional()
+  @IsUUID()
+  lotId?: string;
+
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 3, allowNaN: false })
+  @Min(0.001)
+  @Max(1_000_000)
+  qty!: number;
+}
+
 export class FinalizeServiceRecordDto {
   @IsOptional()
-  @Type(() => Boolean)
-  @IsBoolean()
-  /** Bilgi amaçlı: Faz 08'te stok/finans post'u bağlanır; bu fazda yalnız durum değişir. */
-  acknowledgeNoStockPosting?: boolean;
+  @IsArray()
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => ConsumptionInputDto)
+  /** Boş/eksikse tüketim planı ServiceConsumptionRule'dan otomatik kurulur. */
+  consumptions?: ConsumptionInputDto[];
+
+  @IsOptional()
+  @IsUUID()
+  /** Mobil tekrar denemeleri: aynı anahtarla gelen tekrar duplicate yaratmaz. */
+  idempotencyKey?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  note?: string;
+}
+
+export class ReverseServiceRecordDto {
+  @IsString()
+  @MinLength(3)
+  @MaxLength(500)
+  reason!: string;
 }

@@ -117,6 +117,11 @@ describe('Faz 06 — muayene, SOAP, vital bulgular ve hizmet kataloğu (API kabu
   afterAll(async () => {
     if (dbReady) {
       const prisma = new (await import('@prisma/client')).PrismaClient();
+      // Faz 08: finalize artık gerçek Charge yaratır — sahibi silinmeden ücretler
+      // temizlenmelidir (owner_id Restrict; satırlar cascade).
+      if (created.ownerIds.length > 0) {
+        await prisma.charge.deleteMany({ where: { ownerId: { in: created.ownerIds } } });
+      }
       // Encounter cascade: vitals/diagnoses/attachments/serviceRecords/addendums
       if (created.encounterIds.length > 0) {
         await prisma.encounter.deleteMany({ where: { id: { in: created.encounterIds } } });

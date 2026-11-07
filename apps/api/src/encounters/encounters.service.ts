@@ -100,6 +100,8 @@ const ENCOUNTER_DETAIL_INCLUDE = {
       status: true,
       performedBy: { select: { firstName: true, lastName: true } },
       finalizedAt: true,
+      reversedAt: true,
+      reversedBy: { select: { firstName: true, lastName: true } },
       createdAt: true,
       lines: {
         select: {
@@ -110,6 +112,26 @@ const ENCOUNTER_DETAIL_INCLUDE = {
           tax: true,
           lineTotal: true,
           service: { select: { id: true, code: true, name: true, category: true } },
+        },
+      },
+      charge: {
+        select: {
+          id: true,
+          status: true,
+          total: true,
+          currency: true,
+          lines: {
+            orderBy: { createdAt: 'asc' as const },
+            select: {
+              id: true,
+              sourceType: true,
+              description: true,
+              qty: true,
+              unitPrice: true,
+              taxAmount: true,
+              total: true,
+            },
+          },
         },
       },
     },
@@ -849,69 +871,10 @@ export class EncountersService {
   }
 
   /**
-   * Hizmet kaydını kesinleştir — Faz 06'da yalnız durum değişir; gerçek stok
-   * post'u ve ücretlendirme Faz 08 atomik işlemiyle bağlanır (build prompt: stok
-   * post işlemi bu fazda bağlanmaz).
+   * Faz 08 notu: kesinleştirme ServiceFinalizationService'e taşındı — stok
+   * defteri hareketi + ücret + denetim tek transaction'da yazılır ve
+   * idempotency anahtarıyla mobil tekrar denemeleri duplicate yaratmaz.
    */
-  async finalizeServiceRecord(
-    auth: AuthContext,
-    encounterId: string,
-    recordId: string,
-    request: AuthRequest,
-  ) {
-    const encounter = await this.getEncounterOr404(auth.clinicId, encounterId, false);
-    this.assertEncounterScope(auth, request, encounter);
-    const record = await this.prisma.serviceRecord.findFirst({
-      where: { id: recordId, encounterId: encounter.id },
-      select: { id: true, status: true },
-    });
-    if (!record) {
-      throw new NotFoundException({ code: 'SERVICE_RECORD_NOT_FOUND', message: 'Hizmet kaydı bulunamadı' });
-    }
-    if (record.status !== 'draft') {
-      throw new ConflictException({
-        code: 'SERVICE_RECORD_FINALIZED',
-        message: 'Hizmet kaydı zaten kesinleşmiş',
-      });
-    }
-    const updated = await this.prisma.serviceRecord.update({
-      where: { id: record.id },
-      data: {
-        status: 'finalized',
-        performedByStaffId: auth.staffId,
-        finalizedAt: new Date(),
-      },
-      include: {
-        lines: {
-          select: {
-            id: true,
-            qty: true,
-            unitPrice: true,
-            discount: true,
-            tax: true,
-            lineTotal: true,
-            service: { select: { id: true, code: true, name: true, category: true } },
-          },
-        },
-      },
-    });
-    await this.recordAudit(
-      {
-        clinicId: auth.clinicId,
-        staffId: auth.staffId,
-        branchId: encounter.branchId,
-        action: 'SERVICE_RECORD_FINALIZED',
-        entityType: 'ServiceRecord',
-        entityId: updated.id,
-        metadata: {
-          encounterId: encounter.id,
-          note: 'Faz 06: stok/finans post yok — Faz 08 atomik işlemde bağlanır',
-        },
-      },
-      request,
-    );
-    return updated;
-  }
 
   async removeServiceRecord(
     auth: AuthContext,

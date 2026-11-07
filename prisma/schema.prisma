@@ -55,6 +55,7 @@ model Clinic {
   products          Product[]
   suppliers         Supplier[]
   units             Unit[]
+  charges           Charge[]
 
   @@map("clinics")
 }
@@ -86,6 +87,7 @@ model Branch {
   waitlistEntries WaitlistEntry[]
   encounters      Encounter[]
   serviceRecords  ServiceRecord[]
+  charges         Charge[]
   servicePrices   ServicePrice[]
   stockMovements  StockMovement[]
   stockCounts     StockCount[]
@@ -130,6 +132,7 @@ model Staff {
   clinicalAddendums      ClinicalAddendum[]
   vitalObservations      VitalObservation[]
   serviceRecords         ServiceRecord[]
+  reversedServiceRecords ServiceRecord[]     @relation("ServiceRecordReverser")
   postedStockMovements   StockMovement[]     @relation("StockMovementPerformer")
   dispatchedTransfers    StockTransfer[]     @relation("StockTransferDispatcher")
   receivedTransfers      StockTransfer[]     @relation("StockTransferReceiver")
@@ -375,6 +378,7 @@ model Owner {
   appointments    Appointment[]
   waitlistEntries WaitlistEntry[]
   encounters      Encounter[]
+  charges         Charge[]
 
   @@index([clinicId])
   @@index([clinicId, lastName, firstName])
@@ -460,6 +464,7 @@ model Patient {
   waitlistEntries   WaitlistEntry[]
   encounters        Encounter[]
   vitals            VitalObservation[]
+  charges           Charge[]
 
   @@unique([clinicId, code])
   @@unique([clinicId, microchip])
@@ -730,6 +735,7 @@ model Encounter {
   attachments    ClinicalAttachment[]
   addendums      ClinicalAddendum[]
   serviceRecords ServiceRecord[]
+  charges        Charge[]
 
   @@index([branchId, status, startedAt])
   @@index([patientId, startedAt])
@@ -904,12 +910,16 @@ model ServiceRecord {
   clinicId           String    @map("clinic_id") @db.Uuid
   encounterId        String    @map("encounter_id") @db.Uuid
   branchId           String    @map("branch_id") @db.Uuid
-  /// 'draft' | 'finalized' — Faz 08'te finalized gerçek stok/finans post'unu tetikler
+  /// 'draft' | 'finalized' — finalized gerçek stok/finans post'unu tetikler (Faz 08)
   status             String    @default("draft")
   performedByStaffId String?   @map("performed_by_staff_id") @db.Uuid
   finalizedAt        DateTime? @map("finalized_at")
   /// Faz 08 atomik işlemi için idempotency anahtarı (mobil tekrar denemeleri)
   idempotencyKey     String?   @map("idempotency_key") @db.Uuid
+  /// Faz 08 reversal — orijinal hareketler asla silinmez; ters hareket + ücret
+  /// düzeltme satırı yazılır, kayıt burada işaretlenir (append-only ilkesi).
+  reversedAt         DateTime? @map("reversed_at")
+  reversedByStaffId  String?   @map("reversed_by_staff_id") @db.Uuid
   createdById        String?   @map("created_by_id") @db.Uuid
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
@@ -917,12 +927,74 @@ model ServiceRecord {
   encounter   Encounter           @relation(fields: [encounterId], references: [id], onDelete: Cascade)
   branch      Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
   performedBy Staff?              @relation(fields: [performedByStaffId], references: [id], onDelete: SetNull)
+  reversedBy  Staff?              @relation("ServiceRecordReverser", fields: [reversedByStaffId], references: [id], onDelete: SetNull)
   lines       ServiceRecordLine[]
+  charge      Charge?
 
   @@unique([idempotencyKey])
   @@index([encounterId])
   @@index([branchId, status])
   @@map("service_records")
+}
+
+/// Ücret — kesinleşen hizmet kaydının sahipe yansıyan borcu (Faz 08).
+/// Hizmet finalize işlemiyle aynı transaction'da doğar; reversal negatif
+/// düzeltme satırı ekler, toplam sıfıra inerse void olur. Ödeme bağlantıları
+/// Faz 09'da PaymentAllocation ile eklenir.
+model Charge {
+  id              String   @id @default(uuid()) @db.Uuid
+  clinicId        String   @map("clinic_id") @db.Uuid
+  branchId        String   @map("branch_id") @db.Uuid
+  encounterId     String?  @map("encounter_id") @db.Uuid
+  serviceRecordId String?  @map("service_record_id") @db.Uuid
+  ownerId         String   @map("owner_id") @db.Uuid
+  patientId       String?  @map("patient_id") @db.Uuid
+  /// 'open' | 'void' — Faz 09'a ödeme/alacak durumları eklenecek
+  status          String   @default("open")
+  currency        String   @default("TRY")
+  total           Decimal  @db.Decimal(12, 2)
+  note            String?
+  createdById     String?  @map("created_by_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch        Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  encounter     Encounter?     @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  serviceRecord ServiceRecord? @relation(fields: [serviceRecordId], references: [id], onDelete: SetNull)
+  owner         Owner          @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  patient       Patient?       @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  lines         ChargeLine[]
+
+  @@unique([serviceRecordId])
+  @@index([clinicId, status])
+  @@index([ownerId])
+  @@index([branchId, createdAt])
+  @@map("charges")
+}
+
+/// Ücret satırı — append-only. sourceType 'service' (hizmet satırı) veya
+/// 'service_reversal' (negatif düzeltme); qty işaretlidir, reversal satırları
+/// negatif yazılır ve orijinal satırlar asla silinmez.
+model ChargeLine {
+  id          String   @id @default(uuid()) @db.Uuid
+  chargeId    String   @map("charge_id") @db.Uuid
+  /// 'service' | 'service_reversal'
+  sourceType  String   @map("source_type")
+  /// ServiceRecordLine.id (service) veya ServiceRecord.id (reversal)
+  sourceId    String   @map("source_id") @db.Uuid
+  description String
+  qty         Decimal  @db.Decimal(10, 3)
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(10, 2)
+  taxAmount   Decimal  @map("tax_amount") @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  charge Charge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+
+  @@index([chargeId])
+  @@index([sourceType, sourceId])
+  @@map("charge_lines")
 }
 
 /// Hizmet kaydı satırı — fiyat çözümleme anında dondurulur (unit_price geçmiş

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Inject,
   Param,
   ParseUUIDPipe,
@@ -15,6 +16,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsString, MaxLength, MinLength } from 'class-validator';
 import { EncountersService } from './encounters.service';
+import { ServiceFinalizationService } from './service-finalization.service';
 import {
   AddDiagnosisDto,
   AddVitalDto,
@@ -22,7 +24,9 @@ import {
   CreateAttachmentDto,
   CreateEncounterDto,
   CreateServiceRecordDto,
+  FinalizeServiceRecordDto,
   ListEncountersQueryDto,
+  ReverseServiceRecordDto,
   UpdateEncounterDto,
 } from './encounters.dto';
 import { BranchScopeGuard } from '../common/auth/branch-scope.guard';
@@ -47,7 +51,10 @@ export class VoidEncounterDto {
 @BranchScoped()
 @Controller('encounters')
 export class EncountersController {
-  constructor(@Inject(EncountersService) private readonly service: EncountersService) {}
+  constructor(
+    @Inject(EncountersService) private readonly service: EncountersService,
+    @Inject(ServiceFinalizationService) private readonly finalization: ServiceFinalizationService,
+  ) {}
 
   @Get()
   list(@Query() query: ListEncountersQueryDto, @CurrentAuth() auth: AuthContext, @Req() request: AuthRequest) {
@@ -220,10 +227,45 @@ export class EncountersController {
   finalizeServiceRecord(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('recordId', ParseUUIDPipe) recordId: string,
+    @Body() dto: FinalizeServiceRecordDto,
+    @Headers('idempotency-key') idempotencyKey: string | undefined,
     @CurrentAuth() auth: AuthContext,
     @Req() request: AuthRequest,
   ) {
-    return this.service.finalizeServiceRecord(auth, id, recordId, request);
+    // Idempotency-Key başlığı (mobil sözleşme) gövde anahtarı yoksa kullanılır.
+    return this.finalization.finalizeServiceRecord(
+      auth,
+      id,
+      recordId,
+      dto,
+      idempotencyKey ?? null,
+      request,
+    );
+  }
+
+  /** Faz 08 — kesinleştirme önizlemesi (tüketim planı + ücret). */
+  @Get(':id/service-records/:recordId/consumption-preview')
+  @RequirePermissions('encounter.manage')
+  consumptionPreview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('recordId', ParseUUIDPipe) recordId: string,
+    @CurrentAuth() auth: AuthContext,
+    @Req() request: AuthRequest,
+  ) {
+    return this.finalization.previewConsumption(auth, id, recordId, request);
+  }
+
+  /** Faz 08 — iptal: ters stok hareketi + negatif ücret satırı (orijinal korunur). */
+  @Post(':id/service-records/:recordId/reverse')
+  @RequirePermissions('encounter.manage')
+  reverseServiceRecord(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('recordId', ParseUUIDPipe) recordId: string,
+    @Body() dto: ReverseServiceRecordDto,
+    @CurrentAuth() auth: AuthContext,
+    @Req() request: AuthRequest,
+  ) {
+    return this.finalization.reverseServiceRecord(auth, id, recordId, dto.reason, request);
   }
 
   @Delete(':id/service-records/:recordId')

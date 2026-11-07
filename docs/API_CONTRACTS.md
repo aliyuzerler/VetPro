@@ -127,9 +127,18 @@ Base path `/api/v1`. This is a module map; ZCode must define request/response sc
 - Hizmet kayıtları: `POST /encounters/:id/service-records` {lines: [{serviceId, qty,
   discount?, tax?}]} — fiyat çözümlenir ve satıra dondurulur; fiyatı olmayan hizmet
   409 `SERVICE_PRICE_MISSING` (missingServiceIds listed). `PATCH .../service-records/:recordId/lines`
-  (yalnız taslak), `POST .../service-records/:recordId/finalize` (performedBy +
-  finalizedAt yazılır; **Faz 06'da stok/finans post yok** — Faz 08 atomik işlemde
-  bağlanır), `DELETE .../service-records/:recordId` (yalnız taslak).
+  (yalnız taslak), `DELETE .../service-records/:recordId` (yalnız taslak).
+  **Faz 08 — atomik kesinleştirme:** `GET .../service-records/:recordId/consumption-preview`
+  (kural planı + depo/parti seçenekleri + ücret önizlemesi),
+  `POST .../service-records/:recordId/finalize` ({consumptions?: [{productId,
+  warehouseId, lotId?, qty}], idempotencyKey?, note?} + `Idempotency-Key` başlığı;
+  gövdesiz çağrı kural planını otomatik kurar) — TEK transaction: stok defter
+  hareketi (`refType=ServiceRecord`) + koşullu azaltım + Charge/ChargeLine +
+  denetim; yetersiz stok 409 `INSUFFICIENT_STOCK` (tüm işlem geri döner), bloklu
+  parti 409 `LOT_BLOCKED`, aynı anahtar tekrarı REPLAY döner, farklı anahtar
+  409. Tüketim gerektiren finalize/iptal `inventory.consume` ister (403
+  `PERMISSION_DENIED`), `POST .../service-records/:recordId/reverse` {reason}
+  — ters hareket + negatif ücret satırı; tam iadede ücret `void`.
 - Yeni izinler: `encounter.manage` (muayene yazma uçları), `service.manage`
   (katalog yazma uçları); imza ve addendum `clinical.sign` ister. Okuma uçları
   kimlik + şube kapsamı yeterlidir.
@@ -198,9 +207,10 @@ Base path `/api/v1`. This is a module map; ZCode must define request/response sc
 
 ## Catalog and service finalization
 - CRUD `/services`, `/services/:id/pricing`, `/services/:id/consumption-rules`
-- `POST /service-records/preview` (validate proposed lines and stock allocation; no posting)
-- `POST /service-records/finalize` (Idempotency-Key required; atomic stock + charge + audit)
-- `POST /service-records/:id/reverse` (permission + reason + idempotency)
+  (Faz 08: kural `productId` kabul eder)
+- `GET /encounters/:id/service-records/:recordId/consumption-preview` (validate proposed lines and stock allocation; no posting)
+- `POST /encounters/:id/service-records/:recordId/finalize` (Idempotency-Key/body key; atomic stock + charge + audit in one transaction)
+- `POST /encounters/:id/service-records/:recordId/reverse` (permission `inventory.consume` + reason; reverse movement + negative charge lines, originals preserved)
 
 ## Inventory / purchasing
 - CRUD `/products`, `/product-categories`, `/suppliers`, `/stock-locations`

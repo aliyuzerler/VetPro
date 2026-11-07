@@ -22,6 +22,7 @@ import { VitalPanel, DiagnosisPanel, type VitalInput } from './vital-panel';
 import { ServiceRecordPanel, type ServiceLineInput } from './service-record-panel';
 import { AddendumPanel } from './addendum-panel';
 import type {
+  ConsumptionInput,
   EncounterDetail,
   EncounterVital,
   ServiceDto,
@@ -49,6 +50,7 @@ export function EncounterWorkbench({
   onAddServiceRecord,
   onRemoveServiceRecord,
   onFinalizeServiceRecord,
+  onReverseServiceRecord,
   onAddAddendum,
   onSign,
   onClose,
@@ -67,7 +69,12 @@ export function EncounterWorkbench({
   onRemoveDiagnosis?: (id: string) => void;
   onAddServiceRecord?: (lines: ServiceLineInput[]) => void;
   onRemoveServiceRecord?: (recordId: string) => void;
-  onFinalizeServiceRecord?: (recordId: string) => void;
+  onFinalizeServiceRecord?: (
+    recordId: string,
+    consumptions: ConsumptionInput[],
+    idempotencyKey: string,
+  ) => void;
+  onReverseServiceRecord?: (recordId: string, reason: string) => void;
   onAddAddendum?: (body: string) => void;
   onSign?: () => void;
   onClose?: () => void;
@@ -224,11 +231,14 @@ export function EncounterWorkbench({
               <ServiceRecordPanel
                 records={encounter.serviceRecords}
                 services={services}
+                encounterId={encounter.id}
+                branchId={encounter.branchId}
                 editable={editable}
                 saving={saving}
                 onAddRecord={onAddServiceRecord}
                 onRemoveRecord={onRemoveServiceRecord}
                 onFinalize={onFinalizeServiceRecord}
+                onReverse={onReverseServiceRecord}
               />
             </CardContent>
           </Card>

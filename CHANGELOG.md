@@ -2,6 +2,74 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.7.0] — Faz 08: Hizmet → stok → ücret atomik iş akışı (2026-11-08)
+
+### Eklendi
+- **Veri modeli (migration `faz08_service_charge`)**: `Charge` (hizmet
+  kesinleşmesinden doğan sahibin borcu; serviceRecordId unique — hizmet başına
+  tek ücret; durum `open` | `void`; currency/toplam; sahibi/hasta/muayene
+  referansları) ve `ChargeLine` (append-only; `sourceType`: `service` |
+  `service_reversal`; reversal satırları negatif qty/total ile yazılır —
+  orijinal satırlar asla değiştirilmez). `ServiceRecord`'a `reversedAt` +
+  `reversedByStaffId` eklendi; encounter/owner/patient/branch/staff
+  ilişkileri kataloglandı.
+- **API — service-finalization modülü** (encounters altında; şube kapsamlı):
+  - **Önizleme** `GET /encounters/:id/service-records/:recordId/consumption-preview`
+    (`encounter.manage`): `ServiceConsumptionRule` üzerinden kural planı
+    (defaultQty × hizmet satır adedi), ürün için seçilebilir stoğu en yüksek
+    şube deposu önerisi, politika bazlı parti tahsisi (fifo → receivedAt,
+    nearest_expiry → SKT; bloklu partiler atlanır; manual → kullanıcı seçer),
+    yetersiz stok uyarısı, ürünsüz kural için `RULE_WITHOUT_PRODUCT` bilgilisi
+    ve dondurulmuş ücret önizlemesi döner.
+  - **Atomik finalize** `POST .../service-records/:recordId/finalize`
+    (`encounter.manage` + tüketim varsa `inventory.consume`): TEK transaction —
+    `FOR UPDATE` satır kilidi, stok defter hareketi (kind `service_consumption`,
+    `refType=ServiceRecord` → lot no + SKT + kaynak kayıt izlenebilir; depo
+    bazında gruplanır), bakiye projeksiyonu atomik koşullu azaltımı,
+    `Charge` + `ChargeLine` (fiyatlar kayıt satırından dondurulur),
+    `SERVICE_RECORD_FINALIZED` denetimi ve `status=finalized`. Stok yazım
+    hatası tüm işlemi geri alır (çok depolu kısmi yazım dâhil).
+  - **Idempotency:** gövde `idempotencyKey` veya `Idempotency-Key` başlığı
+    (UUID). Aynı anahtarla tekrar → REPLAY (aynı yanıt, yeni hareket/ücret
+    yok — mobil tekrar denemesi güvenli); farklı anahtarla ikinci finalize →
+    409 `SERVICE_RECORD_FINALIZED`.
+  - **Reversal** `POST .../service-records/:recordId/reverse`
+    (`encounter.manage` + `inventory.consume`; gerekçe zorunlu): ters stok
+    hareketi (stoğa iade) + negatif `service_reversal` ücret satırları +
+    `SERVICE_RECORD_REVERSED` denetimi; tam iadede ücret toplamı 0'a iner ve
+    `void` olur. İkinci reversal 409 `SERVICE_RECORD_REVERSED`; orijinal
+    hareket ve satırlar korunur (ADR-006 append-only).
+- **Kural → ürün bağlantısı:** `POST /services/:id/consumption-rules` artık
+  `productId` kabul eder (klinik ürünü doğrulanır); seed demo kuralları ürünlere
+  bağlandı — Genel Muayene→Eldiven (partisiz), Kuduz Asısı→Kuduz aşısı
+  (nearest_expiry, zorunlu), Kan Biyokimyası→Hemogram kiti (tamamı karantinada —
+  yetersiz stok uyarısı senaryosu), Kısırlaştırma→Amoksisilin (çok partili FEFO;
+  süresi geçmiş parti elenir) + İV kateter.
+- **Web:** `/muayene` iş istasyonunda kesinleştirme artık tüketim onayı
+  diyaloğuyla açılır (kural planı, depo/parti/miktar düzenleme, bloklu partiler
+  devre dışı, yetersiz stok uyarısı, ücret önizlemesi); kesinleşmiş kayıt
+  ücret rozeti + satır dökümü gösterir; **İptal (Reversal)** gerekçe diyaloğu.
+  Idempotency anahtarı diyaloğu açan olay işleyicisinde üretilir (oturumda
+  sabit). Storybook: 4 yeni story (kesinleştirme önizlemesi, reversal gerekçesi
+  ×2, iptal edilmiş kayıt görünümü).
+- **Doğrulama:** API e2e 14/14 (7 kabul kriteri + iki depolu rollback + çift
+  kayıt eşzamanlı tüketim + manual politika kilidi + LOT_BLOCKED + şube
+  kapsamı); tam API regresyonu 216/216; alan mantığı 24 birim test; Playwright
+  tam süit 114/114 + ekran görüntüleri; Storybook 103/103 (axe kapısı dâhil).
+
+### Değişti
+- `CreateConsumptionRuleDto`'ya `productId` alanı eklendi (Faz 06'daki
+  "dışarıdan girilmez" kısıtı kalktı).
+- Eski Faz 06 finalize ucu (yalnız durum değişikliği) `ServiceFinalizationService`
+  ile değiştirildi; gövdesiz çağrılar geriye dönük uyumlu (tüketim planı kuraldan
+  otomatik kurulur).
+
+### Bilinen sınırlar
+- Ücret yalnız `open`/`void` durumlarında; ödeme/tahsilat bağlantıları Faz 09
+  `PaymentAllocation` ile eklenir.
+- Manual tahsis politikasında otomatik finalize 409
+  `REQUIRED_CONSUMPTION_MISSING` döner — tüketim satırları açık gönderilmelidir.
+
 ## [0.6.0] — Faz 07: Ürün, depo, lot, tedarikçi ve stok defteri (2026-11-07)
 
 ### Eklendi

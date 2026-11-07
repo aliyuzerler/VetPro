@@ -241,7 +241,7 @@ güncellenir. Tüm veriler sentetiktir.
   doğrulanır (bu koşuda canlı: hepsi yeşil).
 - **Durum hikâyeleri:** yükleme (skeleton), boş, hata (tekrar deneme yolu) ve yetkisiz
   görünümleri tek ekranda.
-- **Faz planı:** 15 fazın durumu — Faz 01–06 Tamamlandı, Faz 07 Sırada.
+- **Faz planı:** 15 fazın durumu — Faz 01–08 Tamamlandı, Faz 09 Sırada.
 
 ### Web — Giriş sayfası (`/giris`, Faz 03)
 
@@ -434,6 +434,73 @@ Tedarikçi kataloğu; yazma `supplier.manage` izni ister.
 
 Resepsiyon rolünde ürün sayfası salt-okunurdur: mal kabul/yeni ürün/tüketim
 aksiyonları hiç görünmez (izin bazlı UI).
+
+## Hizmet → stok → ücret atomik iş akışı (Faz 08)
+
+- **Atomik kesinleştirme:** hizmet kaydı kesinleştirildiğinde klinik kayıt
+  (finalized) + stok defter hareketi (`refType=ServiceRecord` — hareketten
+  kaynak kayda, partiden lot+SKT'ye izlenebilirlik) + `Charge`/`ChargeLine`
+  (fiyatlar kayıt satırından dondurulur) + denetim kaydı TEK transaction'da
+  yazılır; stok yazım hatası tüm işlemi geri alır (API e2e ile kanıtlanır).
+- **Tüketim onayı diyaloğu:** `ServiceConsumptionRule` kuralından kural planı
+  (miktar = defaultQty × hizmet adedi), ürün için seçilebilir stoğu en yüksek
+  depo önerisi ve politika bazlı parti tahsisi (FIFO / SKT-yakın; süresi geçmiş
+  ve karantina partileri seçilemez). Kullanıcı gerçek miktarı, depoyu ve lotu
+  düzenleyip onaylar; yetersiz seçilebilir stokta onay kilitli ve uyarı görünür.
+- **Idempotency:** kesinleştirme gövdesi/`Idempotency-Key` başlığı UUID anahtar
+  taşır — aynı anahtarla gelen mobil tekrar denemesi REPLAY döner (duplicate
+  hareket/ücret yok), farklı anahtar 409 döner.
+- **İptal (Reversal):** kesinleşmiş kayıt gerekçeyle iptal edilir — ters stok
+  hareketi (stoğa iade) + negatif `service_reversal` ücret satırı yazılır,
+  orijinal veriler asla silinmez; tam iadede ücret `void` olur (append-only).
+- **Yetkilendirme:** tüketim gerektiren kesinleştirme/iptal `inventory.consume`
+  izni ister (API düzeyinde 403); resepsiyon gibi izinsiz rollerde arayüz
+  aksiyonlarını hiç göstermez.
+- **Demo kural bağlantıları:** Genel Muayene→Eldiven (partisiz), Kuduz
+  Asısı→Kuduz aşısı (SKT-yakın, zorunlu), Kan Biyokimyası→Hemogram kiti
+  (tamamı karantinada — uyarı senaryosu), Kısırlaştırma→Amoksisilin (çok partili
+  FEFO; süresi geçmiş parti elenir) + İV kateter.
+
+### Web — Kesinleştirme, ücret ve reversal (Faz 08)
+
+![Kesinleştirme önizlemesi](docs/screenshots/web-f08-01-kesinlestirme-onizlemesi.png)
+
+Tüketim onayı diyaloğu: kural planı, parti seçim listesi (lot · SKT · kalan)
+ve ücret önizlemesi; bloklu partiler devre dışıdır.
+
+![Parti seçim diyaloğu](docs/screenshots/web-f08-03-parti-secim-diyalogu.png)
+
+Parti takipli üründe tahsis: önerilen parti (SKT yakını) önceden seçilir;
+kullanıcı düzenleyebilir.
+
+![Kesinleşmiş ve ücretli](docs/screenshots/web-f08-02-kesinlesmis-ucretli.png)
+
+Atomik post sonrası: kayıt "Kesinleşti", ücret rozeti ve satır dökümü görünür;
+iptal (reversal) aksiyonu kullanılabilir.
+
+![Reversal](docs/screenshots/web-f08-05-reversal-iptal-edildi.png)
+
+İptal sonrası: "İptal edildi" rozeti, negatif düzeltme satırı ("İptal —") ve
+`void` ücret — orijinal satırlar listede kalır (append-only).
+
+![Yetersiz stok uyarısı](docs/screenshots/web-f08-06-yetersiz-stok-uyarisi.png)
+
+Karantinadaki tek partili hizmet (Kan Biyokimyası → Hemogram kiti): yetersiz
+seçilebilir stok uyarısı ve kilitli onay düğmesi.
+
+![Yetkisiz hizmet görünümü](docs/screenshots/web-f08-07-yetkisiz-gorunum.png)
+
+Resepsiyon rolünde hizmet paneli salt-okunur: kesinleştirme/iptal aksiyonları
+hiç görünmez.
+
+### Mobil — hizmet kesinleştirme (Faz 08)
+
+![Mobil kesinleştirme önizlemesi](docs/screenshots/mobil-f08-01-kesinlestirme-onizlemesi.png)
+
+![Mobil kesinleşmiş kayıt](docs/screenshots/mobil-f08-02-kesinlesmis-ucretli.png)
+
+Mobil kırılımda tüketim diyaloğu ve ücret rozeti; sayfada yatay taşma yoktur
+(E2E iddiası).
 
 ### Mobil — ürünler ve partiler (Faz 07)
 
