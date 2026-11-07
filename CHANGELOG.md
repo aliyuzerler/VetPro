@@ -2,6 +2,36 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.2.1] — Storybook bileşen atölyesi ve a11y token düzeltmesi (2026-11-07)
+
+### Eklendi
+- **Storybook 10** (`@storybook/nextjs`, ADR-017): VetCore tasarım sistemi atölyesi —
+  StatusChip, StateViews, KpiCard, Button, Badge story'leri (autodocs). Canlı geliştirme:
+  `pnpm --filter @vetcore/web storybook`; statik doğrulama: `storybook:build` +
+  `storybook:test`. `globals.css` (Tailwind 4 token'ları) story'lere birebir yüklenir.
+- **Bileşen testleri**: test-runner ile **18/18 PASS** — her story render smoke,
+  2 `play` etkileşim testi (buton tıklaması `onClick` mock'u, hata görünümünde
+  "Tekrar dene" aksiyonu) ve axe erişilebilirlik denetimi (herhangi bir ihlal koşuyu
+  düşürür). Test-runner Playwright tabanlıdır; ADR-013 zincirinin 4. adımı oldu.
+- **Ekran görüntüleri**: `scripts/storybook-screenshots.mjs` — 21 PNG üretir
+  (18 story + 2 mobil + yönetim arayüzü) → `docs/screenshots/storybook/`;
+  README "Storybook" bölümüne gömüldü.
+- Faz sonu standardı güncellendi: `docs/TEST_STRATEGY.md`,
+  `prompts/END_OF_PHASE_REVIEW.md`, `prompts/skills/phase-workflow.md`.
+
+### Düzeltildi
+- **Erişilebilirlik — axe color-contrast (15 ihlal → 0)**: Storybook a11y kapısı ilk
+  koşuda WCAG AA altı kontrastları yakaladı; token'lar koyulaştırıldı — brand.600
+  `#28847C → #267F77` (beyaz üstünde 4.49 → 4.81:1), neutral.600/muted-foreground
+  `#6E7C80 → #647175` (4.32 → 5.05:1), status.success `#21845A → #1F7C55` (4.11),
+  status.warning `#C78A2C → #926520` (2.64 → 4.55:1), status.danger `#C44E4E → #B24747`
+  (3.90), status.info `#3979B8 → #346FA9` (3.96). Etkilenen dosyalar: `globals.css`,
+  `design/tokens.json`, `packages/ui-tokens`, mobil tema tokenları; `--destructive`,
+  `--ring`, `--chart-*` ve `--sidebar-primary` türevleri hizalandı (hesaplayıcı:
+  `scripts/compute-contrast.py`).
+- StateViews hata story'sinde CSF3 varsayılan render meta bileşenini çiziyordu
+  (buton DOM'a gelmiyordu); açık `render` eklendi.
+
 ## [0.2.0] — Faz 03: Kimlik, personel, rol ve klinik ayarları (2026-11-07)
 
 ### Eklendi

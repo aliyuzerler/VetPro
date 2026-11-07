@@ -2,6 +2,7 @@
 
 ## Test pyramid
 - Unit: domain rules, permissions, pricing, date calculations, unit conversions, notification scheduling.
+- Component (Storybook): design-system primitives and UI widgets in isolation — every visual state, interaction `play` tests, axe accessibility checks.
 - Integration: PostgreSQL transactions, inventory ledger, charge/payment allocation, upload access, branch isolation, sync idempotency.
 - API contract: OpenAPI request/response and stable error codes.
 - Web E2E: owner/patient → appointment → encounter → service → stock → charge → payment.
@@ -9,7 +10,7 @@
 - Security: IDOR, privilege escalation, branch access, mass assignment, file upload, token rotation, export authorization.
 - Performance: patient search, calendar, patient timeline, stock balances, ledger and dashboard aggregation.
 
-## Standard end-of-phase validation (Playwright)
+## Standard end-of-phase validation (Playwright + Storybook)
 Every phase closes with the same chain, run in order:
 1. `pnpm lint`, `pnpm typecheck`, `pnpm test`, affected workspace builds.
 2. The phase test prompt executed as an independent QA pass.
@@ -17,6 +18,10 @@ Every phase closes with the same chain, run in order:
    - Specs for every new user-facing surface of the phase are added under `apps/web/e2e/` before the phase can pass.
    - Screenshots are written to `apps/web/e2e/screenshots/` (desktop 1440 + mobile iPhone-14 viewport) and committed with the phase.
    - A green Playwright run plus current screenshots is a completion requirement; failing this blocks the phase regardless of unit/integration results.
+4. **Storybook component tests (ADR-017)** — `pnpm --filter @vetcore/web storybook:build` then `pnpm --filter @vetcore/web storybook:test` against the static build:
+   - New or changed design-system / UI primitives get stories under `apps/web/src/**/*.stories.tsx` before the phase can pass.
+   - The test-runner (Playwright-based) executes every story headless: render smoke, interaction `play` functions and axe accessibility checks (`addon-a11y`; any violation fails the run).
+   - Curated screenshots are refreshed via `node scripts/storybook-screenshots.mjs` into `docs/screenshots/storybook/` and the README section updated, then pushed to GitHub together with the phase.
 
 ## Mandatory high-risk test cases
 1. Two users finalize a service using the last unit of the same stock lot simultaneously; at most one succeeds.

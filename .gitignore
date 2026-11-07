@@ -11,6 +11,9 @@ coverage/
 *.tsbuildinfo
 .expo/
 
+# Storybook statik çıktısı (docs/screenshots/storybook/ altındaki PNG'ler commit edilir)
+storybook-static/
+
 # Environment & secrets (only .env.example is tracked)
 .env
 .env.*

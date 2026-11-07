@@ -8,7 +8,7 @@ export const COLORS = {
   brand50: '#F1FAF8',
   brand100: '#DDF3EF',
   brand500: '#37A197',
-  brand600: '#28847C',
+  brand600: '#267F77',   /* a11y: beyaz metin üstünde 4.81:1 */
   brand700: '#216A64',
   brand800: '#1C514D',
   brand900: '#173B39',
@@ -18,21 +18,21 @@ export const COLORS = {
   neutral50: '#F7F9F8',
   neutral100: '#F0F4F3',
   neutral200: '#E2E8E7',
-  neutral600: '#6E7C80',
+  neutral600: '#647175',
   neutral950: '#1B2528',
   white: '#FFFFFF',
 } as const;
 
 export const STATUS = {
-  success: '#21845A',
+  success: '#1F7C55',
   successBg: '#E6F4EE',
-  warning: '#C78A2C',
+  warning: '#926520',
   warningBg: '#FAF1E0',
-  danger: '#C44E4E',
+  danger: '#B24747',
   dangerBg: '#F9E8E8',
-  info: '#3979B8',
+  info: '#346FA9',
   infoBg: '#E7F0F8',
-  neutral: '#6E7C80',
+  neutral: '#647175',
   neutralBg: '#F0F4F3',
 } as const;
 

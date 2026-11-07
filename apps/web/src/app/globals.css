@@ -46,7 +46,7 @@
   --color-brand-50: #f1faf8;
   --color-brand-100: #ddf3ef;
   --color-brand-500: #37a197;
-  --color-brand-600: #28847c;
+  --color-brand-600: #267f77;   /* a11y: beyaz metin üstünde 4.81:1 */
   --color-brand-700: #216a64;
   --color-brand-800: #1c514d;
   --color-brand-900: #173b39;
@@ -63,10 +63,10 @@
   --color-neutral-800: #344246;
 
   /* Durum renkleri — design/tokens.json > color.status (yalnızca durum semantiği) */
-  --color-status-success: #21845a;
-  --color-status-warning: #c78a2c;
-  --color-status-danger: #c44e4e;
-  --color-status-info: #3979b8;
+  --color-status-success: #1f7c55;
+  --color-status-warning: #926520;
+  --color-status-danger: #b24747;
+  --color-status-info: #346fa9;
 
   /* Yarıçaplar — design/tokens.json > radius */
   --radius-sm: 6px;
@@ -89,29 +89,29 @@
   --card-foreground: #1b2528;
   --popover: #ffffff;
   --popover-foreground: #1b2528;
-  --primary: #28847c;           /* brand.600 — birincil eylem */
+  --primary: #267f77;           /* brand.600 — birincil eylem (WCAG AA 4.81:1) */
   --primary-foreground: #ffffff;
   --secondary: #f1faf8;         /* brand.50 — yumuşak yüzey */
   --secondary-foreground: #173b39;
   --muted: #f0f4f3;             /* neutral.100 */
-  --muted-foreground: #6e7c80;  /* neutral.600 */
+  --muted-foreground: #647175;  /* neutral.600 — beyaz/zemin üstünde ≥4.55:1 */
   --accent: #ddf3ef;            /* brand.100 */
   --accent-foreground: #173b39;
-  --destructive: #c44e4e;       /* status.danger */
+  --destructive: #b24747;       /* status.danger (WCAG AA) */
   --destructive-foreground: #ffffff;
   --border: #e2e8e7;            /* neutral.200 */
   --input: #e2e8e7;
-  --ring: #28847c;
+  --ring: #267f77;
 
-  --chart-1: #28847c;           /* brand.600 */
+  --chart-1: #267f77;           /* brand.600 */
   --chart-2: #37a197;           /* brand.500 */
   --chart-3: #d97855;           /* accent.600 */
-  --chart-4: #3979b8;           /* status.info */
-  --chart-5: #c78a2c;           /* status.warning */
+  --chart-4: #346fa9;           /* status.info */
+  --chart-5: #926520;           /* status.warning */
 
   --sidebar: #102c2b;           /* brand.950 — derin teal kabuk */
   --sidebar-foreground: #f1faf8;
-  --sidebar-primary: #28847c;
+  --sidebar-primary: #267f77;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #1c514d;    /* brand.800 — hover/aktif yüzey */
   --sidebar-accent-foreground: #ddf3ef;
@@ -119,13 +119,13 @@
   --sidebar-ring: #37a197;
 
   /* Durum renkleri + kısıtlı yumuşak zeminler (RENK TEK İPUCU DEĞİL: daima metin/ikon ile) */
-  --status-success: #21845a;
+  --status-success: #1f7c55;
   --status-success-bg: #e6f4ee;
-  --status-warning: #c78a2c;
+  --status-warning: #926520;
   --status-warning-bg: #faf1e0;
-  --status-danger: #c44e4e;
+  --status-danger: #b24747;
   --status-danger-bg: #f9e8e8;
-  --status-info: #3979b8;
+  --status-info: #346fa9;
   --status-info-bg: #e7f0f8;
 
   /* Yerleşim — design/tokens.json > layout */

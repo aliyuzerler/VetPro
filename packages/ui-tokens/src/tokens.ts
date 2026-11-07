@@ -9,7 +9,7 @@ export const BRAND_COLORS = {
   50: '#F1FAF8',
   100: '#DDF3EF',
   500: '#37A197',
-  600: '#28847C',
+  600: '#267F77',   /* a11y: beyaz metin üstünde 4.81:1 */
   700: '#216A64',
   800: '#1C514D',
   900: '#173B39',
@@ -27,7 +27,7 @@ export const NEUTRAL_COLORS = {
   200: '#E2E8E7',
   300: '#CBD4D4',
   500: '#8C999C',
-  600: '#6E7C80',
+  600: '#647175',
   700: '#536267',
   800: '#344246',
   950: '#1B2528',
@@ -35,10 +35,10 @@ export const NEUTRAL_COLORS = {
 } as const;
 
 export const STATUS_COLORS = {
-  success: '#21845A',
-  warning: '#C78A2C',
-  danger: '#C44E4E',
-  info: '#3979B8',
+  success: '#1F7C55',
+  warning: '#926520',
+  danger: '#B24747',
+  info: '#346FA9',
 } as const;
 
 export const FONT_FAMILY =

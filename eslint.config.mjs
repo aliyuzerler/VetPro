@@ -17,6 +17,7 @@ export default [
       '**/coverage/**',
       '**/playwright-report/**',
       '**/test-results/**',
+      '**/storybook-static/**',
       'apps/mobile/**',
       'extracted/**',
       'upload/**',

@@ -11,6 +11,13 @@
    and embedded PostgreSQL up, and commit the refreshed screenshots from
    `apps/web/e2e/screenshots/` together with the phase deliverables. A phase without a green
    Playwright run and current screenshots is not complete.
-8. Fix all failures; do not mark phase done with skipped tests unless a blocker is explicitly recorded.
-9. Update implementation status, changelog, architecture decisions and docs.
-10. Report changed files, test commands/results, screenshots, known limitations and exact next phase.
+8. **Storybook component tests (standard at every phase end, ADR-017):** add or update stories
+   for every new/changed design-system or UI primitive, then
+   `pnpm --filter @vetcore/web storybook:build && pnpm --filter @vetcore/web storybook:test`
+   (render smoke + play interaction tests + axe accessibility; violations fail the run).
+   Refresh `docs/screenshots/storybook/` with `node scripts/storybook-screenshots.mjs`.
+   A phase without green Storybook tests and current screenshots is not complete.
+9. Fix all failures; do not mark phase done with skipped tests unless a blocker is explicitly recorded.
+10. Update implementation status, changelog, architecture decisions and docs; refresh the README
+    screenshots sections and **push to GitHub** with the phase.
+11. Report changed files, test commands/results, screenshots, known limitations and exact next phase.

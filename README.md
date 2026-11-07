@@ -72,6 +72,8 @@ pnpm dev:mobile     # Expo DevTools (QR ile cihaz/emülatör)
 | `pnpm db:seed` | Sentetik demo verisi |
 | `pnpm dev:postgres up\|down` | Docker'sız gömülü PostgreSQL |
 | `pnpm infra:up` / `infra:down` | Docker Compose altyapısı |
+| `pnpm --filter @vetcore/web storybook` | Bileşen atölyesi (canlı, port 6006) |
+| `pnpm --filter @vetcore/web storybook:build` + `storybook:test` | Statik build + bileşen testleri (smoke, etkileşim, a11y) |
 
 ## API uçları (Faz 01)
 
@@ -222,12 +224,60 @@ tıklama ile kapanır, bağlantı seçimi çekmeceyi otomatik kapatır.
 > Görüntü seti `docs/screenshots/` altında README için küratörlüüdür; tam ve ham E2E
 > çıktısı `apps/web/e2e/screenshots/` altında tutulur.
 
+## Storybook — tasarım sistemi atölyesi (ADR-017)
+
+UI bileşenleri [Storybook 10](https://storybook.js.org/) ile izole geliştirilir ve
+sınanır: her story uygulamanın gerçek `globals.css` token'larıyla (Tailwind 4) aynı
+şekilde çizilir. Her faz sonunda standart zincirin 4. adımı olarak test-runner
+koşar: render smoke + `play` etkileşim testleri + **axe erişilebilirlik kapısı**
+(herhangi bir ihlal koşuyu düşürür). Görüntüler
+`node scripts/storybook-screenshots.mjs` ile `docs/screenshots/storybook/`
+altında üretilir ve her fazla güncellenir.
+
+```bash
+pnpm --filter @vetcore/web storybook          # canlı atölye → http://localhost:6006
+pnpm --filter @vetcore/web storybook:build    # statik build (storybook-static/)
+pnpm --filter @vetcore/web storybook:test     # test-runner: 18/18 PASS (smoke + play + a11y)
+node scripts/storybook-screenshots.mjs        # ekran görüntülerini yenile
+```
+
+### Storybook arayüzü — kenar çubuğu, Controls ve Accessibility paneli
+
+![Storybook arayüzü](docs/screenshots/storybook/storybook-arayuzu.png)
+
+### StatusChip — beş ton; durum daima ikon + metin ile (renk tek ipucu değil)
+
+![StatusChip tüm tonlar](docs/screenshots/storybook/design-system-statuschip--tum-tonlar.png)
+
+### Button — altı varyant; beyaz metin primary üstünde WCAG AA (4.81:1)
+
+![Button varyantlar](docs/screenshots/storybook/ui-button--varyantlar.png)
+
+### KpiCard — trend yönlü ritim; tabular numerals
+
+![KPI kartları](docs/screenshots/storybook/design-system-kpicard--kart-dizilimi.png)
+
+### StateViews — hata durumu her zaman tekrar deneme yolu sunar (play testi ile sınanır)
+
+![Hata durumu](docs/screenshots/storybook/design-system-stateviews--hata-durumu.png)
+
+### Mobil (390 px) — bileşenler dar viewportta da taşmaz
+
+![Mobil StatusChip](docs/screenshots/storybook/design-system-statuschip--tum-tonlar-mobil.png)
+
+> Not: a11y kapısının ilk koşusu 15 kontrast ihlali yakaladı; marka/nötr/durum
+> token'ları WCAG AA üstüne çekildi (bkz. `CHANGELOG.md` 0.2.1 ve `scripts/compute-contrast.py`).
+> Koyu tema story'leri ve Next.js kabuk (App Router navigation mocking) story'leri
+> sonraki iyileştirme adımlarıdır.
+
 ## Kalite kapıları
 
 - TypeScript `strict`; ESLint + Prettier; CI: lint → typecheck → test → migration → seed → build.
 - Her faz `prompts/phases/phase-XX-*-test.md` promptu geçmeden tamamlanmış sayılmaz.
 - **Her faz sonunda standart Playwright E2E koşusu ve güncel ekran görüntüleri zorunludur**
   (bkz. `docs/TEST_STRATEGY.md` — Standart faz sonu doğrulaması).
+- **Her faz sonunda Storybook bileşen testleri (smoke + etkileşim + axe a11y) ve güncel
+  `docs/screenshots/storybook/` görüntüleri zorunludur** (ADR-017).
 - Durum takibi: `docs/IMPLEMENTATION_STATUS.md` ve `CHANGELOG.md`.
 
 ## ZCode ile çalışma
