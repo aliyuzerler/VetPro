@@ -90,6 +90,25 @@ pnpm dev:mobile     # Expo DevTools (QR ile cihaz/emülatör)
 - Mobil kabuk (`apps/mobile`): token tabanlı tema, alt navigasyon (Bugün/Hastalar/Randevular/
   Görevler/Daha Fazla), güvenli alan dolgusu ve ≥44 pt dokunma hedefleri.
 
+## Kimlik, personel ve klinik ayarları (Faz 03)
+
+- `/giris` — personel girişi: scrypt (N=16384) parola doğrulaması, HS256 access token
+  (15 dk) + opak refresh token (30 gün, yalnızca SHA-256 hash saklanır) ile oturum açılışı;
+  sentetik demo hesap ipuçları sayfada görünür.
+- **Oturum yönetimi:** `POST /auth/login`, `POST /auth/refresh` (rotasyon + tekrar-kullanım
+  algısı — çalıntı refresh kullanılırsa personelin tüm oturumları kapanır), `POST /auth/logout`,
+  `GET /auth/me`, `PATCH /auth/active-branch`.
+- **Guard zinciri (her uçta):** JwtAuthGuard (global) → PermissionsGuard (@RequirePermissions)
+  → şube kapsamlı uçlarda BranchScopeGuard (X-Branch-Id / branchId; Şube A kullanıcısı
+  Şube B kaydına erişemez).
+- `/ayarlar` — klinik profili (settings.manage), şubeler (branch.manage), personel ve
+  rol/şube atamaları (staff.manage), rol × izin matrisi (roles.manage — değişiklikler
+  denetime önce/sonra yazılır), denetim kaydı görüntüleyici (audit.view).
+- **İzin kataloğu:** clinical.sign, inventory.adjust, finance.refund, reports.export,
+  audit.view, settings.manage, branch.manage, staff.manage, roles.manage, room.manage,
+  warehouse.manage; sistem rol şablonları (Klinik Yöneticisi, Veteriner Hekim, Resepsiyon,
+  Stok Yöneticisi, Finans) düzenlenebilir.
+
 ## Ekran Görüntüleri
 
 Aşağıdaki görüntüler standart faz sonu Playwright E2E koşusundan alınmıştır
@@ -112,7 +131,53 @@ güncellenir. Tüm veriler sentetiktir.
   doğrulanır (bu koşuda canlı: hepsi yeşil).
 - **Durum hikâyeleri:** yükleme (skeleton), boş, hata (tekrar deneme yolu) ve yetkisiz
   görünümleri tek ekranda.
-- **Faz planı:** 15 fazın durumu — Faz 01 Tamamlandı, Faz 02 Sürdürülüyor.
+- **Faz planı:** 15 fazın durumu — Faz 01–03 Tamamlandı, Faz 04 Sırada.
+
+### Web — Giriş sayfası (`/giris`, Faz 03)
+
+![Giriş sayfası](docs/screenshots/web-giris.png)
+
+Scrypt karma doğrulamalı personel girişi; sentetik demo hesap ipuçları kart altında.
+Hatalı parola denemeleri hata zarfıyla döner ve `auth.login.failed` olarak denetlenir.
+
+### Web — Aktif şube seçimi (üst çubuk, Faz 03)
+
+![Şube değişimi](docs/screenshots/web-sube-degisimi.png)
+
+Şube seçici oturum verisinden gelir; seçim `PATCH /auth/active-branch` ile Session kaydına
+yazılır ve şube kapsamlı isteklerin kapsamını belirler. Sayfa yenilendiğinde seçim korunur.
+
+### Web — Klinik ayarları: profil, personel, izin matrisi, denetim (`/ayarlar`, Faz 03)
+
+![Klinik profili](docs/screenshots/web-ayarlar-klinik-profili.png)
+
+Klinik kimliği, yerelleştirme ve para birimi; settings.manage izni olmayan personel
+salt-okunur görür.
+
+![Personel](docs/screenshots/web-ayarlar-personel.png)
+
+Personel listesi rol/şube rozetleriyle; yeni personel diyaloğu çoklu rol ve şube atamasıyla
+scrypt karma parola oluşturur.
+
+![İzin matrisi](docs/screenshots/web-ayarlar-izin-matrisi.png)
+
+Rol × izin matrisi — her anahtar değişimi `PUT /roles/:id/permissions` ile yazılır ve
+denetim defterine önce/sonra listeleriyle işlenir.
+
+![Denetim kaydı](docs/screenshots/web-ayarlar-denetim.png)
+
+Silinmez denetim defteri: giriş, yetki ve ayar değişiklikleri; eylem filtresi ve sayfalama.
+
+### Web — Yetkisiz görünüm (resepsiyon rolü, Faz 03)
+
+![Yetkisiz görünüm](docs/screenshots/web-yetkisiz-gorunum.png)
+
+staff.manage / audit.view izni olmayan personel kilitli durum hikâyesini görür; API
+guard'ı aynı uçları 403 ile korur.
+
+### Mobil — giriş sayfası (Faz 03)
+
+![Mobil giriş](docs/screenshots/mobil-giris.png)
 
 ### Web — Tasarım sistemi rehberi (`/stil-rehberi`)
 

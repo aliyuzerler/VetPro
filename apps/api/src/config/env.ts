@@ -15,6 +15,11 @@ export const EnvSchema = z.object({
     .string()
     .default('postgresql://vetcore:change-me@localhost:5432/vetcore?schema=public'),
   REDIS_URL: z.string().optional(),
+  /// HS256 access token imza anahtarı. Development için varsayılan vardır;
+  /// üretimde zorunlu olacak (Faz 15 sıkılaştırması).
+  AUTH_JWT_SECRET: z.string().min(16).default('dev-only-vetcore-local-secret-change-me'),
+  AUTH_ACCESS_TTL_SEC: z.coerce.number().int().positive().default(900), // 15 dk
+  AUTH_REFRESH_TTL_SEC: z.coerce.number().int().positive().default(2_592_000), // 30 gün
   CLINIC_TIMEZONE: z.string().default('Europe/Istanbul'),
   DEFAULT_LOCALE: z.string().default('tr-TR'),
 });

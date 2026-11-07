@@ -1,9 +1,12 @@
 import { Controller, Get, HttpException, HttpStatus, Inject } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Public } from '../common/auth/decorators';
 import { HealthService } from './health.service';
 
 @ApiTags('health')
 @Controller('health')
+// Sağlık uçları kimlik doğrulaması dışındadır: orkestratör/load balancer erişir.
+@Public()
 export class HealthController {
   // Vitest/esbuild decorator metadata üretmediğinden bağımlılıklar açık @Inject ile çözümlenir.
   constructor(@Inject(HealthService) private readonly healthService: HealthService) {}

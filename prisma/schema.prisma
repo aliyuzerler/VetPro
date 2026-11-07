@@ -1,7 +1,9 @@
-// VetCore — Faz 01 temel şema.
-// Kapsam: klinik ve şube çekirdek varlıkları (tüm kayıtlar clinic_id/branch_id kapsamı taşır).
-// İş mantığı varlıkları (hasta, randevu, stok, finans...) ilgili fazlarda eklenir.
+// VetCore — Faz 03 şema.
+// Kapsam: klinik/şube çekirdeği (Faz 01) + kimlik, personel, rol, izin, oturum ve denetim
+// (Faz 03) + oda ve depo placeholder master kayıtları. İş mantığı varlıkları (hasta,
+// randevu, stok, finans...) ilgili fazlarda eklenir.
 // Kurallar: UUID PK, UTC zaman damgaları, money/quantity için Decimal, silinmez defter ileriki fazlarda.
+// Güvenlik: şifre yalnızca scrypt hash saklanır; refresh token yalnızca SHA-256 hash saklanır.
 
 generator client {
   provider = "prisma-client-js"
@@ -28,6 +30,9 @@ model Clinic {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   branches Branch[]
+  staff Staff[]
+  roles Role[]
+  auditEvents AuditEvent[]
 
   @@map("clinics")
 }
@@ -49,7 +54,204 @@ model Branch {
 
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Restrict)
 
+  rooms Room[]
+  warehouses Warehouse[]
+  staffBranches StaffBranch[]
+  auditEvents AuditEvent[]
+
   @@unique([clinicId, code])
   @@index([clinicId])
   @@map("branches")
+}
+
+/// Personel (kullanıcı) hesabı — klinik kapsamlı. Şubeye erişim StaffBranch ile verilir.
+model Staff {
+  id           String  @id @default(uuid()) @db.Uuid
+  clinicId     String  @map("clinic_id") @db.Uuid
+  email        String  @unique
+  /// scrypt hash (N=16384, r=8, p=1) — düz metin asla saklanmaz.
+  passwordHash String  @map("password_hash")
+  firstName    String  @map("first_name")
+  lastName     String  @map("last_name")
+  /// Unvan: Veteriner Hekim, Resepsiyon, Stok Sorumlusu vb.
+  title        String?
+  phone        String?
+  /// Pasif personel oturum açamaz; kayıt denetim için korunur.
+  active       Boolean @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  sessions      Session[]
+  staffRoles    StaffRole[]
+  staffBranches StaffBranch[]
+  auditEvents   AuditEvent[]
+
+  @@index([clinicId])
+  @@map("staff")
+}
+
+/// Rol — klinik kapsamlı ve düzenlenebilir; isSystem=true olanlar seed şablonudur
+/// (şablon da düzenlenebilir, yalnızca "varsayılan" işaretini taşır).
+model Role {
+  id          String  @id @default(uuid()) @db.Uuid
+  clinicId    String  @map("clinic_id") @db.Uuid
+  /// Stabil referans anahtarı: 'admin', 'veteriner', 'resepsiyon'...
+  key         String
+  name        String
+  description String?
+  /// Seed şablonu işareti (UI'da "Sistem şablonu" rozeti; yine düzenlenebilir).
+  isSystem    Boolean @default(false) @map("is_system")
+  /// true ise rol tüm şubelere erişir (StaffBranch kontrolü atlanır).
+  allBranches Boolean @default(false) @map("all_branches")
+  active      Boolean @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  clinic          Clinic           @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  rolePermissions RolePermission[]
+  staffRoles      StaffRole[]
+
+  @@unique([clinicId, key])
+  @@index([clinicId])
+  @@map("roles")
+}
+
+/// İzin kataloğu — global sabit liste (klinikten bağımsız), seed ile doldurulur.
+model Permission {
+  key String @id
+  /// Grup: clinical | inventory | finance | reports | audit | settings | staff
+  group       String
+  name        String
+  description String?
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+/// Rol ↔ izin eşlemesi (izin matrisi).
+model RolePermission {
+  roleId        String @map("role_id") @db.Uuid
+  permissionKey String @map("permission_key")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+
+  @@id([roleId, permissionKey])
+  @@index([permissionKey])
+  @@map("role_permissions")
+}
+
+/// Personel ↔ rol eşlemesi (çoklu rol desteği).
+model StaffRole {
+  staffId String @map("staff_id") @db.Uuid
+  roleId  String @map("role_id") @db.Uuid
+
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  role  Role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([staffId, roleId])
+  @@index([roleId])
+  @@map("staff_roles")
+}
+
+/// Personel ↔ şube eşlemesi; aktif şube seçimi buradaki listeden yapılır.
+model StaffBranch {
+  staffId  String  @map("staff_id") @db.Uuid
+  branchId String  @map("branch_id") @db.Uuid
+  isDefault Boolean @default(false) @map("is_default")
+
+  staff  Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([staffId, branchId])
+  @@index([branchId])
+  @@map("staff_branches")
+}
+
+/// Oturum — refresh token rotasyonu kaydı. Refresh token yalnızca SHA-256 hash
+/// saklanır; her refresh'te eski satır revoked edilir ve yenisi yazılır (rotasyon).
+model Session {
+  id               String   @id @default(uuid()) @db.Uuid
+  staffId          String   @map("staff_id") @db.Uuid
+  /// Oturumun aktif şubesi; şube kapsamlı guard ve X-Branch-Id doğrulaması için.
+  branchId         String?  @map("branch_id") @db.Uuid
+  /// SHA-256(64 karakter hex) — düz refresh token asla saklanmaz.
+  refreshTokenHash String   @unique @map("refresh_token_hash")
+  userAgent        String?
+  ip               String?
+  expiresAt        DateTime @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  /// 'rotated' | 'logout' | 'reuse-detected' | 'expired'
+  revokedReason    String?  @map("revoked_reason")
+  createdAt        DateTime @default(now()) @map("created_at")
+  lastUsedAt       DateTime @default(now()) @map("last_used_at")
+
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId])
+  @@map("sessions")
+}
+
+/// Silinmez denetim defteri — yetki değişiklikleri dahil tüm kritik işlemler.
+model AuditEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  clinicId   String   @map("clinic_id") @db.Uuid
+  /// İşlemi yapan personel; null = sistem.
+  staffId    String?  @map("staff_id") @db.Uuid
+  /// İşlemin gerçekleştiği şube; şube silinirse kayıt korunur (SetNull).
+  branchId   String?  @db.Uuid
+  /// Nokta notasyonu: 'auth.login', 'role.permissions.update', 'staff.create'...
+  action     String
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id")
+  /// Değişiklik özeti (before/after); PII ve sır içermemeli.
+  metadata   Json?
+  ip         String?
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  staff  Staff? @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId, createdAt])
+  @@index([staffId])
+  @@map("audit_events")
+}
+
+/// Muayene/operasyon odası — şube kapsamlı master kayıt (Faz 03 placeholder).
+model Room {
+  id       String  @id @default(uuid()) @db.Uuid
+  branchId String  @map("branch_id") @db.Uuid
+  name     String
+  /// 'examination' | 'surgery' | 'lab' | 'other'
+  kind     String  @default("examination")
+  active   Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@unique([branchId, name])
+  @@index([branchId])
+  @@map("rooms")
+}
+
+/// Depo — şube kapsamlı master kayıt (placeholder; stok hareketleri Faz 07'de).
+model Warehouse {
+  id        String  @id @default(uuid()) @db.Uuid
+  branchId  String  @map("branch_id") @db.Uuid
+  name      String
+  isDefault Boolean @default(false) @map("is_default")
+  active    Boolean @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@unique([branchId, name])
+  @@index([branchId])
+  @@map("warehouses")
 }

@@ -25,6 +25,17 @@
 | Other clinical | LabOrder, LabResult, SurgeryCase, AnesthesiaRecord, HospitalStay, HospitalObservation, Kennel, GroomingBooking, BoardingBooking | Linked to patient/encounter |
 | Platform | Notification, NotificationAttempt, FileAsset, AuditEvent, IntegrationConnection, IdempotencyRecord, SyncOperation, BackupJob | Cross-cutting records |
 
+### Faz 03 — fiziksel implementasyon (2026-11-07)
+Aşağıdaki varlıklar `prisma/schema.prisma` ve `phase03_identity_rbac` migration ile somutlaştı:
+- `Staff` (scrypt password_hash, unique email), `Role` (clinic+key unique, isSystem şablon
+  işareti, allBranches), `Permission` (global katalog, key PK), `RolePermission`, `StaffRole`,
+  `StaffBranch` (isDefault), `Session` (refresh SHA-256 hash unique, branchId aktif şube,
+  revokedAt/revokedReason rotasyon+reuse kayıtları), `AuditEvent` (clinic/staff/branch FK,
+  action, before/after metadata, SetNull yumuşak referanslar), `Room` + `Warehouse`
+  (branch+name unique placeholder master).
+- Kurallar: şifre düz metin asla saklanmaz; refresh token yalnızca hash; audit satırları
+  silinmez; tüm tablolarda UUID PK + UTC timestamp (Faz 01 konvansiyonları).
+
 ## 3. Entity detail (minimum fields)
 
 ### Patient

@@ -1,51 +1,40 @@
-import { mkdirSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import {
+  DEMO,
+  expectNoHorizontalOverflow,
+  login,
+  screenshot,
+} from './helpers';
 
 /**
- * VetCore Faz 02 — uygulama kabuğu ve tasarım sistemi E2E testleri.
- * Ekran görüntüleri e2e/screenshots/ altına yazılır (repoya commit edilir) —
- * her faz sonunda standart Playwright koşusu (bkz. docs/TEST_STRATEGY.md).
- * Testler API + gömülü PostgreSQL'in ayakta olduğunu varsayar; Web webServer
- * tarafından otomatik başlatılır (playwright.config.ts).
+ * VetCore — uygulama kabuğu ve tasarım sistemi E2E testleri (Faz 03 güncel).
+ * Faz 03'ten itibaren (app) rotaları kimlik korumalıdır: her test gerçek giriş
+ * akışından geçer (scrypt + JWT + oturum). Ekran görüntüleri e2e/screenshots/
+ * altına yazılır ve repoya commit edilir — her faz sonunda standart Playwright
+ * koşusu (ADR-013). API + gömülü PostgreSQL ayakta beklenir.
  */
-
-const SHOT_DIR = resolve(__dirname, 'screenshots');
-
-async function screenshot(page: Page, name: string, fullPage = true): Promise<void> {
-  mkdirSync(SHOT_DIR, { recursive: true });
-  // Her proje kendi ekran görüntüsünü yazar; mobile koşumu desktop dosyalarını ezmesin.
-  const project = test.info().project.name;
-  await page.screenshot({ path: resolve(SHOT_DIR, `${project}-${name}`), fullPage });
-}
-
-async function expectNoHorizontalOverflow(page: Page): Promise<void> {
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(overflow).toBeLessThanOrEqual(2);
-}
 
 /** Bu testler masaüstü kabuğu (kenar çubuğu sabit) gerektirir. */
 const DESKTOP_ONLY = 'Masaüstü projesi — kenar çubuğu gerektirir';
 
-test.describe('Faz 02 — uygulama kabuğu (masaüstü)', () => {
+test.describe('Uygulama kabuğu (masaüstü, kimlikli)', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Genel Bakış', level: 1 })).toBeVisible();
+    await login(page, DEMO.admin);
   });
 
-  test('01 — kabuk yüklenir: kenar çubuğu, üst çubuk ve Faz 02 rozeti', async ({ page }) => {
+  test('01 — kabuk yüklenir: kenar çubuğu, üst çubuk ve Faz 03 rozeti', async ({ page }) => {
     test.skip(test.info().project.name !== 'chromium-desktop', DESKTOP_ONLY);
 
     await expect(page.getByTestId('app-sidebar')).toBeVisible();
     await expect(page.getByTestId('app-topbar')).toBeVisible();
     await expect(
-      page.getByText('Faz 02 — Tasarım sistemi ve uygulama kabukları'),
+      page.getByText('Faz 03 — kimlik ve şube kapsamı'),
     ).toBeVisible();
 
-    // Şube seçici sentetik demo kliniği gösterir
-    await expect(page.getByRole('button', { name: /Merkez Şube/ })).toBeVisible();
+    // Aktif şube seçici oturumdan gelir (seed: Merkez Şube varsayılan)
+    await expect(page.getByTestId('branch-selector')).toContainText('Merkez Şube');
+    // Kenar çubuğu kullanıcı bloğu gerçek kimliği gösterir
+    await expect(page.getByTestId('sidebar-user')).toContainText('Deniz Yıldız');
 
     // Kenar çubuğu grupları listelenir
     const sidebar = page.getByTestId('app-sidebar');
@@ -78,9 +67,13 @@ test.describe('Faz 02 — uygulama kabuğu (masaüstü)', () => {
   test('03 — platform bileşenleri canlı durumuna ulaşır (API + PostgreSQL)', async ({ page }) => {
     test.skip(test.info().project.name !== 'chromium-desktop', DESKTOP_ONLY);
 
+    // 'Çalışıyor' etiketi Web ve API satırlarında iki kez görünür; .first() ile
+    // strict mode ihlali önlenir.
     const card = page.locator('div[data-slot="card"]', { hasText: 'Platform bileşenleri' });
-    await expect(card.getByText('Çalışıyor')).toBeVisible({ timeout: 20_000 });
-    await expect(card.getByText('Bağlı')).toBeVisible({ timeout: 20_000 });
+    await expect(card.getByText('API (NestJS)')).toBeVisible({ timeout: 20_000 });
+    await expect(card.getByText('PostgreSQL')).toBeVisible({ timeout: 20_000 });
+    await expect(card.getByText('Çalışıyor').first()).toBeVisible({ timeout: 20_000 });
+    await expect(card.getByText('Bağlı').first()).toBeVisible({ timeout: 20_000 });
 
     await screenshot(page, '03-canli-bilesenler.png');
   });
@@ -158,14 +151,14 @@ test.describe('Faz 02 — uygulama kabuğu (masaüstü)', () => {
   });
 });
 
-test.describe('Faz 02 — mobil görünüm (iPhone 14)', () => {
+test.describe('Mobil görünüm (iPhone 14, kimlikli)', () => {
   test('08 — mobilde düzen bozulmaz, çekmece menü çalışır', async ({ page }) => {
     test.skip(
       test.info().project.name !== 'chromium-mobile',
       'Yalnızca mobil projesinde çalışır',
     );
 
-    await page.goto('/');
+    await login(page, DEMO.admin);
     await expect(page.getByRole('heading', { name: 'Genel Bakış', level: 1 })).toBeVisible();
 
     // Kenar çubuğu gizli, hamburger menü ile çekmece açılır

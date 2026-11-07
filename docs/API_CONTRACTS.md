@@ -7,6 +7,25 @@ Base path `/api/v1`. This is a module map; ZCode must define request/response sc
 - `GET /auth/me`, `GET /permissions/me`
 - CRUD `/clinic`, `/branches`, `/staff`, `/roles`, `/rooms`, `/warehouses`
 
+### Faz 03 — uygulanan kimlik sözleşmesi (2026-11-07)
+- `POST /auth/login` → `{ accessToken, refreshToken, accessExpiresAt, staff, roles[],
+  permissions[], allBranches, branches[], activeBranch }` — hatalı deneme 401 +
+  `auth.login.failed` denetimi.
+- `POST /auth/refresh` → yeni token çifti; eski refresh iptal edilir (rotasyon);
+  iptal edilmiş (rotated) token tekrar sunulursa personelin tüm oturumları
+  `reuse-detected` ile kapanır.
+- `POST /auth/logout` → 204; `GET /auth/me` → güncel oturum + izinler + şubeler;
+  `PATCH /auth/active-branch` `{ branchId }` → Session.branchId güncellenir, denetlenir.
+- Guard zinciri: JwtAuthGuard (global, Bearer) → PermissionsGuard (@RequirePermissions)
+  → BranchScopeGuard (@BranchScoped uçlarda; query.branchId → X-Branch-Id → body.branchId;
+  Şube A personeli Şube B kapsamındaki kayda 403 alır). Health uçları @Public.
+- `GET /permissions` izin kataloğu (11 anahtar; en az: clinical.sign, inventory.adjust,
+  finance.refund, reports.export, audit.view); `PUT /roles/:id/permissions` matris yazımı
+  (önce/sonra listeleriyle `role.permissions.update` denetimi).
+- `GET /audit-events?take&skip&action&staffId` — audit.view izni gerekir.
+- Tüm mutation uçları `audit_events` tablosuna yazar (auth, clinic, branch, room,
+  warehouse, staff, role).
+
 ## Owners and patients
 - CRUD `/owners`, `/owners/:id/patients`, `/patients`
 - `GET /patients/search?q=`

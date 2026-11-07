@@ -6,6 +6,7 @@ import { ChevronDown, HeartPulse } from 'lucide-react';
 import { useState } from 'react';
 import { NAV_GROUPS } from './nav';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/auth-context';
 
 /**
  * Kenar çubuğu — design/DESIGN_SYSTEM.md > Layout > Desktop shell.
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils';
  */
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const { session } = useAuth();
   // Aktif sayfanın grubu baştan açık gelir
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -123,16 +125,16 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </ul>
       </nav>
 
-      {/* Alt kullanıcı bloğu — kimlik Faz 03'te gerçek olacak */}
+      {/* Alt kullanıcı bloğu — Faz 03: gerçek kimlik bağlamı */}
       <div className="shrink-0 border-t border-sidebar-border p-3">
-        <div className="flex items-center gap-2.5 rounded-md px-1 py-1">
+        <div className="flex items-center gap-2.5 rounded-md px-1 py-1" data-testid="sidebar-user">
           <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-accent-foreground">
-            AD
+            {session ? (session.staff.firstName[0] ?? '') + (session.staff.lastName[0] ?? '') : '??'}
           </span>
           <span className="flex min-w-0 flex-col leading-tight">
-            <span className="truncate text-xs font-medium">Dr. Ayşe Demir</span>
+            <span className="truncate text-xs font-medium">{session?.staff.fullName ?? 'Misafir'}</span>
             <span className="truncate text-[11px] text-sidebar-foreground/60">
-              Veteriner Hekim — Faz 03&apos;te kimlik doğrulaması
+              {session ? session.roles.map((role) => role.name).join(', ') : ''}
             </span>
           </span>
         </div>

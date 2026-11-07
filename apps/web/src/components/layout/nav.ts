@@ -47,7 +47,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     label: 'Klinik',
     icon: Building2,
     items: [
-      { label: 'Şubeler ve Personel', phase: 3 },
+      { label: 'Şubeler ve Personel', phase: 3, href: '/ayarlar' },
       { label: 'Hasta Sahipleri', phase: 4 },
     ],
   },
@@ -135,7 +135,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     icon: Settings,
     items: [
       { label: 'Tasarım Sistemi', phase: 2, href: '/stil-rehberi' },
-      { label: 'Denetim Kaydı', phase: 15 },
+      { label: 'Klinik Ayarları', phase: 3, href: '/ayarlar' },
+      { label: 'Denetim Kaydı', phase: 3, href: '/ayarlar?tab=denetim' },
     ],
   },
 ] as const;

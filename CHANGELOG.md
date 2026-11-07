@@ -2,6 +2,58 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.2.0] — Faz 03: Kimlik, personel, rol ve klinik ayarları (2026-11-07)
+
+### Eklendi
+- **Veri modeli (migration `phase03_identity_rbac`)**: `Staff`, `Role`, `Permission`,
+  `RolePermission`, `StaffRole`, `StaffBranch`, `Session`, `AuditEvent` + şube kapsamlı
+  `Room` ve `Warehouse` placeholder master kayıtları.
+- **Kimlik akışı**: `POST /auth/login` (scrypt N=16384 doğrulama, zamanlama dengeleyici
+  probe), `POST /auth/refresh` (opak 48 bayt token; DB'de yalnızca SHA-256 hash; her
+  çağrıda rotasyon; tekrar-kullanım algısı → tüm oturumlar kapanır), `POST /auth/logout`,
+  `GET /auth/me`, `PATCH /auth/active-branch` (oturuma yazılır, denetlenir).
+- **Access token**: HS256 JWT — bağımlılıksız `node:crypto` HMAC uygulaması (jose yalnızca
+  ESM dağıtır; API CommonJS derlenir — ADR-014). 15 dk ömür; payload izin/şube taşımaz,
+  guard her istekte veritabanından taze yükler (yetki değişikliği anında etkin).
+- **Guard zinciri**: global `JwtAuthGuard` + `PermissionsGuard` (@RequirePermissions);
+  şube kapsamlı uçlarda `BranchScopeGuard` (query.branchId → X-Branch-Id → body.branchId;
+  allBranches rolü haricinde StaffBranch listesi belirleyicidir). Health uçları @Public.
+- **Faz 03 API modülleri**: auth, clinic (profil/settings.manage), branches (branch.manage),
+  rooms (room.manage, şube kapsamlı), warehouses (warehouse.manage, şube kapsamlı),
+  staff (staff.manage; rol/şube replace-list atamaları), roles (roles.manage; izin matrisi
+  PUT), audit (audit.view; sayfalama + eylem filtresi).
+- **Denetim defteri**: giriş/başarısız giriş/çıkış, şube değişimi, klinik/şube/oda/depo
+  güncellemeleri, personel ve rol/izin değişiklikleri (önce/sonra metadata) — audit_events
+  tablosuna yazılır; `AuditService` tüm modüllerin bağımlılığı (global).
+- **Web**: `/giris` sayfası (hata zarfı, demo hesap ipuçları), `AuthProvider` + kimlikli
+  API istemcisi (401'de tek seferlik sessiz refresh), üst çubukta gerçek şube seçici +
+  profil menüsü + çıkış, kenar çubuğu kullanıcı bloğu, `/ayarlar` sekmeleri (klinik
+  profili, şubeler, personel, rol × izin matrisi, denetim kaydı) ve izin bazlı
+  yetkisiz görünümleri.
+- **Seed**: 11 izinlik katalog, 5 sistem rol şablonu, 4 sentetik personel (scrypt hash),
+  oda/depo kayıtları — tamamı idempotent upsert.
+- **E2E (ADR-013 standart koşu)**: `e2e/auth-settings.spec.ts` — 13 senaryo (giriş/hata/çıkış,
+  şube değişimi + kalıcılık, ayar sekmeleri, izin matrisi toggle + denetim, yetkisiz
+  görünümler, mobil giriş); `e2e/shell.spec.ts` kimlikli akışa uyarlandı. 25/25 PASS,
+  22 ekran görüntüsü repoya commitlendi.
+
+### Düzeltildi
+- `ListAuditQueryDto` skip/take: query param string'leri için `@Type(() => Number)`
+  eksikti → `take must be an integer number` 400 hatası.
+- `SetRolePermissionsDto` / `SetStaffRolesDto` / `SetStaffBranchesDto` / `CreateStaffDto`:
+  doğrulama dekoratörü olmayan dizi alanları ValidationPipe `whitelist:true` tarafından
+  sessizce strip ediliyordu → izin matrisi yazımı boş listeye sıfırlanıyordu. `@IsArray`
+  + `@IsString({ each: true })` eklendi; test uygulamasına da main.ts ile aynı
+  ValidationPipe verildi (üretim paritesi).
+- Dashboard "Platform bileşenleri" E2E iddiası strict mode ihlaline yol açıyordu
+  ('Çalışıyor' etiketi iki satırda) — `.first()` ile düzeltildi.
+
+### Bilinen sınırlar
+- Web tokenları localStorage'dadır (XSS yüzeyi) — Faz 15'te httpOnly cookie + CSRF
+  stratejisine taşınacak (ADR-015).
+- Sandbox'ta arka plan süreçleri oturumlar arası ölür; QA zinciri tek komutta
+  (PG → API → Playwright) koşturulur.
+
 ## [0.1.0] — Faz 02: Tasarım sistemi ve uygulama kabukları (2026-11-07)
 
 ### Eklendi
