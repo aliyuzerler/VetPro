@@ -2,6 +2,66 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.4.0] — Faz 05: Randevu takvimi ve klinik akış panosu (2026-11-07)
+
+### Eklendi
+- **Veri modeli (migration `faz05_appointments_flowboard`)**: `AppointmentType`
+  (klinik katalog; süre + takvim rengi), `ScheduleBlock` (çalışma saatleri / plan
+  engelleri — personel veya şube düzeyi, weekday + dakika aralığı), `Appointment`
+  (şube kapsamlı; UTC instants; ileri yönlü durum makinesi ve geçiş zaman damgaları;
+  override denetim alanları), `WaitlistEntry` (tercih günü/penceresi, kitaplaştırma
+  bağlantısı). Yeni izinler: `appointment.manage`, `appointment.override` (katalog
+  16 anahtar; veteriner/resepsiyon şablonları güncellendi).
+- **API — randevular**: aralıklı listeleme (from/to UTC instant + staffId/roomId/
+  patientId/includeClosed filtreleri), oluşturma/düzenleme, check-in, durum geçişi,
+  gerekçeli iptal. Çakışma kontrolü Serializable transaction ile (aynı hekim veya
+  oda); çalışma saati politikası Clinic.timezone (Europe/Istanbul) ile değerlendirilir,
+  istisna yalnız izin + zorunlu gerekçeyle (denetim yazımı `appointment.override`).
+- **API — akış panosu**: `GET /flowboard` — arrived/waiting/in_consultation şeritleri,
+  bekleme dakikaları, hasta uyarı rozetleri, günün durum sayaçları.
+- **API — randevu türleri / çalışma saatleri / bekleme listesi**: katalog CRUD,
+  ScheduleBlock CRUD, waitlist CRUD + `POST /:id/book` (randevu kuralları aynen
+  uygulanır; tür/hekim çözülemezse 400).
+- **Web — `/takvim`**: gün/hafta/ay görünümleri, hekim/oda filtreleri, randevu
+  oluşturma/düzenleme diyaloğu (hasta araması; çakışma ve çalışma saati hataları
+  stabil kodlarla ayrıştırılır; override paneli yalnız yetkili kullanıcıya), durum
+  eylemleri, gerekçeli iptal diyaloğu.
+- **Web — `/akis-panosu`**: canlı kuyruk (15 sn yenileme), kart içi eylemler,
+  yükleme/boş/hata durumları. **`/bekleme-listesi`**: kuyruk tablosu, kayıt ekleme
+  (hasta araması), randevuya çevirme ve iptal. Kenar çubuğunda Faz 05 yaprakları
+  (Akış Panosu, Takvim, Bekleme Listesi) aktifleşti.
+- **Mobil**: bugünün ajandası ve randevu detay ekranları gerçek API sözleşmesiyle
+  (Bearer + X-Branch-Id); oturum kaynağı Faz 13'te bağlanır — oturum yoksa dürüst
+  "giriş gerekli" durumu (sahte veri yok).
+- **Seed**: 5 randevu türü, hekim çalışma saatleri (Pzt–Cmt 09:00–18:00) + şube
+  varsayılanı, bugünün 4 sentetik randevusu (completed/in_consultation/waiting/
+  scheduled), 1 bekleme kaydı — takvim ve pano gerçek veriyle açılır.
+- **Storybook**: Faz 05 atölyesi — durum rozeti (7 durum), akış panosu (dolu/boş/
+  yükleme), bekleme listesi, takvim panosu (gün/ay + saat dilimi yardımcısı), randevu
+  formu diyaloğu; test-runner 53/53 (render + play + axe).
+
+### Düzeltildi
+- Radix `Select.Root` DOM elemanı üretmediği için bileşenlere konan `data-testid`
+  `SelectTrigger`'a taşındı (E2E seçicileri bulamıyordu).
+- Bekleme kitaplaştırmada tür/hekim çözümlenemezse boş UUID ile 500 yerine açık 400
+  doğrulama hatası dönülüyor.
+- Axe kapısı Faz 05 bileşenlerinde 5 ihlal yakaladı ve düzeltildi: aria-label
+  görünür metni içermeli (label-content-name-mismatch), `role="grid"` alt yapısı
+  (aria-required-children), `dl` doğrudan dt/dd içermeli (definition-list), skeleton
+  konteyneri `role="status"`.
+- E2E zinciri determinizmi: zincir kapanışı yetim `bin/postgres` sürecini de
+  öldürür, 5433/4000 portları hâlâ dinlemedeyse sert çıkar (bayat DB ile koşum
+  engellenir); API e2e'de supertest'in listen/close yarışı `app.listen(0)` ile
+  elendi.
+
+### Bilinen sınırlar
+- Randevu geçmişi ve denetim satırları korunur; fiziksel silme yoktur (Faz 08+
+  finansal bağlamda da geçerli).
+- Mobil oturum akışı Faz 13'te bağlanana dek mobil ekranlar "giriş gerekli" durumu
+  gösterir; API sözleşmesi ve durum makinesi istemcide birebir yansıtılmıştır.
+- Turkey DST'siz sabit UTC+03 esas alınmıştır; Intl tabanlı yardımcılar genel
+  DST'li klinik saat dilimlerini de destekler.
+
 ## [0.3.0] — Faz 04: Hasta sahibi ve hayvan hasta yönetimi (2026-11-07)
 
 ### Eklendi

@@ -19,6 +19,10 @@ for PORT in 5433 4000; do
     node -e "const net=require('net');const s=net.connect(${PORT},'127.0.0.1');s.on('connect',()=>process.exit(0));s.on('error',()=>process.exit(1))" 2>/dev/null || { echo "Port ${PORT} boş"; break; }
     sleep 1
   done
+  # Port hâlâ dinlemedeyse bayat veritabanı/uygulamayla koşmak determinizmi bozar — sert çık.
+  if node -e "const net=require('net');const s=net.connect(${PORT},'127.0.0.1');s.on('connect',()=>process.exit(0));s.on('error',()=>process.exit(1))" 2>/dev/null; then
+    echo "HATA: Port ${PORT} hâlâ kullanımda — bayat süreç kapatılamadı"; exit 1
+  fi
 done
 
 echo "=== 1. PostgreSQL (gömülü, taze küme) ==="
@@ -74,4 +78,5 @@ echo "=== 5. Temizlik ==="
 kill $API_PID 2>/dev/null || true
 kill $PG_PID 2>/dev/null || true
 pkill -f "dev-postgres.mjs" 2>/dev/null || true
+pkill -f "bin/postgres" 2>/dev/null || true
 exit $E2E_CODE

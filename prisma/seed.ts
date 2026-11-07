@@ -1,9 +1,10 @@
 /**
- * VetCore sentetik seed — yalnızca demo verisi (Faz 04 güncel sürümü).
+ * VetCore sentetik seed — yalnızca demo verisi (Faz 05 güncel sürümü).
  * GERÇEK klinik verisi asla kullanılmaz (agents.md kuralı).
  * Kapsam: klinik + şubeler, izin kataloğu, sistem rol şablonları, sentetik personel
  * (scrypt hash), personel-rol/şube eşlemeleri, oda ve depo placeholder kayıtları,
- * tür/ırk kataloğu, sentetik sahip/hasta uyarı/kilo kayıtları (Faz 04).
+ * tür/ırk kataloğu, sentetik sahip/hasta uyarı/kilo kayıtları (Faz 04) ve randevu
+ * türleri, çalışma saatleri, bugünün sentetik randevuları + bekleme listesi (Faz 05).
  */
 import { randomBytes, scryptSync } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
@@ -97,7 +98,13 @@ async function main(): Promise<void> {
       description: 'Klinik karar, hasta ve sahip yönetimi',
       isSystem: true,
       allBranches: false,
-      permissions: ['clinical.sign', 'owner.manage', 'patient.manage'],
+      permissions: [
+        'clinical.sign',
+        'owner.manage',
+        'patient.manage',
+        'appointment.manage',
+        'appointment.override',
+      ],
     },
     {
       key: 'resepsiyon',
@@ -105,7 +112,11 @@ async function main(): Promise<void> {
       description: 'Karşılama, sahip ve hasta kaydı (kısıtlı)',
       isSystem: true,
       allBranches: false,
-      permissions: ['owner.manage', 'patient.manage'],
+      permissions: [
+        'owner.manage',
+        'patient.manage',
+        'appointment.manage',
+      ],
     },
     {
       key: 'stok',
@@ -597,6 +608,244 @@ async function main(): Promise<void> {
     }
   }
 
+  // 9) Randevu türleri — Faz 05 (klinik katalog; idempotent: klinik+ad unique)
+  const appointmentTypeDefs = [
+    { name: 'Muayene', durationMin: 20, colorKey: 'brand' },
+    { name: 'Aşı', durationMin: 15, colorKey: 'green' },
+    { name: 'Kontrol', durationMin: 15, colorKey: 'cyan' },
+    { name: 'Operasyon', durationMin: 60, colorKey: 'red' },
+    { name: 'Diş Temizliği', durationMin: 30, colorKey: 'violet' },
+  ] as const;
+  const typeByName = new Map<string, string>();
+  for (const typeDef of appointmentTypeDefs) {
+    const type = await prisma.appointmentType.upsert({
+      where: { clinicId_name: { clinicId: clinic.id, name: typeDef.name } },
+      update: { durationMin: typeDef.durationMin, colorKey: typeDef.colorKey, active: true },
+      create: {
+        clinicId: clinic.id,
+        name: typeDef.name,
+        durationMin: typeDef.durationMin,
+        colorKey: typeDef.colorKey,
+      },
+    });
+    typeByName.set(typeDef.name, type.id);
+  }
+
+  // 10) Çalışma saatleri — Faz 05. Veteriner hekim (Ayşe Demir) MRKZ'de Pzt–Cmt
+  // 09:00–18:00; şube düzeyi varsayılan 08:00–19:00 (hekim tanımsızsa yedek).
+  // Europe/Istanbul sabit UTC+03 (2016'dan beri kalıcı) → Date.UTC ile -3 saat ofseti.
+  const veterinerStaff = await prisma.staff.findUnique({
+    where: { email: 'veteriner@vetcore-demo.example' },
+  });
+  const workingDays = [1, 2, 3, 4, 5, 6]; // Pazartesi–Cumartesi
+  /** ScheduleBlock'ta bileşik unique yok (staffId NULL satırları Postgres unique'e sığmaz);
+   * idempotentlik findFirst + create/update deseniyle sağlanır. */
+  const upsertBlock = async (where: {
+    staffId: string | null;
+    kind: 'working' | 'blocked';
+    weekday: number;
+    startMin: number;
+  }, data: { endMin: number; note: string }) => {
+    const existing = await prisma.scheduleBlock.findFirst({
+      where: {
+        branchId: merkez.id,
+        staffId: where.staffId,
+        kind: where.kind,
+        weekday: where.weekday,
+        startMin: where.startMin,
+      },
+    });
+    if (existing) {
+      await prisma.scheduleBlock.update({
+        where: { id: existing.id },
+        data: { endMin: data.endMin, note: data.note },
+      });
+    } else {
+      await prisma.scheduleBlock.create({
+        data: {
+          clinicId: clinic.id,
+          branchId: merkez.id,
+          staffId: where.staffId,
+          kind: where.kind,
+          weekday: where.weekday,
+          startMin: where.startMin,
+          endMin: data.endMin,
+          note: data.note,
+        },
+      });
+    }
+  };
+  for (const weekday of workingDays) {
+    await upsertBlock(
+      { staffId: veterinerStaff?.id ?? null, kind: 'working', weekday, startMin: 540 },
+      { endMin: 1080, note: 'Hekim çalışma saatleri' },
+    );
+  }
+  await upsertBlock(
+    { staffId: null, kind: 'working', weekday: 1, startMin: 480 },
+    { endMin: 1140, note: 'Şube varsayılan çalışma saatleri (Pzt)' },
+  );
+
+  // 11) Bugünün sentetik randevuları — Faz 05. Akış panosu ve takvimin gerçek
+  // verisi; seed her koşumda idempotent (şube+tür+hasta+zaman araması).
+  /** İstanbul yerel saatini UTC instant'a çevirir (Europe/Istanbul = sabit UTC+03). */
+  const istanbulInstant = (y: number, m: number, d: number, h: number, min: number): Date =>
+    new Date(Date.UTC(y, m - 1, d, h - 3, min));
+
+  const today = new Date();
+  const ty = today.getUTCFullYear();
+  const tm = today.getUTCMonth() + 1;
+  const td = today.getUTCDate();
+  // Yerel (İstanbul) bugünün tarih parçaları — UTC+3 ile UTC tarihi fark verebilir
+  const istanbulToday = istanbulInstant(ty, tm, td, 12, 0);
+  const iy = istanbulToday.getUTCFullYear();
+  const im = istanbulToday.getUTCMonth() + 1;
+  const idd = istanbulToday.getUTCDate();
+
+  const patientByCode = async (code: string) => {
+    const patient = await prisma.patient.findUnique({
+      where: { clinicId_code: { clinicId: clinic.id, code } },
+    });
+    if (!patient) throw new Error(`Hasta bulunamadı: ${code}`);
+    return patient;
+  };
+  const pamuk = await patientByCode('HP-0001');
+  const karabas = await patientByCode('HP-0002');
+  const duman = await patientByCode('HP-0003');
+  const boncuk = await patientByCode('HP-0004');
+
+  const appointmentDefs = [
+    {
+      patient: pamuk,
+      typeName: 'Kontrol',
+      startHour: 10,
+      durationMin: 15,
+      status: 'completed',
+      roomName: 'Muayene Odası 1',
+      notes: 'Böbrek değerleri takibi',
+      checkedInMin: 8,
+      waitingMin: 5,
+      inConsultMin: 0,
+      completedMin: 12,
+    },
+    {
+      patient: karabas,
+      typeName: 'Aşı',
+      startHour: 11,
+      durationMin: 15,
+      status: 'in_consultation',
+      roomName: 'Muayene Odası 1',
+      notes: 'Yıllık karma aşı',
+      checkedInMin: -10,
+      waitingMin: -5,
+      inConsultMin: -2,
+      completedMin: null,
+    },
+    {
+      patient: duman,
+      typeName: 'Muayene',
+      startHour: 14,
+      durationMin: 20,
+      status: 'waiting',
+      roomName: 'Muayene Odası 2',
+      notes: 'İştah kaybı şikâyeti',
+      checkedInMin: -15,
+      waitingMin: -12,
+      inConsultMin: null,
+      completedMin: null,
+    },
+    {
+      patient: boncuk,
+      typeName: 'Operasyon',
+      startHour: 16,
+      durationMin: 60,
+      status: 'scheduled',
+      roomName: 'Operasyon Odası',
+      notes: 'Kısırlaştırma planı (SUB2 randevusu MRKZ hekimi ile)',
+      checkedInMin: null,
+      waitingMin: null,
+      inConsultMin: null,
+      completedMin: null,
+    },
+  ] as const;
+
+  const roomByName = async (branchId: string, name: string) => {
+    const room = await prisma.room.findFirst({ where: { branchId, name } });
+    if (!room) throw new Error(`Oda bulunamadı: ${name}`);
+    return room;
+  };
+
+  for (const def of appointmentDefs) {
+    const typeId = typeByName.get(def.typeName);
+    if (!typeId || !veterinerStaff) throw new Error('Randevu seed önkoşulu eksik');
+    const room = await roomByName(merkez.id, def.roomName);
+    const start = istanbulInstant(iy, im, idd, def.startHour, 0);
+    const end = new Date(start.getTime() + def.durationMin * 60_000);
+    const checkedInAt =
+      def.checkedInMin === null ? null : new Date(start.getTime() + def.checkedInMin * 60_000);
+    const waitingAt =
+      def.waitingMin === null ? null : new Date(start.getTime() + def.waitingMin * 60_000);
+    const inConsultationAt =
+      def.inConsultMin === null ? null : new Date(start.getTime() + def.inConsultMin * 60_000);
+    const completedAt =
+      def.completedMin === null ? null : new Date(start.getTime() + def.completedMin * 60_000);
+
+    const exists = await prisma.appointment.findFirst({
+      where: {
+        clinicId: clinic.id,
+        branchId: merkez.id,
+        patientId: def.patient.id,
+        appointmentTypeId: typeId,
+        scheduledStart: start,
+      },
+    });
+    if (!exists) {
+      await prisma.appointment.create({
+        data: {
+          clinicId: clinic.id,
+          branchId: merkez.id,
+          patientId: def.patient.id,
+          ownerId: def.patient.ownerId,
+          appointmentTypeId: typeId,
+          staffId: veterinerStaff.id,
+          roomId: room.id,
+          scheduledStart: start,
+          scheduledEnd: end,
+          status: def.status,
+          notes: def.notes,
+          checkedInAt,
+          waitingAt,
+          inConsultationAt,
+          completedAt,
+          createdById: adminStaff?.id ?? null,
+        },
+      });
+    }
+  }
+
+  // 12) Bekleme listesi — Faz 05 (idempotent: hasta + waiting durumu araması)
+  const waitlistNote = 'Sabah 09:00–11:00 arası tercih eder';
+  const waitlistExists = await prisma.waitlistEntry.findFirst({
+    where: { clinicId: clinic.id, patientId: duman.id, status: 'waiting', note: waitlistNote },
+  });
+  if (!waitlistExists && veterinerStaff) {
+    await prisma.waitlistEntry.create({
+      data: {
+        clinicId: clinic.id,
+        branchId: merkez.id,
+        patientId: duman.id,
+        ownerId: duman.ownerId,
+        appointmentTypeId: typeByName.get('Kontrol') ?? null,
+        preferredStaffId: veterinerStaff.id,
+        preferredStartMin: 540,
+        preferredEndMin: 660,
+        note: waitlistNote,
+        status: 'waiting',
+        createdById: adminStaff?.id ?? null,
+      },
+    });
+  }
+
   const [branchCount, staffCount, roleCount, permissionCount] = await Promise.all([
     prisma.branch.count({ where: { clinicId: clinic.id } }),
     prisma.staff.count({ where: { clinicId: clinic.id } }),
@@ -607,12 +856,18 @@ async function main(): Promise<void> {
     prisma.owner.count({ where: { clinicId: clinic.id } }),
     prisma.patient.count({ where: { clinicId: clinic.id } }),
   ]);
+  const [appointmentCount, waitlistCount, typeCount] = await Promise.all([
+    prisma.appointment.count({ where: { clinicId: clinic.id } }),
+    prisma.waitlistEntry.count({ where: { clinicId: clinic.id } }),
+    prisma.appointmentType.count({ where: { clinicId: clinic.id } }),
+  ]);
 
   console.log('Seed tamamlandı (sentetik demo verisi):');
   console.log(`  Klinik: ${clinic.name} (${clinic.slug})`);
   console.log(`  Şube sayısı: ${branchCount}`);
   console.log(`  Personel: ${staffCount} | Rol: ${roleCount} | İzin: ${permissionCount}`);
   console.log(`  Sahip: ${ownerCount} | Hasta: ${patientCount} | Tür: ${speciesDefs.length}`);
+  console.log(`  Randevu: ${appointmentCount} | Randevu türü: ${typeCount} | Bekleme: ${waitlistCount}`);
   console.log(`  Demo parola (tüm sentetik hesaplar): ${DEMO_PASSWORD}`);
 }
 

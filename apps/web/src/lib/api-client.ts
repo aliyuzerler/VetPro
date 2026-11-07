@@ -16,6 +16,8 @@ export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    /** Stabil hata kodu (ör. APPOINTMENT_OUTSIDE_WORKING_HOURS) — API zarfından. */
+    public readonly code?: string,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -126,11 +128,10 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   if (res.status === 204) return undefined as T;
   const data: unknown = await res.json().catch(() => null);
   if (!res.ok) {
-    const message =
-      data && typeof data === 'object' && 'message' in data
-        ? String((data as { message: unknown }).message)
-        : `İstek başarısız (${res.status})`;
-    throw new ApiError(res.status, message);
+    const body = data && typeof data === 'object' ? (data as Record<string, unknown>) : null;
+    const message = body?.message ? String(body.message) : `İstek başarısız (${res.status})`;
+    const code = body?.code ? String(body.code) : undefined;
+    throw new ApiError(res.status, message, code);
   }
   return data as T;
 }

@@ -88,4 +88,16 @@ export const PERMISSIONS = [
     name: 'Master veri yönetimi',
     description: 'Tür ve ırk kataloğunu yönetir',
   },
+  {
+    key: 'appointment.manage',
+    group: 'clinical',
+    name: 'Randevu yönetimi',
+    description: 'Randevu, çalışma saati ve bekleme listesi kayıtlarını yönetir',
+  },
+  {
+    key: 'appointment.override',
+    group: 'clinical',
+    name: 'Randevu kural istisnası',
+    description: 'Çalışma saatleri dışı randevuyu gerekçe ile onaylar',
+  },
 ] as const;

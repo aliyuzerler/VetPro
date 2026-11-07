@@ -134,6 +134,35 @@ pnpm dev:mobile     # Expo DevTools (QR ile cihaz/emülatör)
 - **Yeni izinler:** `owner.manage`, `patient.manage`, `master.manage` (veteriner ve
   resepsiyon şablonlarında sahip/hasta yönetimi).
 
+## Randevu takvimi ve akış panosu (Faz 05)
+
+- `/takvim` — **gün/hafta/ay** görünümü, hekim ve oda filtreleri, önceki/sonraki/bugün
+  gezinme; randevu satırında duruma göre Check-in / Beklemeye Al / Muayeneye Al /
+  Tamamla / Gelmedi / İptal eylemleri. Randevu formu (hasta araması, tür → varsayılan
+  süre, hekim, oda, tarih + saat + süre, not) hem oluşturma hem düzenleme için tek
+  diyaloktur; takvim hücresinden detay açılır.
+- **Çakışma kontrolü (API, Serializable transaction):** aynı hekim VEYA aynı oda için
+  çakışan aktif randevu 409 `APPOINTMENT_CONFLICT` ile engellenir; iptal/gelmedi
+  kayıtları engel değildir.
+- **Çalışma saati politikası:** personelin `working` blokları (yoksa şube varsayılanı)
+  esas alınır; dışı 422 `APPOINTMENT_OUTSIDE_WORKING_HOURS` döner. `appointment.override`
+  iznindeki personel zorunlu gerekçe ile istisna açabilir (denetim kaydı `appointment.override`).
+  `blocked` engelleri override edilmez (409 `APPOINTMENT_BLOCKED`).
+- **Durum makinesi (ileri yönlü):** scheduled → arrived → waiting → in_consultation →
+  completed; aktif aşamalardan cancelled/no_show çıkışı mümkün. Geçersiz sıralar
+  409 `APPOINTMENT_INVALID_TRANSITION` ile reddedilir.
+- `/akis-panosu` — hasta kuyruğu gerçek randevu satırlarından türetilir (Geldi /
+  Beklemede / Muayenede şeritleri), 15 saniyede bir yenilenir; bekleme dakikaları,
+  uyarı rozetleri ve kart içi eylemler.
+- `/bekleme-listesi` — bekleyen kuyruk (tercih günü/saati/hekimi), randevuya çevirme
+  (tüm randevu kuralları aynen uygulanır) ve iptal; randevuya çevrilen kayıtlar
+  rozetle listelenir.
+- **Saat dilimi:** aralıklar UTC instants olarak saklanır; gün/hafta sınırları ve
+  çalışma saatleri klinik saat diliminde (Europe/Istanbul, sabit UTC+03) hesaplanır —
+  birim testlerle doğrulanır.
+- **Yeni izinler:** `appointment.manage` (veteriner + resepsiyon şablonlarında),
+  `appointment.override` (veteriner + admin).
+
 ## Ekran Görüntüleri
 
 Aşağıdaki görüntüler standart faz sonu Playwright E2E koşusundan alınmıştır
@@ -156,7 +185,7 @@ güncellenir. Tüm veriler sentetiktir.
   doğrulanır (bu koşuda canlı: hepsi yeşil).
 - **Durum hikâyeleri:** yükleme (skeleton), boş, hata (tekrar deneme yolu) ve yetkisiz
   görünümleri tek ekranda.
-- **Faz planı:** 15 fazın durumu — Faz 01–03 Tamamlandı, Faz 04 Sırada.
+- **Faz planı:** 15 fazın durumu — Faz 01–04 Tamamlandı, Faz 05 Tamamlandı, Faz 06 Sırada.
 
 ### Web — Giriş sayfası (`/giris`, Faz 03)
 
@@ -248,6 +277,50 @@ dışarıya sızmaz (ADR-018).
 
 Yalnızca İkinci Şube'ye erişimi olan personel Merkez hastalarını listelerde görmez;
 API aynı kayda doğrudan erişimde 403 döner.
+
+### Web — Randevu takvimi, gün görünümü (`/takvim`, Faz 05)
+
+![Takvim gün](docs/screenshots/web-f05-01-takvim-gun.png)
+
+### Web — Yeni randevu formu ve oluşturma (`/takvim`, Faz 05)
+
+![Yeni randevu](docs/screenshots/web-f05-02-yeni-randevu.png)
+
+### Web — Çakışma hatası (aynı hekim/oda, Faz 05)
+
+![Çakışma hatası](docs/screenshots/web-f05-03-cakisma-hatasi.png)
+
+### Web — Çalışma saati dışı + yetkili override (`/takvim`, Faz 05)
+
+![Override](docs/screenshots/web-f05-04-override-randevu.png)
+
+### Web — Durum geçişleri ve iptal gerekçesi (`/takvim`, Faz 05)
+
+![Durum geçişleri](docs/screenshots/web-f05-05-durum-gecisleri.png)
+
+### Web — Akış panosu (`/akis-panosu`, Faz 05)
+
+![Akış panosu](docs/screenshots/web-f05-06-akis-panosu.png)
+
+### Web — Bekleme listesi ve randevuya çevirme (`/bekleme-listesi`, Faz 05)
+
+![Bekleme listesi](docs/screenshots/web-f05-07-bekleme-listesi.png)
+
+### Web — Hafta görünümü + hekim/oda filtreleri (Faz 05)
+
+![Hafta filtreler](docs/screenshots/web-f05-08-hafta-filtreler.png)
+
+### Web — Ay görünümü (Faz 05)
+
+![Takvim ay](docs/screenshots/web-f05-09-takvim-ay.png)
+
+### Mobil — takvim ve akış panosu (Faz 05)
+
+![Mobil takvim](docs/screenshots/mobil-f05-takvim.png)
+
+![Mobil akış panosu](docs/screenshots/mobil-f05-akis-panosu.png)
+
+![Mobil bekleme listesi](docs/screenshots/mobil-f05-bekleme-listesi.png)
 
 ### Mobil — sahipler ve hastalar (Faz 04)
 

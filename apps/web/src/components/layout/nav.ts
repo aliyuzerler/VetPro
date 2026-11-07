@@ -40,7 +40,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     icon: LayoutDashboard,
     items: [
       { label: 'Kontrol Paneli', phase: 2, href: '/' },
-      { label: 'Akış Panosu', phase: 5 },
+      { label: 'Akış Panosu', phase: 5, href: '/akis-panosu' },
     ],
   },
   {
@@ -63,8 +63,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     label: 'Randevular',
     icon: CalendarDays,
     items: [
-      { label: 'Takvim', phase: 5 },
-      { label: 'Bekleme Listesi', phase: 5 },
+      { label: 'Takvim', phase: 5, href: '/takvim' },
+      { label: 'Bekleme Listesi', phase: 5, href: '/bekleme-listesi' },
     ],
   },
   {

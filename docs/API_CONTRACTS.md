@@ -57,6 +57,44 @@ Base path `/api/v1`. This is a module map; ZCode must define request/response sc
   patient.create/update/archive/merge, patient.alert.*, patient.weight.create,
   patient.file.upload).
 
+### Faz 05 — uygulanan randevu ve akış panosu sözleşmesi (2026-11-07)
+- Randevular ŞUBE KAPSAMLI (BranchScopeGuard): `GET /appointments?from=&to=&staffId=&roomId=&patientId=&includeClosed=`
+  (takvim gün/hafta/ay aralığı — UTC instant parametreler), `POST /appointments`
+  (`appointment.manage`; hasta/tür/hekim doğrulanır, oda şubeye ait olmalı,
+  `endAt` verilmezse tür süresi kullanılır), `GET /appointments/:id`,
+  `PATCH /appointments/:id` (yeniden planlama — çakışma ve politika yeniden işletilir),
+  `POST /appointments/:id/check-in` (yalnız scheduled → arrived),
+  `POST /appointments/:id/status` {status, note?}, `POST /appointments/:id/cancel`
+  {reason} (gerekçe zorunlu, min 3).
+- **Çakışma kontrolü:** aynı hekim VEYA aynı oda için aktif randevu
+  (scheduled/arrived/waiting/in_consultation) kesişirse 409 `APPOINTMENT_CONFLICT`;
+  Serializable transaction + P2034 yeniden denemesi ile yarış güvenli.
+- **Çalışma saati politikası:** ScheduleBlock 'working' (personel esas, şube yedek) ve
+  'blocked'; dışı 422 `APPOINTMENT_OUTSIDE_WORKING_HOURS` — `allowOutsideHours` +
+  zorunlu `overrideReason` yalnız `appointment.override` izniyle kabul edilir ve
+  `appointment.override` denetimi yazılır; 'blocked' her koşulda 409
+  `APPOINTMENT_BLOCKED` (override edilemez). Gün/hafta hesapları Clinic.timezone
+  (Europe/Istanbul) ile yapılır; gece yarısını aşan randevu reddedilir.
+- **Durum makinesi:** scheduled→arrived→waiting→in_consultation→completed; aktif
+  aşamalardan cancelled/no_show çıkışı serbest. Geçersiz sıra 409
+  `APPOINTMENT_INVALID_TRANSITION`. Geçiş zaman damgaları (checkedInAt, waitingAt,
+  inConsultationAt, completedAt, closedAt) satıra yazılır.
+- `GET /flowboard?date=YYYY-MM-DD` → {date, lanes: {arrived, waiting, in_consultation}
+  (bekleme dakikaları + hasta uyarı rozetleri), counts} — gerçek randevu satırlarından
+  türetilir.
+- Randevu türleri: `GET /appointment-types`, `POST`/`PATCH /appointment-types/:id`
+  (`appointment.manage`; klinik+ad unique).
+- Çalışma saatleri: `GET /schedule-blocks?staffId=`, `POST`, `PATCH /:id`,
+  `DELETE /:id` (`appointment.manage`).
+- Bekleme listesi: `GET /waitlist?status=`, `POST` {patientId, appointmentTypeId?,
+  preferredStaffId?, preferredDate?, preferredStartMin/EndMin?, note?},
+  `PATCH /:id` (yalnız waiting), `POST /:id/book` {startAt, endAt?, staffId?, roomId?,
+  appointmentTypeId?, allowOutsideHours?, overrideReason?} — tür/hekim çözümlenemezse
+  400; randevu kuralları (çakışma, çalışma saati) aynen uygulanır, giriş 'scheduled'
+  işaretlenir, `POST /:id/cancel`.
+- Tüm mutation uçları `audit_events`'e yazar (appointment.create/update/status/
+  checkin/cancel/override, appointment.type.*, schedule.block.*, waitlist.*).
+
 ## Owners and patients
 - CRUD `/owners`, `/owners/:id/patients`, `/patients`
 - `GET /patients/search?q=`

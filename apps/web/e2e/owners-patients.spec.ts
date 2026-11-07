@@ -131,6 +131,10 @@ test.describe('Faz 04 — sahip listesi ve mükerrer akışı (masaüstü)', () 
   });
 
   test('06 — hasta detayı: uyarı ekle/çöz, kilo kaydı, zaman çizelgesi', async ({ page }) => {
+    // Proje sonekli etiket: masaüstü/mobil aynı DB'yi sırayla paylaşır; çözülen
+    // uyarı bölümde kalır → çakışmasın (testOwner/patientNames ile aynı desen).
+    const isMobile = test.info().project.name === 'chromium-mobile';
+    const alertLabel = isMobile ? 'E2E geçici uyarı mobil' : 'E2E geçici uyarı';
     await login(page, DEMO.admin);
     await page.goto('/hastalar');
     // Duman (HP-0003) satırına doğrudan git
@@ -141,14 +145,16 @@ test.describe('Faz 04 — sahip listesi ve mükerrer akışı (masaüstü)', () 
     ).toBeVisible();
     await screenshot(page, 'f04-06-hasta-detay.png');
 
-    // Uyarı ekle (kapsam: uyarı bölümü — zaman çizelgesinde de aynı metin çıkar)
+    // Uyarı ekle (kapsam: uyarı bölümü — zaman çizelgesinde de aynı metin çıkar).
+    // Mobil koşum masaüstüyle aynı DB'yi paylaşırsa çözülmüş eş adlı uyarı da
+    // bölümde kalır; .first() + aktif satır filtresi strict-mode ihlalini önler.
     const alertsSection = page.getByTestId('patient-alerts');
-    await page.getByTestId('alert-add-form').getByLabel('Uyarı etiketi').fill('E2E geçici uyarı');
+    await page.getByTestId('alert-add-form').getByLabel('Uyarı etiketi').fill(alertLabel);
     await page.getByRole('button', { name: 'Ekle' }).click();
-    await expect(alertsSection.getByText('E2E geçici uyarı')).toBeVisible();
+    await expect(alertsSection.getByText(alertLabel)).toBeVisible();
 
     // Uyarıyı çöz — aktif stilden çıkıp yeniden açma düğmesi belirir
-    const alertRow = alertsSection.getByRole('listitem').filter({ hasText: 'E2E geçici uyarı' });
+    const alertRow = alertsSection.getByRole('listitem').filter({ hasText: alertLabel });
     await alertRow.getByRole('button', { name: 'Çözüldü' }).click();
     await expect(alertRow.getByRole('button', { name: 'Yeniden aç' })).toBeVisible();
 

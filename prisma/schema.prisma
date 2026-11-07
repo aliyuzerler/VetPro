@@ -1,7 +1,8 @@
-// VetCore — Faz 04 şema.
+// VetCore — Faz 05 şema.
 // Kapsam: klinik/şube çekirdeği (Faz 01) + kimlik, personel, rol, izin, oturum ve denetim
 // (Faz 03) + hasta sahibi, hasta, tür/ırk, uyarı, kilo gözlemi ve özel dosya varlıkları
-// (Faz 04). Randevu, stok, finans... ilgili fazlarda eklenir.
+// (Faz 04) + randevu takvimi, çalışma saatleri, bekleme listesi ve akış panosu (Faz 05).
+// Stok, finans... ilgili fazlarda eklenir.
 // Kurallar: UUID PK, UTC zaman damgaları, money/quantity için Decimal, silinmez defter ileriki fazlarda.
 // Güvenlik: şifre yalnızca scrypt hash saklanır; refresh token yalnızca SHA-256 hash saklanır.
 // Faz 04 politikası: sahip/hasta kayıtlarında fiziksel silme yok — arşivleme + açık merge
@@ -38,6 +39,10 @@ model Clinic {
   owners Owner[]
   patients Patient[]
   fileAssets FileAsset[]
+  appointmentTypes AppointmentType[]
+  scheduleBlocks ScheduleBlock[]
+  appointments Appointment[]
+  waitlistEntries WaitlistEntry[]
 
   @@map("clinics")
 }
@@ -64,6 +69,9 @@ model Branch {
   staffBranches StaffBranch[]
   auditEvents AuditEvent[]
   patients Patient[]
+  scheduleBlocks ScheduleBlock[]
+  appointments Appointment[]
+  waitlistEntries WaitlistEntry[]
 
   @@unique([clinicId, code])
   @@index([clinicId])
@@ -95,6 +103,10 @@ model Staff {
   patientAlerts    PatientAlert[]
   weightObservations WeightObservation[]
   uploadedFiles     FileAsset[]
+  scheduleBlocks    ScheduleBlock[]
+  appointments      Appointment[]
+  preferredWaitlist WaitlistEntry[]     @relation("WaitlistPreferredStaff")
+  overriddenAppointments Appointment[]  @relation("AppointmentOverriddenBy")
 
   @@index([clinicId])
   @@map("staff")
@@ -242,6 +254,7 @@ model Room {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  appointments Appointment[]
 
   @@unique([branchId, name])
   @@index([branchId])
@@ -323,6 +336,8 @@ model Owner {
   contacts         OwnerContact[]
   consents         OwnerConsent[]
   patients         Patient[]
+  appointments     Appointment[]
+  waitlistEntries  WaitlistEntry[]
 
   @@index([clinicId])
   @@index([clinicId, lastName, firstName])
@@ -404,6 +419,8 @@ model Patient {
   alerts    PatientAlert[]
   weights   WeightObservation[]
   files     FileAsset[]
+  appointments Appointment[]
+  waitlistEntries WaitlistEntry[]
 
   @@unique([clinicId, code])
   @@unique([clinicId, microchip])
@@ -476,4 +493,147 @@ model FileAsset {
   @@index([patientId])
   @@index([clinicId])
   @@map("file_assets")
+}
+
+/// Randevu türü — klinik kapsamlı katalog (Faz 05). Süre takvim formunda son saat
+/// önerisi için, renk anahtarı takvim/pano rozetleri için kullanılır.
+model AppointmentType {
+  id          String   @id @default(uuid()) @db.Uuid
+  clinicId    String   @map("clinic_id") @db.Uuid
+  name        String
+  /// Varsayılan süre (dakika)
+  durationMin Int      @map("duration_min")
+  /// Takvim rengi anahtarı (design tokens): brand | green | amber | red | violet | cyan
+  colorKey    String   @default("brand") @map("color_key")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  clinic           Clinic          @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  appointments     Appointment[]
+  waitlistEntries  WaitlistEntry[]
+
+  @@unique([clinicId, name])
+  @@index([clinicId])
+  @@map("appointment_types")
+}
+
+/// Çalışma saatleri ve plan engelleri (Faz 05). staffId null → şube düzeyi varsayılan;
+/// personelin kendi 'working' bloğu varsa şube varsayılanı yerine geçer.
+/// kind='working' randevu kabul aralığı; kind='blocked' tam engel — override edilmez.
+model ScheduleBlock {
+  id        String   @id @default(uuid()) @db.Uuid
+  clinicId  String   @map("clinic_id") @db.Uuid
+  branchId  String   @map("branch_id") @db.Uuid
+  /// null = şube genelinde; dolu = yalnız bu personelin saatleri
+  staffId   String?  @map("staff_id") @db.Uuid
+  /// 'working' | 'blocked'
+  kind      String
+  /// Haftanın günü — JS Date.getDay() uyumu: 0=Pazar ... 6=Cumartesi
+  weekday   Int
+  /// Klinik yerel saat diliminde gün içi dakika (09:00 = 540)
+  startMin  Int      @map("start_min")
+  endMin    Int      @map("end_min")
+  note      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  staff  Staff? @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([branchId, weekday, kind])
+  @@index([staffId, weekday, kind])
+  @@map("schedule_blocks")
+}
+
+/// Randevu — şube kapsamlı (Faz 05). Aralıklar UTC instants olarak saklanır;
+/// gün/hafta/ay sınırları ve çalışma saatleri klinik saat diliminde (Clinic.timezone,
+/// varsayılan Europe/Istanbul — sabit UTC+03) hesaplanır. Durum makinesi ileri yönlüdür:
+/// scheduled → arrived → waiting → in_consultation → completed; her aktif aşamadan
+/// cancelled/no_show çıkışı mümkündür. Fiziksel silme yok (geçmiş bütünlüğü).
+model Appointment {
+  id                String   @id @default(uuid()) @db.Uuid
+  clinicId          String   @map("clinic_id") @db.Uuid
+  branchId          String   @map("branch_id") @db.Uuid
+  patientId         String   @map("patient_id") @db.Uuid
+  ownerId           String   @map("owner_id") @db.Uuid
+  appointmentTypeId String   @map("appointment_type_id") @db.Uuid
+  /// Atanan hekim — çakışma kontrolü ve çalışma saati politikası bu kayıttan okunur
+  staffId           String   @map("staff_id") @db.Uuid
+  roomId            String?  @map("room_id") @db.Uuid
+  scheduledStart    DateTime @map("scheduled_start")
+  scheduledEnd      DateTime @map("scheduled_end")
+  /// 'scheduled' | 'arrived' | 'waiting' | 'in_consultation' | 'completed' |
+  /// 'no_show' | 'cancelled'
+  status            String   @default("scheduled")
+  notes             String?
+  cancelledReason   String?  @map("cancelled_reason")
+  checkedInAt       DateTime? @map("checked_in_at")
+  waitingAt         DateTime? @map("waiting_at")
+  inConsultationAt  DateTime? @map("in_consultation_at")
+  completedAt       DateTime? @map("completed_at")
+  /// no_show / cancelled anı — pano süre hesapları ve raporlar için
+  closedAt          DateTime? @map("closed_at")
+  /// Çalışma saatleri dışı onay kaydı: yetkili personel + zorunlu sebep (denetlenir)
+  overrideReason      String? @map("override_reason")
+  overriddenByStaffId String? @map("overridden_by_staff_id") @db.Uuid
+  createdById       String?  @map("created_by_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  clinic  Clinic          @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch  Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  patient Patient         @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  owner   Owner           @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  type    AppointmentType @relation(fields: [appointmentTypeId], references: [id], onDelete: Restrict)
+  staff   Staff           @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  room    Room?           @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  overriddenBy Staff?     @relation("AppointmentOverriddenBy", fields: [overriddenByStaffId], references: [id], onDelete: SetNull)
+  waitlistEntries WaitlistEntry[] @relation("WaitlistBookedAppointment")
+
+  @@index([clinicId, scheduledStart])
+  @@index([branchId, scheduledStart])
+  @@index([staffId, scheduledStart])
+  @@index([roomId, scheduledStart])
+  @@index([patientId])
+  @@index([status, scheduledStart])
+  @@map("appointments")
+}
+
+/// Bekleme listesi kaydı — uygun slot yoksa hasta kuyruğu (Faz 05). "Randevuya çevir"
+/// akışı buradan randevu üretir; giriş sonra 'scheduled' olarak işaretlenir.
+model WaitlistEntry {
+  id                String   @id @default(uuid()) @db.Uuid
+  clinicId          String   @map("clinic_id") @db.Uuid
+  branchId          String   @map("branch_id") @db.Uuid
+  patientId         String   @map("patient_id") @db.Uuid
+  ownerId           String   @map("owner_id") @db.Uuid
+  appointmentTypeId String?  @map("appointment_type_id") @db.Uuid
+  preferredStaffId  String?  @map("preferred_staff_id") @db.Uuid
+  /// Tercih edilen gün — klinik yerel takvim günü (UTC gece yarısı @db.Date)
+  preferredDate     DateTime? @map("preferred_date") @db.Date
+  preferredStartMin Int?     @map("preferred_start_min")
+  preferredEndMin   Int?     @map("preferred_end_min")
+  note              String?
+  /// 'waiting' | 'scheduled' | 'cancelled'
+  status            String   @default("waiting")
+  bookedAppointmentId String? @map("booked_appointment_id") @db.Uuid
+  createdById       String?  @map("created_by_id") @db.Uuid
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  clinic  Clinic          @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch  Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  patient Patient         @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  owner   Owner           @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  type    AppointmentType? @relation(fields: [appointmentTypeId], references: [id], onDelete: SetNull)
+  preferredStaff Staff?   @relation("WaitlistPreferredStaff", fields: [preferredStaffId], references: [id], onDelete: SetNull)
+  bookedAppointment Appointment? @relation("WaitlistBookedAppointment", fields: [bookedAppointmentId], references: [id], onDelete: SetNull)
+
+  @@index([branchId, status])
+  @@index([patientId])
+  @@index([ownerId])
+  @@map("waitlist_entries")
 }

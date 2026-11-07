@@ -30,6 +30,8 @@ export default [
       'prisma/migrations/**',
       '**/*.config.mjs',
       '**/*.config.js',
+      '**/*.config.mts',
+      '**/*.config.ts',
       'tests/*.sh',
     ],
   },

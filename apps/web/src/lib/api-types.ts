@@ -210,3 +210,127 @@ export type FileAssetMeta = {
   createdAt: string;
   uploadedByStaffId: string | null;
 };
+
+/** Faz 05 — randevu ve akış panosu tipleri. */
+
+export type AppointmentStatus =
+  | 'scheduled'
+  | 'arrived'
+  | 'waiting'
+  | 'in_consultation'
+  | 'completed'
+  | 'no_show'
+  | 'cancelled';
+
+export type AppointmentTypeOption = {
+  id: string;
+  name: string;
+  durationMin: number;
+  colorKey: 'brand' | 'green' | 'amber' | 'red' | 'violet' | 'cyan';
+  active: boolean;
+  createdAt: string;
+};
+
+export type ScheduleBlock = {
+  id: string;
+  branchId: string;
+  staffId: string | null;
+  kind: 'working' | 'blocked';
+  weekday: number;
+  startMin: number;
+  endMin: number;
+  note: string | null;
+  active: boolean;
+  staff: { id: string; firstName: string; lastName: string; title: string | null } | null;
+};
+
+export type PatientAlertBadge = { kind: string; label: string; severity: string };
+
+export type Appointment = {
+  id: string;
+  clinicId: string;
+  branchId: string;
+  patientId: string;
+  ownerId: string;
+  appointmentTypeId: string;
+  staffId: string;
+  roomId: string | null;
+  scheduledStart: string;
+  scheduledEnd: string;
+  status: AppointmentStatus;
+  notes: string | null;
+  cancelledReason: string | null;
+  checkedInAt: string | null;
+  waitingAt: string | null;
+  inConsultationAt: string | null;
+  completedAt: string | null;
+  closedAt: string | null;
+  overrideReason: string | null;
+  patient: {
+    id: string;
+    name: string;
+    code: string;
+    branchId: string;
+    ownerId: string;
+    alerts: PatientAlertBadge[];
+  };
+  owner: { id: string; firstName: string; lastName: string };
+  type: { id: string; name: string; colorKey: string; durationMin: number };
+  staff: { id: string; firstName: string; lastName: string; title: string | null };
+  room: { id: string; name: string } | null;
+  branch: { id: string; name: string; code: string };
+};
+
+export type FlowboardEntry = {
+  appointmentId: string;
+  status: AppointmentStatus;
+  scheduledStart: string;
+  scheduledEnd: string;
+  waitingMinutes: number;
+  notes: string | null;
+  patient: { id: string; name: string; code: string; alerts: PatientAlertBadge[] };
+  owner: { id: string; fullName: string };
+  type: { id: string; name: string; colorKey: string; durationMin: number };
+  staff: { id: string; fullName: string };
+  room: { id: string; name: string } | null;
+};
+
+export type FlowboardPayload = {
+  date: string;
+  lanes: {
+    arrived: FlowboardEntry[];
+    waiting: FlowboardEntry[];
+    in_consultation: FlowboardEntry[];
+  };
+  counts: Record<AppointmentStatus, number>;
+};
+
+export type WaitlistEntry = {
+  id: string;
+  branchId: string;
+  patientId: string;
+  ownerId: string;
+  appointmentTypeId: string | null;
+  preferredStaffId: string | null;
+  preferredDate: string | null;
+  preferredStartMin: number | null;
+  preferredEndMin: number | null;
+  note: string | null;
+  status: 'waiting' | 'scheduled' | 'cancelled';
+  bookedAppointmentId: string | null;
+  createdAt: string;
+  patient: { id: string; name: string; code: string; alerts: PatientAlertBadge[] };
+  owner: { id: string; firstName: string; lastName: string };
+  type: { id: string; name: string; colorKey: string; durationMin: number } | null;
+  preferredStaff: { id: string; firstName: string; lastName: string } | null;
+  bookedAppointment: { id: string; status: string; scheduledStart: string } | null;
+};
+
+export type RoomOption = {
+  id: string;
+  branchId: string;
+  name: string;
+  kind: string;
+  active: boolean;
+  branch: { id: string; name: string; code: string };
+};

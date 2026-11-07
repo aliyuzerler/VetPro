@@ -36,6 +36,26 @@ Aşağıdaki varlıklar `prisma/schema.prisma` ve `phase03_identity_rbac` migrat
 - Kurallar: şifre düz metin asla saklanmaz; refresh token yalnızca hash; audit satırları
   silinmez; tüm tablolarda UUID PK + UTC timestamp (Faz 01 konvansiyonları).
 
+### Faz 05 — fiziksel implementasyon (2026-11-07)
+Aşağıdaki varlıklar `prisma/schema.prisma` ve `faz05_appointments_flowboard` migration
+ile somutlaştı:
+- `AppointmentType` (klinik+ad unique; durationMin, colorKey takvim renk anahtarı),
+- `ScheduleBlock` (branchId + staffId?; kind 'working'|'blocked'; weekday 0=Pazar
+  (JS getDay uyumu); startMin/endMin klinik yerel dakikası; bileşik unique yok —
+  staffId NULL satırları Postgres unique'ine sığmaz, idempotentlik servis katmanında),
+- `Appointment` (branchId, patientId+ownerId, appointmentTypeId, staffId, roomId?
+  SetNull; scheduledStart/End UTC instants; status makinesi; geçiş zaman damgaları;
+  overrideReason + overriddenByStaffId denetimi; createdById; fiziksel silme yok),
+- `WaitlistEntry` (branchId, patientId+ownerId, tür/hekim tercihi, preferredDate
+  @db.Date, pencere dakikaları, status waiting|scheduled|cancelled,
+  bookedAppointmentId SetNull).
+- Endeksler: (clinicId, scheduledStart), (branchId, scheduledStart),
+  (staffId, scheduledStart), (roomId, scheduledStart), (patientId),
+  (status, scheduledStart), (branchId, weekday, kind), (staffId, weekday, kind).
+- Kurallar: aralıklar UTC saklanır, gün/hafta sınırları ve çalışma saatleri
+  Clinic.timezone (Europe/Istanbul) ile hesaplanır; randevu ve bekleme kayıtlarında
+  fiziksel silme yoktur (geçmiş bütünlüğü).
+
 ## 3. Entity detail (minimum fields)
 
 ### Patient
