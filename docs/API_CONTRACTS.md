@@ -292,3 +292,53 @@ Base path `/api/v1`. This is a module map; ZCode must define request/response sc
   aşı listeleri.
 - İzinler (katalog 27 anahtar): `prescription.manage`, `prescription.sign`,
   `prescription.dispense`, `vaccine.manage`.
+
+### Faz 11 — uygulanan laboratuvar, cerrahi ve yatış sözleşmesi (2026-11-08)
+
+Tüm uçlar `BranchScopeGuard` + `@BranchScoped()` altındadır (şube kapsamı);
+okumalar/yazımlar `lab.manage`, `surgery.manage`, `hospital.manage` izni ister
+(katalog 30 anahtar). Stok düşümlü yatış sarfı ek olarak `inventory.consume`
+ister; kritik sonuç onayı ek olarak `clinical.sign` ister.
+
+- `GET /lab/tests` / `POST /lab/tests` / `PATCH /lab/tests/:id` — klinik
+  kapsamlı test kataloğu (kod klinikte tekil — 409 `LAB_TEST_CONFLICT`).
+- `POST /lab/orders` → hasta + katalog testi + yetkili veteriner (zorunlu);
+  öncelik routine/urgent; encounter bağlantısı opsiyonel.
+- Yaşam döngüsü: `ordered → sample_collected → in_progress → completed`
+  (aktif her durumdan `cancelled`; terminal durumlardan geçiş yok). Geçersiz
+  geçiş 409 `LAB_ORDER_INVALID_TRANSITION`.
+  - `POST /lab/orders/:id/collect` → `Sample` kaydı (LAB-YYMMDD-XXXX etiket).
+  - `POST /lab/orders/:id/start` → analiz başlatma.
+  - `POST /lab/orders/:id/results` → sayısal `value` veya metin `valueText`;
+    kritiklik katalog `criticalLow/criticalHigh` eşiklerinden hesaplanır ve
+    kayda dondurulur; giriş siparişi tamamlar. Sipariş başına tek sonuç.
+- Kritik sonuç uyarısı: `GET /lab/results/critical?window=open|acknowledged`
+  → şube kapsamlı, resultedAt desc. `POST /lab/results/:id/acknowledge`
+  (`lab.manage` + `clinical.sign`) → resepsiyon uyarıyı görür, kapatamaz;
+  ikinci onay 409 `RESULT_ALREADY_ACKNOWLEDGED`.
+- `POST /surgeries` → olgu hasta+sahip+hekim bağlantılı; sahip-hasta
+  uyuşmazlığı 400. `POST /surgeries/:id/prep` → varsayılan pre/post kontrol
+  listeleri üretilir. `POST /surgeries/:id/start` → yalnız pre listesi
+  tamken (409 `SURGERY_CHECKLIST_INCOMPLETE`); fiili başlangıç damgası.
+  `recovery` → `complete` (fiili bitiş). İptal yalnız ameliyat öncesi,
+  gerekçe zorunlu. Anestezi: `POST /surgeries/:id/anesthesia` (olgu başına
+  tek kayıt — upsert). Liste maddesi: `POST /surgeries/:id/checklists/:kind/items`
+  (index + done; tamam/USER/timestamp künyelenir).
+- `POST /hospital/stays` (kabul) → hedef kennel aktif ve çakışmasız olmalı;
+  [admittedAt, dischargedAt) pencere kesişimi 409 `KENNEL_CONFLICT`.
+  `POST /hospital/stays/:id/transfer` → aynı kontrol (kendi penceresi dışlanır);
+  `transferredAt` damgalanır. `POST /hospital/stays/:id/discharge` → özet
+  zorunlu; pencereyi kapatır. Taburcu yatışa gözlem/sarf/transfer yazılamaz.
+- `GET /hospital/panel` → aktif yatışlar + doluluk özeti + son gözlem/sarf.
+  `GET /hospital/kennels` → kennel başına güncel işgal bilgisi.
+- `GET|POST /hospital/stays/:id/observations` → günlük vital takip (tempC,
+  weightKg, heartRate, respRate, iştah/davranış, not); boş gözlem 400.
+- `POST /hospital/stays/:id/medications` (`hospital.manage` +
+  `inventory.consume`) → `MedicationAdministration` + stok defterine
+  `consumption` hareketi refType `HospitalMedication` — Faz 08 ortak
+  transaction servisi `StockService.postConsumptionForRef` ile tek
+  transaction'da (FEFO otomatik veya açık parti; bloklu/geçmiş parti 409
+  `LOT_BLOCKED`; yetersiz stok 409 `INSUFFICIENT_STOCK`; `idempotencyKey`
+  REPLAY — tekrar istek mevcut kaydı döner). Modül kendi stok mantığını yazmaz.
+- `GET /staff/veterinarians` → oturum açmış herkese açık hafif atama seçici
+  (id/ad-soyad/unvan; e-posta, rol, şube içermez).

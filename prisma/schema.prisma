@@ -67,6 +67,10 @@ model Clinic {
   vaccineProtocols  VaccineProtocol[]
   vaccineEvents     VaccineEvent[]
   vaccineReminders  VaccineReminder[]
+  labCatalog        LabCatalog[]
+  labOrders         LabOrder[]
+  surgeryCases      SurgeryCase[]
+  hospitalStays     HospitalStay[]
 
   @@map("clinics")
 }
@@ -113,6 +117,10 @@ model Branch {
   prescriptions   Prescription[]
   vaccineEvents   VaccineEvent[]
   vaccineReminders VaccineReminder[]
+  kennels         Kennel[]
+  labOrders       LabOrder[]
+  surgeryCases    SurgeryCase[]
+  hospitalStays   HospitalStay[]
 
   @@unique([clinicId, code])
   @@index([clinicId])
@@ -173,6 +181,17 @@ model Staff {
   administrations         AdministrationEvent[]
   administeredVaccines    VaccineEvent[]
   sentVaccineReminders    VaccineReminder[]
+  requestedLabOrders      LabOrder[]           @relation("LabOrderRequester")
+  vetLabOrders            LabOrder[]           @relation("LabOrderVeterinarian")
+  cancelledLabOrders      LabOrder[]           @relation("LabOrderCanceller")
+  collectedLabSamples     Sample[]             @relation("SampleCollector")
+  resultedLabResults      LabResult[]          @relation("LabResultReporter")
+  acknowledgedLabResults  LabResult[]          @relation("LabResultAcknowledger")
+  surgeryVetCases         SurgeryCase[]        @relation("SurgeryVeterinarian")
+  anesthesiaDuties        AnesthesiaRecord[]   @relation("AnesthesiaAnesthetist")
+  hospitalVetStays        HospitalStay[]       @relation("HospitalStayVeterinarian")
+  hospitalObservations    HospitalObservation[] @relation("HospitalObserver")
+  administeredMeds        MedicationAdministration[] @relation("MedicationAdministerer")
 
   @@index([clinicId])
   @@map("staff")
@@ -321,6 +340,7 @@ model Room {
 
   branch       Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
   appointments Appointment[]
+  surgeryCases SurgeryCase[]
 
   @@unique([branchId, name])
   @@index([branchId])
@@ -368,6 +388,7 @@ model Species {
   patients Patient[]
 
   vaccineProtocols VaccineProtocol[]
+  labCatalog       LabCatalog[]
 
   @@map("species")
 }
@@ -420,6 +441,8 @@ model Owner {
   charges         Charge[]
   payments        Payment[]
   refunds         Refund[]
+  surgeryCases    SurgeryCase[]
+  hospitalStays   HospitalStay[]
 
   @@index([clinicId])
   @@index([clinicId, lastName, firstName])
@@ -510,6 +533,10 @@ model Patient {
   administrationEvents AdministrationEvent[]
   vaccineEvents        VaccineEvent[]
   vaccineReminders     VaccineReminder[]
+  labOrders            LabOrder[]
+  surgeryCases         SurgeryCase[]
+  hospitalStays        HospitalStay[]
+  medicationAdministrations MedicationAdministration[]
 
   @@unique([clinicId, code])
   @@unique([clinicId, microchip])
@@ -782,6 +809,9 @@ model Encounter {
   serviceRecords ServiceRecord[]
   charges        Charge[]
   prescriptions  Prescription[]
+  labOrders      LabOrder[]
+  surgeryCases   SurgeryCase[]
+  hospitalStays  HospitalStay[]
 
   @@index([branchId, status, startedAt])
   @@index([patientId, startedAt])
@@ -892,6 +922,7 @@ model Service {
   prices           ServicePrice[]
   consumptionRules ServiceConsumptionRule[]
   recordLines      ServiceRecordLine[]
+  medicationAdministrations MedicationAdministration[]
 
   @@unique([clinicId, code])
   @@index([clinicId, active])
@@ -1133,6 +1164,7 @@ model Product {
   countLines       StockCountLine[]
   consumptionRules ServiceConsumptionRule[]
   prescriptionLines PrescriptionLine[]
+  medicationAdministrations MedicationAdministration[]
   dispenseEvents    DispenseEvent[]
   administrationEvents AdministrationEvent[]
   vaccineProtocols  VaccineProtocol[]
@@ -1250,6 +1282,7 @@ model StockMovement {
   branch      Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
   supplier    Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   performedBy Staff?              @relation("StockMovementPerformer", fields: [performedByStaffId], references: [id], onDelete: SetNull)
+  medicationAdministrations MedicationAdministration[] @relation("MedicationStockMovement")
   lines       StockMovementLine[]
 
   @@unique([idempotencyKey])
@@ -1959,3 +1992,344 @@ model VaccineReminder {
   @@map("vaccine_reminders")
 }
 
+
+/// ============================================================================
+/// Faz 11 — Laboratuvar, cerrahi ve yatış modülleri
+/// ============================================================================
+
+/// Lab test kataloğu — klinik kapsamlı; referans/kritik aralıklar test başına.
+/// Türe özgü aralık gerekiyorsa aynı test türe bağlı ikinci satır olarak açılır.
+model LabCatalog {
+  id        String   @id @default(uuid()) @db.Uuid
+  clinicId  String   @map("clinic_id") @db.Uuid
+  code      String
+  name      String
+  /// 'kan' | 'idrar' | 'dışkı' | 'swab' | 'doku' | 'diğer'
+  sampleType String  @map("sample_type")
+  unit      String?
+  speciesId String?  @map("species_id") @db.Uuid
+  /// Referans aralık (opsiyonel — kalitatif testlerde boş)
+  refLow    Decimal? @map("ref_low") @db.Decimal(10, 2)
+  refHigh   Decimal? @map("ref_high") @db.Decimal(10, 2)
+  /// Kritik eşikler — dışına düşen sonuç klinisyen uyarısı üretir
+  criticalLow  Decimal? @map("critical_low") @db.Decimal(10, 2)
+  criticalHigh Decimal? @map("critical_high") @db.Decimal(10, 2)
+  turnaroundHours Int  @default(24) @map("turnaround_hours")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  clinic  Clinic    @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  species Species?  @relation(fields: [speciesId], references: [id], onDelete: SetNull)
+  orders  LabOrder[]
+  results LabResult[]
+
+  @@unique([clinicId, code])
+  @@index([clinicId, active])
+  @@map("lab_catalog")
+}
+
+/// Lab sipariş yaşam döngüsü: ordered → sample_collected → in_progress → completed
+/// (her aktif durumdan cancelled olabilir; terminal durumlar geçişe kapalıdır).
+model LabOrder {
+  id             String    @id @default(uuid()) @db.Uuid
+  clinicId       String    @map("clinic_id") @db.Uuid
+  branchId       String    @map("branch_id") @db.Uuid
+  patientId      String    @map("patient_id") @db.Uuid
+  encounterId    String?   @map("encounter_id") @db.Uuid
+  testId         String    @map("test_id") @db.Uuid
+  /// 'ordered' | 'sample_collected' | 'in_progress' | 'completed' | 'cancelled'
+  status         String    @default("ordered")
+  /// 'routine' | 'urgent'
+  priority       String    @default("routine")
+  /// Sonuç uyarısının gittiği yetkili klinisyen
+  veterinarianId String    @map("veterinarian_id") @db.Uuid
+  requestedById  String    @map("requested_by_id") @db.Uuid
+  cancelledById  String?   @map("cancelled_by_id") @db.Uuid
+  cancelReason   String?
+  notes          String?
+  orderedAt      DateTime  @default(now()) @map("ordered_at")
+  completedAt    DateTime? @map("completed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  clinic       Clinic       @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  encounter    Encounter?   @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  test         LabCatalog   @relation(fields: [testId], references: [id], onDelete: Restrict)
+  veterinarian Staff        @relation("LabOrderVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
+  requestedBy  Staff        @relation("LabOrderRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  cancelledBy  Staff?       @relation("LabOrderCanceller", fields: [cancelledById], references: [id], onDelete: SetNull)
+  samples      Sample[]
+  results      LabResult[]
+
+  @@index([clinicId, status, orderedAt])
+  @@index([branchId, status])
+  @@index([patientId])
+  @@index([encounterId])
+  @@map("lab_orders")
+}
+
+/// Numune — sipariş başına tek kayıt; toplandıktan sonra durum güncellenir.
+model Sample {
+  id              String   @id @default(uuid()) @db.Uuid
+  clinicId        String   @map("clinic_id") @db.Uuid
+  orderId         String   @map("order_id") @db.Uuid
+  sampleType      String   @map("sample_type")
+  /// Etiket/barkod kodu (LAB-YYMMDD-XXXX)
+  labelCode       String   @map("label_code")
+  /// 'collected' | 'rejected'
+  status          String   @default("collected")
+  rejectionReason String?  @map("rejection_reason")
+  collectedAt     DateTime @default(now()) @map("collected_at")
+  collectedById   String   @map("collected_by_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  order      LabOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  collectedBy Staff   @relation("SampleCollector", fields: [collectedById], references: [id], onDelete: Restrict)
+
+  @@unique([orderId])
+  @@index([clinicId, status])
+  @@map("lab_samples")
+}
+
+/// Sonuç — sipariş başına tek sonuç; kritik tespit kayım anında dondurulur.
+model LabResult {
+  id               String    @id @default(uuid()) @db.Uuid
+  clinicId         String    @map("clinic_id") @db.Uuid
+  orderId          String    @map("order_id") @db.Uuid
+  testId           String    @map("test_id") @db.Uuid
+  /// Sayısal sonuç; kalitatif testlerde boş
+  value            Decimal?  @db.Decimal(12, 2)
+  /// Kalitatif/pozitif sonuç metni
+  valueText        String?   @map("value_text")
+  unit             String?
+  /// Katalogdan kopyalanan referans aralığı anlık görüntüsü
+  refLow           Decimal?  @map("ref_low") @db.Decimal(10, 2)
+  refHigh          Decimal?  @map("ref_high") @db.Decimal(10, 2)
+  /// 'normal' | 'low' | 'high' | 'critical_low' | 'critical_high' | 'abnormal'
+  flag             String
+  isCritical       Boolean   @default(false) @map("is_critical")
+  acknowledgedAt   DateTime? @map("acknowledged_at")
+  acknowledgedById String?   @map("acknowledged_by_id") @db.Uuid
+  notes            String?
+  resultedAt       DateTime  @default(now()) @map("resulted_at")
+  resultedById     String    @map("resulted_by_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  order          LabOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  test           LabCatalog @relation(fields: [testId], references: [id], onDelete: Restrict)
+  resultedBy     Staff    @relation("LabResultReporter", fields: [resultedById], references: [id], onDelete: Restrict)
+  acknowledgedBy Staff?   @relation("LabResultAcknowledger", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+
+  @@unique([orderId])
+  @@index([clinicId, isCritical, acknowledgedAt])
+  @@index([testId])
+  @@map("lab_results")
+}
+
+/// Cerrahi olgu — encounter/patient/vet bağlantılı planlama ve yürütme.
+model SurgeryCase {
+  id                 String    @id @default(uuid()) @db.Uuid
+  clinicId           String    @map("clinic_id") @db.Uuid
+  branchId           String    @map("branch_id") @db.Uuid
+  patientId          String    @map("patient_id") @db.Uuid
+  ownerId            String    @map("owner_id") @db.Uuid
+  encounterId        String?   @map("encounter_id") @db.Uuid
+  veterinarianId     String    @map("veterinarian_id") @db.Uuid
+  roomId             String?   @map("room_id") @db.Uuid
+  /// 'planned' | 'prepped' | 'in_surgery' | 'recovery' | 'completed' | 'cancelled'
+  status             String    @default("planned")
+  procedure          String
+  diagnosis          String?
+  plannedStart       DateTime  @map("planned_start")
+  plannedDurationMin Int       @default(60) @map("planned_duration_min")
+  actualStart        DateTime? @map("actual_start")
+  actualEnd          DateTime? @map("actual_end")
+  cancelReason       String?
+  notes              String?
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  clinic       Clinic              @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch       Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  patient      Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  owner        Owner               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  encounter    Encounter?          @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  veterinarian Staff                @relation("SurgeryVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
+  room         Room?               @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  anesthesia   AnesthesiaRecord?
+  checklists   SurgeryChecklist[]
+
+  @@index([branchId, status, plannedStart])
+  @@index([patientId])
+  @@index([veterinarianId, plannedStart])
+  @@map("surgery_cases")
+}
+
+/// Anestezi çizelgesi — her cerrahi olguda tek kayıt (unique).
+model AnesthesiaRecord {
+  id               String    @id @default(uuid()) @db.Uuid
+  clinicId         String    @map("clinic_id") @db.Uuid
+  surgeryCaseId    String    @unique @map("surgery_case_id") @db.Uuid
+  /// ASA fiziksel durum sınıfı: 'I' | 'II' | 'III' | 'IV' | 'V'
+  asaClass         String?   @map("asa_class")
+  weightKg         Decimal?  @map("weight_kg") @db.Decimal(6, 2)
+  premedication    String?
+  inductionAgent   String?   @map("induction_agent")
+  maintenanceAgent String?   @map("maintenance_agent")
+  monitoringNotes  String?   @map("monitoring_notes")
+  anesthetistId    String?   @map("anesthetist_id") @db.Uuid
+  startedAt        DateTime? @map("started_at")
+  endedAt          DateTime? @map("ended_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  surgeryCase SurgeryCase @relation(fields: [surgeryCaseId], references: [id], onDelete: Cascade)
+  anesthetist Staff?      @relation("AnesthesiaAnesthetist", fields: [anesthetistId], references: [id], onDelete: SetNull)
+
+  @@index([clinicId])
+  @@map("anesthesia_records")
+}
+
+/// Cerrahi kontrol listesi — olgu başına 'pre' ve 'post' tek kayıt; maddeler JSON.
+model SurgeryChecklist {
+  id            String   @id @default(uuid()) @db.Uuid
+  clinicId      String   @map("clinic_id") @db.Uuid
+  surgeryCaseId String   @map("surgery_case_id") @db.Uuid
+  /// 'pre' | 'post'
+  kind          String
+  /// [{ label, done, doneAt?, doneById? }]
+  items         Json
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  surgeryCase SurgeryCase @relation(fields: [surgeryCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([surgeryCaseId, kind])
+  @@map("surgery_checklists")
+}
+
+/// Kennel (kafes/kümes) — şube kapsamlı; yatış çakışması kontrolü kaynağı.
+model Kennel {
+  id        String   @id @default(uuid()) @db.Uuid
+  clinicId  String   @map("clinic_id") @db.Uuid
+  branchId  String   @map("branch_id") @db.Uuid
+  code      String
+  name      String
+  /// 'small' | 'medium' | 'large'
+  size      String   @default("medium")
+  active    Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  branch Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  stays  HospitalStay[]
+
+  @@unique([branchId, code])
+  @@index([branchId, active])
+  @@map("kennels")
+}
+
+/// Yatış — kabul/transfer/taburculuk tarihli; aktif yatış kennel işgal eder.
+model HospitalStay {
+  id                  String    @id @default(uuid()) @db.Uuid
+  clinicId            String    @map("clinic_id") @db.Uuid
+  branchId            String    @map("branch_id") @db.Uuid
+  patientId           String    @map("patient_id") @db.Uuid
+  ownerId             String    @map("owner_id") @db.Uuid
+  encounterId         String?   @map("encounter_id") @db.Uuid
+  kennelId            String    @map("kennel_id") @db.Uuid
+  veterinarianId      String    @map("veterinarian_id") @db.Uuid
+  /// 'admitted' | 'transferred' | 'discharged'
+  status              String    @default("admitted")
+  admissionReason     String    @map("admission_reason")
+  admittedAt          DateTime  @default(now()) @map("admitted_at")
+  transferredAt       DateTime? @map("transferred_at")
+  expectedDischargeAt DateTime? @map("expected_discharge_at")
+  dischargedAt        DateTime? @map("discharged_at")
+  dischargeSummary    String?   @map("discharge_summary")
+  createdById         String?   @map("created_by_id") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  clinic       Clinic       @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  owner        Owner        @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  encounter    Encounter?   @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  kennel       Kennel       @relation(fields: [kennelId], references: [id], onDelete: Restrict)
+  veterinarian Staff        @relation("HospitalStayVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
+  observations HospitalObservation[]
+  medications  MedicationAdministration[]
+
+  @@index([branchId, status, admittedAt])
+  @@index([kennelId, status])
+  @@index([patientId])
+  @@map("hospital_stays")
+}
+
+/// Yatış gözlemi — günlük vital takip ve notlar; tüm geçmiş korunur.
+model HospitalObservation {
+  id          String   @id @default(uuid()) @db.Uuid
+  clinicId    String   @map("clinic_id") @db.Uuid
+  stayId      String   @map("stay_id") @db.Uuid
+  /// 'vital' | 'note'
+  kind        String   @default("vital")
+  tempC       Decimal? @map("temp_c") @db.Decimal(4, 1)
+  weightKg    Decimal? @map("weight_kg") @db.Decimal(6, 2)
+  heartRate   Int?     @map("heart_rate")
+  respRate    Int?     @map("resp_rate")
+  appetite    String?
+  behavior    String?
+  notes       String?
+  observedAt  DateTime @default(now()) @map("observed_at")
+  observedById String  @map("observed_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  stay       HospitalStay @relation(fields: [stayId], references: [id], onDelete: Cascade)
+  observedBy Staff        @relation("HospitalObserver", fields: [observedById], references: [id], onDelete: Restrict)
+
+  @@index([stayId, observedAt])
+  @@index([clinicId])
+  @@map("hospital_observations")
+}
+
+/// Yatış içi ilaç/ürün uygulaması — stok düşümü Faz 08 ortak transaction
+/// servisiyle (StockService.postConsumptionForRef, refType=HospitalMedication)
+/// yapılır; modül kendi stok mantığını yazmaz.
+model MedicationAdministration {
+  id               String   @id @default(uuid()) @db.Uuid
+  clinicId         String   @map("clinic_id") @db.Uuid
+  branchId         String   @map("branch_id") @db.Uuid
+  stayId           String   @map("stay_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  productId        String?  @map("product_id") @db.Uuid
+  serviceId        String?  @map("service_id") @db.Uuid
+  warehouseId      String?  @map("warehouse_id") @db.Uuid
+  qty              Decimal  @db.Decimal(12, 3)
+  lotId            String?  @db.Uuid
+  dose             String?
+  route            String?
+  administeredAt   DateTime @default(now()) @map("administered_at")
+  administeredById String   @map("administered_by_id") @db.Uuid
+  stockMovementId  String?  @map("stock_movement_id") @db.Uuid
+  notes            String?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  stay          HospitalStay  @relation(fields: [stayId], references: [id], onDelete: Cascade)
+  patient       Patient       @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  product       Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  service       Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  administeredBy Staff        @relation("MedicationAdministerer", fields: [administeredById], references: [id], onDelete: Restrict)
+  stockMovement StockMovement? @relation("MedicationStockMovement", fields: [stockMovementId], references: [id], onDelete: SetNull)
+
+  @@index([stayId, administeredAt])
+  @@index([clinicId, administeredAt])
+  @@index([productId])
+  @@map("medication_administrations")
+}

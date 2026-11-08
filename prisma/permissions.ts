@@ -190,4 +190,22 @@ export const PERMISSIONS = [
     name: 'Aşı yönetimi',
     description: 'Aşı protokolü, aşı kaydı ve hatırlatmaları yönetir',
   },
+  {
+    key: 'lab.manage',
+    group: 'clinical',
+    name: 'Laboratuvar yönetimi',
+    description: 'Lab kataloğu, sipariş, numune ve sonuç akışını yönetir',
+  },
+  {
+    key: 'surgery.manage',
+    group: 'clinical',
+    name: 'Cerrahi yönetimi',
+    description: 'Cerrahi planlama, anestezi çizelgesi ve kontrol listelerini yönetir',
+  },
+  {
+    key: 'hospital.manage',
+    group: 'clinical',
+    name: 'Yatış yönetimi',
+    description: 'Kabul, kennel, gözlem, tedavi sarfı ve taburculuk akışını yönetir',
+  },
 ] as const;

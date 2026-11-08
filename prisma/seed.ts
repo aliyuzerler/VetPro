@@ -113,6 +113,9 @@ async function main(): Promise<void> {
         'prescription.sign',
         'prescription.dispense',
         'vaccine.manage',
+        'lab.manage',
+        'surgery.manage',
+        'hospital.manage',
       ],
     },
     {
@@ -128,6 +131,7 @@ async function main(): Promise<void> {
         'finance.pay',
         'prescription.manage',
         'vaccine.manage',
+        'lab.manage',
       ],
     },
     {
@@ -305,6 +309,50 @@ async function main(): Promise<void> {
       where: { branchId_name: { branchId: room.branch.id, name: room.name } },
       update: { kind: room.kind },
       create: { branchId: room.branch.id, name: room.name, kind: room.kind },
+    });
+  }
+
+  // 6a) Faz 11 — Lab test kataloğu (referans/kritik aralıklar sentetik)
+  const labDefs = [
+    { code: 'LAB-CBC', name: 'Hemogram (CBC)', sampleType: 'kan', unit: '10³/µL', refLow: 5.5, refHigh: 17.5, criticalLow: 2.5, criticalHigh: 25, turnaroundHours: 4 },
+    { code: 'LAB-BIO', name: 'Biyokimya Paneli', sampleType: 'kan', unit: 'mg/dL', refLow: 60, refHigh: 120, criticalLow: 30, criticalHigh: 200, turnaroundHours: 24 },
+    { code: 'LAB-GLU', name: 'Kan Glukozu', sampleType: 'kan', unit: 'mg/dL', refLow: 70, refHigh: 120, criticalLow: 45, criticalHigh: 250, turnaroundHours: 1 },
+    { code: 'LAB-T4', name: 'Tiroit T4', sampleType: 'kan', unit: 'µg/dL', refLow: 1.0, refHigh: 4.0, criticalLow: null, criticalHigh: 6.0, turnaroundHours: 48 },
+    { code: 'LAB-URE', name: 'Kan Üre Azotu (BUN)', sampleType: 'kan', unit: 'mg/dL', refLow: 16, refHigh: 36, criticalLow: 8, criticalHigh: 100, turnaroundHours: 4 },
+    { code: 'LAB-URIN', name: 'İdrar Analizi', sampleType: 'idrar', unit: null, refLow: null, refHigh: null, criticalLow: null, criticalHigh: null, turnaroundHours: 12 },
+    { code: 'LAB-FIVFELV', name: 'FIV/FeLV Hızlı Test', sampleType: 'kan', unit: null, refLow: null, refHigh: null, criticalLow: null, criticalHigh: null, turnaroundHours: 1 },
+    { code: 'LAB-KULTUR', name: 'Bakteriyel Kültür', sampleType: 'swab', unit: null, refLow: null, refHigh: null, criticalLow: null, criticalHigh: null, turnaroundHours: 72 },
+  ] as const;
+  for (const labDef of labDefs) {
+    await prisma.labCatalog.upsert({
+      where: { clinicId_code: { clinicId: clinic.id, code: labDef.code } },
+      update: {},
+      create: { ...labDef, clinicId: clinic.id },
+    });
+  }
+
+  // 6b) Faz 11 — Kennel tanımları (yatış kafesleri)
+  const kennelDefs = [
+    { branch: merkez, code: 'K-01', size: 'medium' },
+    { branch: merkez, code: 'K-02', size: 'medium' },
+    { branch: merkez, code: 'K-03', size: 'small' },
+    { branch: merkez, code: 'K-04', size: 'small' },
+    { branch: merkez, code: 'K-05', size: 'large' },
+    { branch: merkez, code: 'K-06', size: 'large' },
+    { branch: sube2, code: 'K-01', size: 'medium' },
+    { branch: sube2, code: 'K-02', size: 'large' },
+  ] as const;
+  for (const kennelDef of kennelDefs) {
+    await prisma.kennel.upsert({
+      where: { branchId_code: { branchId: kennelDef.branch.id, code: kennelDef.code } },
+      update: {},
+      create: {
+        clinicId: clinic.id,
+        branchId: kennelDef.branch.id,
+        code: kennelDef.code,
+        name: `Yatış Kafesi ${kennelDef.code}`,
+        size: kennelDef.size,
+      },
     });
   }
 
@@ -1524,6 +1572,10 @@ async function main(): Promise<void> {
     prisma.service.count({ where: { clinicId: clinic.id } }),
     prisma.encounter.count({ where: { clinicId: clinic.id } }),
   ]);
+  const [labTestCount, kennelCount] = await Promise.all([
+    prisma.labCatalog.count({ where: { clinicId: clinic.id } }),
+    prisma.kennel.count({ where: { clinicId: clinic.id } }),
+  ]);
 
   console.log('Seed tamamlandı (sentetik demo verisi):');
   console.log(`  Klinik: ${clinic.name} (${clinic.slug})`);
@@ -1532,6 +1584,7 @@ async function main(): Promise<void> {
   console.log(`  Sahip: ${ownerCount} | Hasta: ${patientCount} | Tür: ${speciesDefs.length}`);
   console.log(`  Randevu: ${appointmentCount} | Randevu türü: ${typeCount} | Bekleme: ${waitlistCount}`);
   console.log(`  Hizmet: ${serviceCount} | Muayene kaydı: ${encounterCount}`);
+  console.log(`  Lab testi: ${labTestCount} | Kennel: ${kennelCount}`);
   console.log(`  Demo parola (tüm sentetik hesaplar): ${DEMO_PASSWORD}`);
 }
 

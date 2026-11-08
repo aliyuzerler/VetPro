@@ -23,6 +23,9 @@ import { InventoryModule } from './inventory/inventory.module';
 import { FinanceModule } from './finance/finance.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { VaccinesModule } from './vaccines/vaccines.module';
+import { LabModule } from './lab/lab.module';
+import { SurgeriesModule } from './surgeries/surgeries.module';
+import { HospitalModule } from './hospital/hospital.module';
 
 /**
  * Faz 03: kimlik, personel, rol/izin, şube kapsamı, oturum ve denetim modülleri.
@@ -61,6 +64,9 @@ import { VaccinesModule } from './vaccines/vaccines.module';
     FinanceModule,
     PrescriptionsModule,
     VaccinesModule,
+    LabModule,
+    SurgeriesModule,
+    HospitalModule,
   ],
 })
 export class AppModule implements NestModule {

@@ -46,6 +46,19 @@ export class StaffService {
     });
   }
 
+  /**
+   * Atama seçicileri için hafif liste — yalnız aktif personel; ad-soyad/unvan.
+   * Lab/cerrahi/yatış diyaloqlarında veteriner ataması için kullanılır;
+   * e-posta, rol ve şube verisi içermez.
+   */
+  listAssignees(clinicId: string) {
+    return this.prisma.staff.findMany({
+      where: { clinicId, active: true },
+      orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+      select: { id: true, firstName: true, lastName: true, title: true },
+    });
+  }
+
   async detail(clinicId: string, id: string) {
     const staff = await this.prisma.staff.findFirst({
       where: { id, clinicId },

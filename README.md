@@ -573,6 +573,96 @@ Hatırlatma aynı aşı kaydı için tekilleşir; gönderim işareti + denetim k
 
 Mobil kırılımda reçete listesi ve aşı sekmeleri taşmasız yüklenir (E2E iddiası).
 
+### Web — Laboratuvar: istek, numune, sonuç ve kritik uyarı (Faz 11)
+
+![Lab isteği](docs/screenshots/web-f11-01-lab-istegi.png)
+
+Lab isteği katalog testiyle açılır; sonuç uyarısı seçilen yetkili veterinere
+gider. Yaşam döngüsü istek → numune → analiz → sonuçtur; geçersiz geçiş
+reddedilir.
+
+![Numune alındı](docs/screenshots/web-f11-02-numune-alindi.png)
+
+Numune toplama etiket kodu üretir (LAB-YYMMDD-XXXX) ve siparişi "Numune
+Alındı" durumuna taşır; analiz başlatılmadan sonuç girilemez.
+
+![Kritik sonuç](docs/screenshots/web-f11-03-kritik-sonuc.png)
+
+Sonuç girişi katalogdaki kritik eşiklerle karşılaştırılır; eşik dışı değer
+"kritik düşük/yüksek" bayrağıyla kayda dondurulur.
+
+![Kritik uyarı paneli](docs/screenshots/web-f11-04-kritik-uyari-paneli.png)
+
+Kabul kriteri: kritik sonuç yetkili klinisyen ekranında uyarı üretir — sayfa
+başındaki panel 30 saniyede bir yenilenir; onay yalnız lab.manage +
+clinical.sign sahiplerindedir.
+
+![Resepsiyon kısıtlı](docs/screenshots/web-f11-05-resepsiyon-kisitli.png)
+
+Resepsiyon uyarıyı görür ama onaylayamaz ("Onay yetkisi: veteriner hekim").
+
+### Web — Cerrahi: plan, kontrol listesi ve anestezi (Faz 11)
+
+![Cerrahi planı](docs/screenshots/web-f11-06-cerrahi-plani.png)
+
+Cerrahi olgu hasta/sahip/hekim bağlantılı planlanır; hazırlığa geçişte
+varsayılan ameliyat öncesi/sonrası kontrol listeleri açılır.
+
+![Checklist bloku](docs/screenshots/web-f11-07-checklist-bloku.png)
+
+Kontrol listesindeki tüm maddeler işaretlenmeden ameliyat başlatılamaz
+(409 SURGERY_CHECKLIST_INCOMPLETE).
+
+![Anestezi çizelgesi](docs/screenshots/web-f11-08-anestezi-cizelgesi.png)
+
+Anestezi çizelgesi olgu başına tek kayıttır: ASA sınıfı, indüksiyon/idame
+ajanları ve anestezi sorumlusu.
+
+![Ameliyat tamamlandı](docs/screenshots/web-f11-09-ameliyat-tamamlandi.png)
+
+Akış planlandı → hazırlanıyor → ameliyatta → iyileşmede → tamamlandı;
+fiili başlangıç/bitiş damgaları kaydedilir.
+
+### Web — Yatış: kabul, gözlem, sarf ve taburculuk (Faz 11)
+
+![Yatış kabulü](docs/screenshots/web-f11-10-yatis-kabulu.png)
+
+Kabul diyaloğu yalnız boş kennelleri sunar; çakışma kontrolü API'de 409
+KENNEL_CONFLICT ile garanti edilir.
+
+![Kennel doluluğu](docs/screenshots/web-f11-11-kennel-dolulugu.png)
+
+Kennel doluluk şeridi boş/dolu kafesleri hasta adıyla gösterir (yalnız renk
+değil, metin).
+
+![Gözlem kaydı](docs/screenshots/web-f11-12-gozlem-kaydi.png)
+
+Günlük vital takip: ateş/nabız/solunum ve notlar zaman künyeli listede
+birikir; tüm geçmiş korunur.
+
+![Tedavi sarfı](docs/screenshots/web-f11-13-tedavi-sarfi.png)
+
+Tedavi sarfı Faz 08 ortak stok transaction servisiyle defter hareketi üretir
+(refType HospitalMedication) — modül kendi stok mantığını yazmaz.
+
+![Taburculuk](docs/screenshots/web-f11-14-taburculuk.png)
+
+Taburculuk özet zorunludur; taburculuk kennel penceresini kapatır.
+
+![Yetkisiz modüller](docs/screenshots/web-f11-15-yetkisiz-moduller.png)
+
+Stok rolü lab/cerrahi/yatış modüllerini göremez (API düzeyinde de 403).
+
+### Mobil — laboratuvar, cerrahi ve yatış (Faz 11)
+
+![Mobil laboratuvar](docs/screenshots/mobil-f11-laboratuvar.png)
+
+![Mobil cerrahi](docs/screenshots/mobil-f11-cerrahi.png)
+
+![Mobil yatış](docs/screenshots/mobil-f11-yatis.png)
+
+Mobil kırılımda üç modül de tek kolona düşer ve taşmasız yüklenir (E2E iddiası).
+
 ### Web — Tasarım sistemi rehberi (`/stil-rehberi`)
 
 ![Stil rehberi](docs/screenshots/web-stil-rehberi.png)

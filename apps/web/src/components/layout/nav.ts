@@ -110,14 +110,14 @@ export const NAV_GROUPS: readonly NavGroup[] = [
   {
     label: 'Laboratuvar',
     icon: FlaskConical,
-    items: [{ label: 'Lab Siparişleri', phase: 11 }],
+    items: [{ label: 'Lab Siparişleri', phase: 11, href: '/laboratuvar' }],
   },
   {
     label: 'Yatış & Cerrahi',
     icon: BedDouble,
     items: [
-      { label: 'Yatış Panosu', phase: 11 },
-      { label: 'Cerrahi Olgular', phase: 11 },
+      { label: 'Yatış Panosu', phase: 11, href: '/yatis' },
+      { label: 'Cerrahi Olgular', phase: 11, href: '/cerrahi' },
     ],
   },
   {

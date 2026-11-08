@@ -26,6 +26,16 @@ import type { AuthContext } from '../common/auth/auth-context';
 export class StaffController {
   constructor(@Inject(StaffService) private readonly staffService: StaffService) {}
 
+  /**
+   * Atama seçicileri için hafif personel listesi (ad-soyad/unvan) — oturum
+   * açmış herkes okuyabilir (lab/cerrahi/yatış diyaloqlarında veteriner ataması
+   * staff.manage gerektirmeden yapılır). İletişim ve rol verisi içermez.
+   */
+  @Get('veterinarians')
+  listAssignees(@CurrentAuth() auth: AuthContext) {
+    return this.staffService.listAssignees(auth.clinicId);
+  }
+
   @Get()
   @RequirePermissions('staff.manage')
   list(@CurrentAuth() auth: AuthContext) {

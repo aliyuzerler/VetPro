@@ -1145,3 +1145,251 @@ export const VACCINE_REMINDER_KIND_CATALOG: readonly { value: string; label: str
   { value: 'first_dose', label: 'İlk doz' },
   { value: 'custom', label: 'Serbest' },
 ];
+
+// ============================================================================
+// Faz 11 — Laboratuvar, cerrahi ve yatış
+// ============================================================================
+
+export type StaffSummary = { id: string; firstName: string; lastName: string };
+
+export type LabOrderStatus =
+  | 'ordered'
+  | 'sample_collected'
+  | 'in_progress'
+  | 'completed'
+  | 'cancelled';
+
+export type LabResultFlag =
+  | 'normal'
+  | 'low'
+  | 'high'
+  | 'critical_low'
+  | 'critical_high'
+  | 'abnormal';
+
+export type LabTestDto = {
+  id: string;
+  code: string;
+  name: string;
+  sampleType: string;
+  unit: string | null;
+  speciesId: string | null;
+  refLow: number | null;
+  refHigh: number | null;
+  criticalLow: number | null;
+  criticalHigh: number | null;
+  turnaroundHours: number;
+  active: boolean;
+};
+
+export type LabSampleDto = {
+  id: string;
+  labelCode: string;
+  status: string;
+  sampleType: string;
+  collectedAt: string;
+  rejectionReason: string | null;
+};
+
+export type LabResultDto = {
+  id: string;
+  value: number | null;
+  valueText: string | null;
+  unit: string | null;
+  refLow: number | null;
+  refHigh: number | null;
+  flag: LabResultFlag;
+  isCritical: boolean;
+  acknowledgedAt: string | null;
+  notes: string | null;
+  resultedAt: string;
+};
+
+export type LabOrderDto = {
+  id: string;
+  branchId: string;
+  status: LabOrderStatus;
+  priority: string;
+  patient: { id: string; name: string; code: string };
+  encounterId: string | null;
+  test: { id: string; code: string; name: string; unit: string | null; sampleType: string };
+  veterinarian: StaffSummary;
+  requestedBy: StaffSummary;
+  notes: string | null;
+  cancelReason: string | null;
+  orderedAt: string;
+  completedAt: string | null;
+  sample: LabSampleDto | null;
+  result: LabResultDto | null;
+};
+
+export type LabCriticalResultDto = {
+  id: string;
+  orderId: string;
+  testCode: string;
+  testName: string;
+  patient: { id: string; name: string; code: string };
+  veterinarian: StaffSummary;
+  branchId: string;
+  flag: string;
+  value: number | null;
+  valueText: string | null;
+  unit: string | null;
+  criticalLow: number | null;
+  criticalHigh: number | null;
+  resultedAt: string;
+  acknowledgedAt: string | null;
+};
+
+export type SurgeryStatus =
+  | 'planned'
+  | 'prepped'
+  | 'in_surgery'
+  | 'recovery'
+  | 'completed'
+  | 'cancelled';
+
+export type ChecklistItemDto = {
+  label: string;
+  done: boolean;
+  doneAt?: string | null;
+  doneById?: string | null;
+};
+
+export type SurgeryChecklistDto = {
+  kind: 'pre' | 'post';
+  total: number;
+  done: number;
+  items: ChecklistItemDto[];
+};
+
+export type SurgeryCaseDto = {
+  id: string;
+  branchId: string;
+  status: SurgeryStatus;
+  procedure: string;
+  diagnosis: string | null;
+  patient: { id: string; name: string; code: string };
+  owner: { id: string; firstName: string; lastName: string };
+  veterinarian: StaffSummary;
+  room: { id: string; name: string; kind: string } | null;
+  encounterId: string | null;
+  plannedStart: string;
+  plannedDurationMin: number;
+  actualStart: string | null;
+  actualEnd: string | null;
+  cancelReason: string | null;
+  notes: string | null;
+  anesthesia: {
+    asaClass: string | null;
+    premedication: string | null;
+    inductionAgent: string | null;
+    maintenanceAgent: string | null;
+    monitoringNotes: string | null;
+    anesthetistId: string | null;
+    startedAt: string | null;
+    endedAt: string | null;
+  } | null;
+  checklists: SurgeryChecklistDto[];
+};
+
+export type HospitalStayStatus = 'admitted' | 'transferred' | 'discharged';
+
+export type HospitalStayDto = {
+  id: string;
+  branchId: string;
+  status: HospitalStayStatus;
+  patient: { id: string; name: string; code: string };
+  owner: { id: string; firstName: string; lastName: string };
+  veterinarian: StaffSummary;
+  kennel: { id: string; code: string; name: string; size: string };
+  encounterId: string | null;
+  admissionReason: string;
+  admittedAt: string;
+  transferredAt: string | null;
+  expectedDischargeAt: string | null;
+  dischargedAt: string | null;
+  dischargeSummary: string | null;
+};
+
+export type HospitalPanelItemDto = HospitalStayDto & {
+  patientName: string | null;
+  lastObservation: {
+    kind: string;
+    tempC: number | null;
+    heartRate: number | null;
+    observedAt: string;
+  } | null;
+  lastMedication: {
+    productId: string | null;
+    qty: number | null;
+    administeredAt: string;
+  } | null;
+};
+
+export type HospitalPanelDto = {
+  totalActiveKennels: number;
+  occupiedKennels: number;
+  items: HospitalPanelItemDto[];
+};
+
+export type HospitalStayDetailDto = HospitalStayDto & {
+  observations: Array<{
+    id: string;
+    kind: string;
+    tempC: number | null;
+    weightKg: number | null;
+    heartRate: number | null;
+    respRate: number | null;
+    appetite: string | null;
+    behavior: string | null;
+    notes: string | null;
+    observedAt: string;
+    observedBy: string;
+  }>;
+  medications: Array<{
+    id: string;
+    product: { code: string; name: string; baseUnit?: { key: string; name: string } } | null;
+    qty: number | null;
+    dose: string | null;
+    route: string | null;
+    notes: string | null;
+    hasStockMovement: boolean;
+    administeredAt: string;
+    administeredBy: string;
+  }>;
+};
+
+export type KennelDto = {
+  id: string;
+  branchId: string;
+  code: string;
+  name: string;
+  size: string;
+  active: boolean;
+  notes: string | null;
+  occupancy: Array<{ stayId: string; patientName: string | null; admittedAt: string }>;
+};
+
+export const LAB_ORDER_STATUS_CATALOG: readonly { value: LabOrderStatus; label: string }[] = [
+  { value: 'ordered', label: 'İstendi' },
+  { value: 'sample_collected', label: 'Numune Alındı' },
+  { value: 'in_progress', label: 'Analizde' },
+  { value: 'completed', label: 'Tamamlandı' },
+  { value: 'cancelled', label: 'İptal' },
+];
+
+export const SURGERY_STATUS_CATALOG: readonly { value: SurgeryStatus; label: string }[] = [
+  { value: 'planned', label: 'Planlandı' },
+  { value: 'prepped', label: 'Hazırlanıyor' },
+  { value: 'in_surgery', label: 'Ameliyatta' },
+  { value: 'recovery', label: 'İyileşmede' },
+  { value: 'completed', label: 'Tamamlandı' },
+  { value: 'cancelled', label: 'İptal' },
+];
+
+export const HOSPITAL_STAY_STATUS_CATALOG: readonly { value: HospitalStayStatus; label: string }[] = [
+  { value: 'admitted', label: 'Yatırıda' },
+  { value: 'transferred', label: 'Transfer' },
+  { value: 'discharged', label: 'Taburcu' },
+];

@@ -141,3 +141,31 @@ erDiagram
 - Do not use floating-point for money or stock quantities. Use Decimal with explicit precision/scale.
 - Avoid global unique constraints on owner phone/email; households may share contacts.
 - Stock balance projection must be reconcilable against ledger.
+
+## Faz 11 — Laboratuvar, cerrahi ve yatış (2026-11-08)
+
+- `LAB_CATALOG ||--o{ LAB_ORDER : tests` — klinik kapsamlı test kataloğu;
+  referans/kritik aralıklar test satırında (türe özgü aralık için ikinci
+  satır açılır; `speciesId` opsiyonel).
+- `LAB_ORDER ||--o| SAMPLE : sampled_by` — sipariş başına tek numune
+  (unique orderId); `LAB_ORDER ||--o| LAB_RESULT : results` — sipariş başına
+  tek sonuç (unique orderId); sonuç, katalog aralığının anlık görüntüsünü
+  (refLow/refHigh) saklar. Yaşam döngüsü:
+  `ordered → sample_collected → in_progress → completed` + `cancelled`
+  (aktif durumdan; terminalden geçiş yok).
+- `SURGERY_CASE }o--|| PATIENT/OWNER/STAFF : linked` — olgu
+  encounter/patient/vet bağlantılı (kabul kriteri); `ROOM` opsiyonel.
+  `SURGERY_CASE ||--o| ANESTHESIA_RECORD : anesthetized` (unique
+  surgeryCaseId; ASA I-V) ve `SURGERY_CASE ||--o{ SURGERY_CHECKLIST : checked`
+  (unique [surgeryCaseId, kind]; maddeler JSON — label/done/doneAt/doneById).
+- `KENNEL ||--o{ HOSPITAL_STAY : hosts` — yatış penceresi
+  [admittedAt, dischargedAt); aktif yatış (admitted|transferred) kenneli
+  işgal eder; çakışma kontrolü uygulama katmanında 409 `KENNEL_CONFLICT`
+  (aynı kennelde açık uçlu/kesişen pencereler). Taburculuk pencereyi kapatır.
+- `HOSPITAL_STAY ||--o{ HOSPITAL_OBSERVATION : observed` — günlük vital/not
+  geçmişi korunur (yalnız son değer değil).
+- `HOSPITAL_STAY ||--o{ MEDICATION_ADMINISTRATION : treated` — yatış içi
+  sarf; `STOCK_MOVEMENT` ile bağlı (`stockMovementId`, refType
+  `HospitalMedication`): stoğu Faz 08 ortak transaction servisi düşer,
+  bakiye defterle mutabık kalır. `PRODUCT`/`SERVICE` SetNull — katalog
+  silinse kayıt künyesi korunur.

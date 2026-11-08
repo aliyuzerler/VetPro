@@ -2,6 +2,77 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.11.0] — Faz 11: Laboratuvar, cerrahi ve yatış modülleri (2026-11-08)
+
+### Eklendi
+- **Veri modeli (migration `faz11_lab_surgery_hospital`)**: `LabCatalog`
+  (klinik kapsamlı test kataloğu; sampleType, unit, türe bağlı opsiyonel satır;
+  referans/kritik aralıklar Decimal), `LabOrder` (yaşam döngüsü
+  'ordered'|'sample_collected'|'in_progress'|'completed'|'cancelled'; öncelik
+  routine/urgent; sonuç uyarısının gittiği yetkili veteriner alanı),
+  `LabResult` (sayısal veya metin sonuç; katalogdan kopyalanan refLow/refHigh
+  anlık görüntüsü; flag normal/low/high/critical_low/critical_high/abnormal;
+  isCritical + acknowledge künyesi; sipariş başına tek sonuç), `Sample`
+  (sipariş başına tek numune; LAB-YYMMDD-XXXX etiket kodu; reddet gerekçeli),
+  `SurgeryCase` (encounter/patient/vet bağlantılı; planned→prepped→in_surgery→
+  recovery→completed, ameliyat sonrası iptal yok; operasyon odası opsiyonel),
+  `AnesthesiaRecord` (olgu başına tek kayıt; ASA I-V, premedikasyon, indüksiyon/
+  idame ajanları, anestezi sorumlusu), `SurgeryChecklist`
+  (`@@unique([surgeryCaseId, kind])` — pre/post; maddeler JSON, tamam/kim/
+  ne zaman künyeli), `Kennel` (şube kapsamlı kafes tanımı; small/medium/large),
+  `HospitalStay` (kabul/transfer/taburculuk tarihli; aktif yatış kennel işgal
+  eder), `HospitalObservation` (günlük vital + not; tüm geçmiş korunur),
+  `MedicationAdministration` (yatış içi doz/yol künyeli sarf; `stockMovementId`
+  ile defter hareketine bağlı). Yeni izinler: `lab.manage`, `surgery.manage`,
+  `hospital.manage` (katalog 30 anahtar; veteriner +3, resepsiyon +1).
+- **API — laboratuvar** (`/lab`): katalog CRUD; sipariş açma, numune toplama
+  (`collect`), analiz başlatma (`start`), sonuç girişi (`results` — sayısal/
+  metin; kritiklik katalog eşiklerinden hesaplanır ve kayda dondurulur; giriş
+  siparişi tamamlar), iptal (gerekçe zorunlu). Geçersiz durum geçişi 409
+  `LAB_ORDER_INVALID_TRANSITION`; sonuç yalnız `in_progress`'ta. Kritik sonuç
+  uyarısı: `GET /lab/results/critical?window=open` şube kapsamlı sıralı liste;
+  onay `POST /lab/results/:id/acknowledge` — `lab.manage` + `clinical.sign`
+  (resepsiyon uyarıyı görür, kapatamaz); ikinci onay 409.
+- **API — cerrahi** (`/surgeries`): olgu planlama (hasta+sahip+hekim
+  bağlantılı; sahip-hasta uyuşmazlığı 400), `prep` (varsayılan pre/post
+  kontrol listelerini üretir), `start` (yalnız pre listesi tamken — 409
+  `SURGERY_CHECKLIST_INCOMPLETE`), `recovery`, `complete` (fiili
+  başlangıç/bitiş damgaları), iptal (yalnız ameliyat öncesi, gerekçe zorunlu),
+  anestezi upsert, kontrol maddesi işaretleme (dizin + done; kim/ne zaman
+  kaydedilir).
+- **API — yatış** (`/hospital`): kennel CRUD (içinde aktif yatış olan kafes
+  pasifleştirilemez), pano (`/hospital/panel` — aktif yatışlar + doluluk
+  özeti + son gözlem/sarf), kabul/transfer öncesi kennel çakışma kontrolü
+  ([admittedAt, dischargedAt) pencere kesişimi; 409 `KENNEL_CONFLICT`;
+  dolu kafes kabul/transfer diyaloğunda sunulmaz), taburculuk (özet zorunlu;
+  pencereyi kapatır), günlük gözlem (vital alanlarından en az biri veya not),
+  tedavi sarfı `POST /hospital/stays/:id/medications` — Faz 08 ortak
+  transaction servisi `StockService.postConsumptionForRef` (refType=
+  `HospitalMedication`; FEFO otomatik veya açık parti; bloklu/geçmiş parti
+  409; yetersiz stok 409; `idempotencyKey` REPLAY; `hospital.manage` +
+  `inventory.consume` izinli).
+- **API — atama seçici**: `GET /staff/veterinarians` — oturum açmış herkese
+  açık hafif personel listesi (id/ad-soyad/unvan); lab/cerrahi/yatış
+  diyaloqlarında veteriner ataması `staff.manage` gerektirmeden çalışır.
+- **Seed**: 8 testlik lab kataloğu (hemogram/biyokimya/glukoz/T4/BUN/idrar/
+  FIV-FeLV/kültür; referans+kritik eşikler sentetik), MRKZ 6 + SUB2 2 kennel.
+- **Web**: `/laboratuvar` (kritik sonuç uyarı paneli — 30 sn yenilemeli,
+  onay düğmesi yalnız clinical.sign sahiplerinde; durum filtreli sipariş
+  tablosu; yeni istek diyaloğu; detay diyaloğunda numune/analiz/sonuç/iptal
+  akışı), `/cerrahi` (plan diyaloğu; detayda kontrol listeleri — pre kilidi
+  ve post takibi, anestezi formu, durum geçiş düğmeleri), `/yatis` (aktif
+  yatış kartları + kennel doluluk şeridi; kabul diyaloğu — yalnız boş kafesler;
+  detayda gözlem formu + sarf diyaloğu + transfer + taburculuk özeti).
+  Kenar çubuğunda Faz 11 yaprakları aktifleşti. Yeni bileşenler + Storybook
+  hikâyeleri: `LabOrderStatusBadge`, `LabCriticalBadge`, `SurgeryStatusBadge`,
+  `KennelOccupancyChip`.
+
+### Doğrulama
+- API e2e 10/10 (6 kabul kriteri + replay + şube kapsamı), alan mantığı 28
+  birim test, tam API regresyonu 332/332, Playwright tam süit 170 PASS
+  (Faz 11 spec 11×2 kırılım) + 18 ekran görüntüsü (`docs/screenshots/`),
+  Storybook 141/141 (axe dâhil), lint + typecheck + build (6/6) temiz.
+
 ## [0.10.0] — Faz 10: Reçete, ilaç uygulaması, aşı ve takip (2026-11-08)
 
 ### Eklendi
