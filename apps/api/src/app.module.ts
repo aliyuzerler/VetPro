@@ -26,6 +26,9 @@ import { VaccinesModule } from './vaccines/vaccines.module';
 import { LabModule } from './lab/lab.module';
 import { SurgeriesModule } from './surgeries/surgeries.module';
 import { HospitalModule } from './hospital/hospital.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { DocumentsModule } from './documents/documents.module';
+import { IntegrationsModule } from './integrations/integrations.module';
 
 /**
  * Faz 03: kimlik, personel, rol/izin, şube kapsamı, oturum ve denetim modülleri.
@@ -36,6 +39,8 @@ import { HospitalModule } from './hospital/hospital.module';
  * Faz 08: hizmet → stok → ücret atomik iş akışı (kesinleştirme, ters kayıt, idempotency).
  * Faz 09: kasa, tahsilat, cari hesap ve giderler (tahsilat dağıtımı, iade, kasa oturumu).
  * Faz 10: reçete (imza/doz onayı/dağıtım/uygulama) ve aşı (protokol/kayıt/takvim/hatırlatma) modülleri.
+ * Faz 11: lab, cerrahi ve yatış modülleri (sipariş yaşam döngüsü, kennel, gözlem).
+ * Faz 12: bildirimler (şablon/kuyruk/retry), PDF belgeler ve entegrasyon adaptörleri.
  * Guard zinciri (global): JwtAuthGuard → PermissionsGuard; şube kapsamlı uçlarda
  * ayrıca BranchScopeGuard devreye girer.
  */
@@ -67,6 +72,9 @@ import { HospitalModule } from './hospital/hospital.module';
     LabModule,
     SurgeriesModule,
     HospitalModule,
+    NotificationsModule,
+    DocumentsModule,
+    IntegrationsModule,
   ],
 })
 export class AppModule implements NestModule {

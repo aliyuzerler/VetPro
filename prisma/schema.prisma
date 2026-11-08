@@ -38,39 +38,43 @@ model Clinic {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  branches          Branch[]
-  staff             Staff[]
-  roles             Role[]
-  auditEvents       AuditEvent[]
-  owners            Owner[]
-  patients          Patient[]
-  fileAssets        FileAsset[]
-  appointmentTypes  AppointmentType[]
-  scheduleBlocks    ScheduleBlock[]
-  appointments      Appointment[]
-  waitlistEntries   WaitlistEntry[]
-  encounters        Encounter[]
-  services          Service[]
-  productCategories ProductCategory[]
-  products          Product[]
-  suppliers         Supplier[]
-  units             Unit[]
-  charges           Charge[]
-  payments          Payment[]
-  refunds           Refund[]
-  cashRegisters     CashRegister[]
-  cashSessions      CashSession[]
-  cashMovements     CashMovement[]
-  expenses          Expense[]
-  supplierPayables  SupplierPayable[]
-  prescriptions     Prescription[]
-  vaccineProtocols  VaccineProtocol[]
-  vaccineEvents     VaccineEvent[]
-  vaccineReminders  VaccineReminder[]
-  labCatalog        LabCatalog[]
-  labOrders         LabOrder[]
-  surgeryCases      SurgeryCase[]
-  hospitalStays     HospitalStay[]
+  branches               Branch[]
+  staff                  Staff[]
+  roles                  Role[]
+  auditEvents            AuditEvent[]
+  owners                 Owner[]
+  patients               Patient[]
+  fileAssets             FileAsset[]
+  appointmentTypes       AppointmentType[]
+  scheduleBlocks         ScheduleBlock[]
+  appointments           Appointment[]
+  waitlistEntries        WaitlistEntry[]
+  encounters             Encounter[]
+  services               Service[]
+  productCategories      ProductCategory[]
+  products               Product[]
+  suppliers              Supplier[]
+  units                  Unit[]
+  charges                Charge[]
+  payments               Payment[]
+  refunds                Refund[]
+  cashRegisters          CashRegister[]
+  cashSessions           CashSession[]
+  cashMovements          CashMovement[]
+  expenses               Expense[]
+  supplierPayables       SupplierPayable[]
+  prescriptions          Prescription[]
+  vaccineProtocols       VaccineProtocol[]
+  vaccineEvents          VaccineEvent[]
+  vaccineReminders       VaccineReminder[]
+  labCatalog             LabCatalog[]
+  labOrders              LabOrder[]
+  surgeryCases           SurgeryCase[]
+  hospitalStays          HospitalStay[]
+  notificationTemplates  NotificationTemplate[]
+  notifications          Notification[]
+  integrationConnections IntegrationConnection[]
+  printDocuments         PrintDocument[]
 
   @@map("clinics")
 }
@@ -114,13 +118,15 @@ model Branch {
   cashMovements    CashMovement[]
   expenses         Expense[]
   supplierPayables SupplierPayable[]
-  prescriptions   Prescription[]
-  vaccineEvents   VaccineEvent[]
+  prescriptions    Prescription[]
+  vaccineEvents    VaccineEvent[]
   vaccineReminders VaccineReminder[]
-  kennels         Kennel[]
-  labOrders       LabOrder[]
-  surgeryCases    SurgeryCase[]
-  hospitalStays   HospitalStay[]
+  kennels          Kennel[]
+  labOrders        LabOrder[]
+  surgeryCases     SurgeryCase[]
+  hospitalStays    HospitalStay[]
+  notifications    Notification[]
+  printDocuments   PrintDocument[]
 
   @@unique([clinicId, code])
   @@index([clinicId])
@@ -144,54 +150,56 @@ model Staff {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  clinic                 Clinic              @relation(fields: [clinicId], references: [id], onDelete: Restrict)
-  sessions               Session[]
-  staffRoles             StaffRole[]
-  staffBranches          StaffBranch[]
-  auditEvents            AuditEvent[]
-  patientAlerts          PatientAlert[]
-  weightObservations     WeightObservation[]
-  uploadedFiles          FileAsset[]
-  scheduleBlocks         ScheduleBlock[]
-  appointments           Appointment[]
-  preferredWaitlist      WaitlistEntry[]     @relation("WaitlistPreferredStaff")
-  overriddenAppointments Appointment[]       @relation("AppointmentOverriddenBy")
-  encounters             Encounter[]         @relation("EncounterVeterinarian")
-  signedEncounters       Encounter[]         @relation("EncounterSignedBy")
-  clinicalAddendums      ClinicalAddendum[]
-  vitalObservations      VitalObservation[]
-  serviceRecords         ServiceRecord[]
-  reversedServiceRecords ServiceRecord[]     @relation("ServiceRecordReverser")
-  postedStockMovements   StockMovement[]     @relation("StockMovementPerformer")
-  dispatchedTransfers    StockTransfer[]     @relation("StockTransferDispatcher")
-  receivedTransfers      StockTransfer[]     @relation("StockTransferReceiver")
-  completedStockCounts   StockCount[]        @relation("StockCountCompleter")
-  temperatureLogs        TemperatureLog[]    @relation("TemperatureLogRecorder")
-  createdPayments        Payment[]           @relation("PaymentCreator")
-  createdRefunds         Refund[]            @relation("RefundCreator")
-  openedCashSessions     CashSession[]       @relation("CashSessionOpener")
-  closedCashSessions     CashSession[]       @relation("CashSessionCloser")
-  createdCashMovements   CashMovement[]      @relation("CashMovementCreator")
-  createdExpenses        Expense[]           @relation("ExpenseCreator")
-  createdPayables        SupplierPayable[]   @relation("SupplierPayableCreator")
-  prescribedPrescriptions Prescription[]     @relation("PrescriptionVeterinarian")
-  signedPrescriptions     Prescription[]      @relation("PrescriptionSignedBy")
-  doseApprovedLines       PrescriptionLine[]  @relation("PrescriptionLineDoseApprover")
+  clinic                  Clinic                     @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  sessions                Session[]
+  staffRoles              StaffRole[]
+  staffBranches           StaffBranch[]
+  auditEvents             AuditEvent[]
+  patientAlerts           PatientAlert[]
+  weightObservations      WeightObservation[]
+  uploadedFiles           FileAsset[]
+  scheduleBlocks          ScheduleBlock[]
+  appointments            Appointment[]
+  preferredWaitlist       WaitlistEntry[]            @relation("WaitlistPreferredStaff")
+  overriddenAppointments  Appointment[]              @relation("AppointmentOverriddenBy")
+  encounters              Encounter[]                @relation("EncounterVeterinarian")
+  signedEncounters        Encounter[]                @relation("EncounterSignedBy")
+  clinicalAddendums       ClinicalAddendum[]
+  vitalObservations       VitalObservation[]
+  serviceRecords          ServiceRecord[]
+  reversedServiceRecords  ServiceRecord[]            @relation("ServiceRecordReverser")
+  postedStockMovements    StockMovement[]            @relation("StockMovementPerformer")
+  dispatchedTransfers     StockTransfer[]            @relation("StockTransferDispatcher")
+  receivedTransfers       StockTransfer[]            @relation("StockTransferReceiver")
+  completedStockCounts    StockCount[]               @relation("StockCountCompleter")
+  temperatureLogs         TemperatureLog[]           @relation("TemperatureLogRecorder")
+  createdPayments         Payment[]                  @relation("PaymentCreator")
+  createdRefunds          Refund[]                   @relation("RefundCreator")
+  openedCashSessions      CashSession[]              @relation("CashSessionOpener")
+  closedCashSessions      CashSession[]              @relation("CashSessionCloser")
+  createdCashMovements    CashMovement[]             @relation("CashMovementCreator")
+  createdExpenses         Expense[]                  @relation("ExpenseCreator")
+  createdPayables         SupplierPayable[]          @relation("SupplierPayableCreator")
+  prescribedPrescriptions Prescription[]             @relation("PrescriptionVeterinarian")
+  signedPrescriptions     Prescription[]             @relation("PrescriptionSignedBy")
+  doseApprovedLines       PrescriptionLine[]         @relation("PrescriptionLineDoseApprover")
   dispenseEvents          DispenseEvent[]
   administrations         AdministrationEvent[]
   administeredVaccines    VaccineEvent[]
   sentVaccineReminders    VaccineReminder[]
-  requestedLabOrders      LabOrder[]           @relation("LabOrderRequester")
-  vetLabOrders            LabOrder[]           @relation("LabOrderVeterinarian")
-  cancelledLabOrders      LabOrder[]           @relation("LabOrderCanceller")
-  collectedLabSamples     Sample[]             @relation("SampleCollector")
-  resultedLabResults      LabResult[]          @relation("LabResultReporter")
-  acknowledgedLabResults  LabResult[]          @relation("LabResultAcknowledger")
-  surgeryVetCases         SurgeryCase[]        @relation("SurgeryVeterinarian")
-  anesthesiaDuties        AnesthesiaRecord[]   @relation("AnesthesiaAnesthetist")
-  hospitalVetStays        HospitalStay[]       @relation("HospitalStayVeterinarian")
-  hospitalObservations    HospitalObservation[] @relation("HospitalObserver")
+  requestedLabOrders      LabOrder[]                 @relation("LabOrderRequester")
+  vetLabOrders            LabOrder[]                 @relation("LabOrderVeterinarian")
+  cancelledLabOrders      LabOrder[]                 @relation("LabOrderCanceller")
+  collectedLabSamples     Sample[]                   @relation("SampleCollector")
+  resultedLabResults      LabResult[]                @relation("LabResultReporter")
+  acknowledgedLabResults  LabResult[]                @relation("LabResultAcknowledger")
+  surgeryVetCases         SurgeryCase[]              @relation("SurgeryVeterinarian")
+  anesthesiaDuties        AnesthesiaRecord[]         @relation("AnesthesiaAnesthetist")
+  hospitalVetStays        HospitalStay[]             @relation("HospitalStayVeterinarian")
+  hospitalObservations    HospitalObservation[]      @relation("HospitalObserver")
   administeredMeds        MedicationAdministration[] @relation("MedicationAdministerer")
+  createdPrintDocuments   PrintDocument[]            @relation("PrintDocumentCreator")
+  createdNotifications    Notification[]             @relation("NotificationCreator")
 
   @@index([clinicId])
   @@map("staff")
@@ -443,6 +451,8 @@ model Owner {
   refunds         Refund[]
   surgeryCases    SurgeryCase[]
   hospitalStays   HospitalStay[]
+  notifications   Notification[]
+  printDocuments  PrintDocument[]
 
   @@index([clinicId])
   @@index([clinicId, lastName, firstName])
@@ -514,29 +524,30 @@ model Patient {
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  clinic            Clinic              @relation(fields: [clinicId], references: [id], onDelete: Restrict)
-  branch            Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  owner             Owner               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  species           Species             @relation(fields: [speciesId], references: [id], onDelete: Restrict)
-  breed             Breed?              @relation(fields: [breedId], references: [id], onDelete: SetNull)
-  mergedIntoPatient Patient?            @relation("PatientMerge", fields: [mergedIntoPatientId], references: [id], onDelete: SetNull)
-  mergedPatients    Patient[]           @relation("PatientMerge")
-  alerts            PatientAlert[]
-  weights           WeightObservation[]
-  files             FileAsset[]
-  appointments      Appointment[]
-  waitlistEntries   WaitlistEntry[]
-  encounters        Encounter[]
-  vitals            VitalObservation[]
-  charges           Charge[]
-  prescriptions        Prescription[]
-  administrationEvents AdministrationEvent[]
-  vaccineEvents        VaccineEvent[]
-  vaccineReminders     VaccineReminder[]
-  labOrders            LabOrder[]
-  surgeryCases         SurgeryCase[]
-  hospitalStays        HospitalStay[]
+  clinic                    Clinic                     @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch                    Branch                     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  owner                     Owner                      @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  species                   Species                    @relation(fields: [speciesId], references: [id], onDelete: Restrict)
+  breed                     Breed?                     @relation(fields: [breedId], references: [id], onDelete: SetNull)
+  mergedIntoPatient         Patient?                   @relation("PatientMerge", fields: [mergedIntoPatientId], references: [id], onDelete: SetNull)
+  mergedPatients            Patient[]                  @relation("PatientMerge")
+  alerts                    PatientAlert[]
+  weights                   WeightObservation[]
+  files                     FileAsset[]
+  appointments              Appointment[]
+  waitlistEntries           WaitlistEntry[]
+  encounters                Encounter[]
+  vitals                    VitalObservation[]
+  charges                   Charge[]
+  prescriptions             Prescription[]
+  administrationEvents      AdministrationEvent[]
+  vaccineEvents             VaccineEvent[]
+  vaccineReminders          VaccineReminder[]
+  labOrders                 LabOrder[]
+  surgeryCases              SurgeryCase[]
+  hospitalStays             HospitalStay[]
   medicationAdministrations MedicationAdministration[]
+  printDocuments            PrintDocument[]
 
   @@unique([clinicId, code])
   @@unique([clinicId, microchip])
@@ -812,6 +823,7 @@ model Encounter {
   labOrders      LabOrder[]
   surgeryCases   SurgeryCase[]
   hospitalStays  HospitalStay[]
+  printDocuments PrintDocument[]
 
   @@index([branchId, status, startedAt])
   @@index([patientId, startedAt])
@@ -918,10 +930,10 @@ model Service {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  clinic           Clinic                   @relation(fields: [clinicId], references: [id], onDelete: Restrict)
-  prices           ServicePrice[]
-  consumptionRules ServiceConsumptionRule[]
-  recordLines      ServiceRecordLine[]
+  clinic                    Clinic                     @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  prices                    ServicePrice[]
+  consumptionRules          ServiceConsumptionRule[]
+  recordLines               ServiceRecordLine[]
   medicationAdministrations MedicationAdministration[]
 
   @@unique([clinicId, code])
@@ -1153,23 +1165,23 @@ model Product {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  clinic           Clinic                   @relation(fields: [clinicId], references: [id], onDelete: Restrict)
-  category         ProductCategory?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  baseUnit         Unit                     @relation("ProductBaseUnit", fields: [baseUnitId], references: [id], onDelete: Restrict)
-  conversions      ProductUnitConversion[]
-  lots             InventoryLot[]
-  movementLines    StockMovementLine[]
-  balances         StockBalance[]
-  transferLines    StockTransferLine[]
-  countLines       StockCountLine[]
-  consumptionRules ServiceConsumptionRule[]
-  prescriptionLines PrescriptionLine[]
+  clinic                    Clinic                     @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  category                  ProductCategory?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  baseUnit                  Unit                       @relation("ProductBaseUnit", fields: [baseUnitId], references: [id], onDelete: Restrict)
+  conversions               ProductUnitConversion[]
+  lots                      InventoryLot[]
+  movementLines             StockMovementLine[]
+  balances                  StockBalance[]
+  transferLines             StockTransferLine[]
+  countLines                StockCountLine[]
+  consumptionRules          ServiceConsumptionRule[]
+  prescriptionLines         PrescriptionLine[]
   medicationAdministrations MedicationAdministration[]
-  dispenseEvents    DispenseEvent[]
-  administrationEvents AdministrationEvent[]
-  vaccineProtocols  VaccineProtocol[]
-  vaccineEvents     VaccineEvent[]
-  vaccineReminders  VaccineReminder[]
+  dispenseEvents            DispenseEvent[]
+  administrationEvents      AdministrationEvent[]
+  vaccineProtocols          VaccineProtocol[]
+  vaccineEvents             VaccineEvent[]
+  vaccineReminders          VaccineReminder[]
 
   @@unique([clinicId, code])
   @@index([clinicId, active])
@@ -1278,12 +1290,12 @@ model StockMovement {
   postedAt           DateTime @default(now()) @map("posted_at")
   createdAt          DateTime @default(now()) @map("created_at")
 
-  warehouse   Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-  branch      Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  supplier    Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
-  performedBy Staff?              @relation("StockMovementPerformer", fields: [performedByStaffId], references: [id], onDelete: SetNull)
+  warehouse                 Warehouse                  @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  branch                    Branch                     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  supplier                  Supplier?                  @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  performedBy               Staff?                     @relation("StockMovementPerformer", fields: [performedByStaffId], references: [id], onDelete: SetNull)
   medicationAdministrations MedicationAdministration[] @relation("MedicationStockMovement")
-  lines       StockMovementLine[]
+  lines                     StockMovementLine[]
 
   @@unique([idempotencyKey])
   @@index([clinicId, kind, postedAt])
@@ -1452,7 +1464,6 @@ model TemperatureLog {
   @@index([warehouseId, measuredAt])
   @@map("temperature_logs")
 }
-
 
 // ─── Faz 09 — Kasa, tahsilat, cari hesap ve giderler ───────────────────────
 // Politika: tüm finansal yazımlar append-only defter mantığındadır — tahsilat,
@@ -1690,7 +1701,6 @@ model SupplierPayable {
   @@map("supplier_payables")
 }
 
-
 // ─── Faz 10 — Reçete, ilaç uygulaması, aşı ve takip ─────────────────────────
 // Politikalar:
 // - Reçete yalnızca prescription.sign izni olan veteriner tarafından imzalanır;
@@ -1742,8 +1752,9 @@ model Prescription {
   veterinarian Staff      @relation("PrescriptionVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
   signedBy     Staff?     @relation("PrescriptionSignedBy", fields: [signedById], references: [id], onDelete: SetNull)
 
-  lines    PrescriptionLine[]
-  dispenses DispenseEvent[]
+  lines          PrescriptionLine[]
+  dispenses      DispenseEvent[]
+  printDocuments PrintDocument[]
 
   @@unique([clinicId, code])
   @@index([clinicId, status])
@@ -1757,44 +1768,44 @@ model Prescription {
 /// adla yazılabilir. Doz yardımcısı alanları (doseCalc*) yalnızca öneriyi ve
 /// formülü taşır; doseApproved=false iken imza bloklanır (kabul kriteri 2).
 model PrescriptionLine {
-  id             String  @id @default(uuid()) @db.Uuid
-  prescriptionId String  @map("prescription_id") @db.Uuid
-  productId      String? @map("product_id") @db.Uuid
+  id             String   @id @default(uuid()) @db.Uuid
+  prescriptionId String   @map("prescription_id") @db.Uuid
+  productId      String?  @map("product_id") @db.Uuid
   /// Katalog dışı ilaç yazımına izin: serbest ilaç adı zorunlu
-  drugName       String  @map("drug_name")
+  drugName       String   @map("drug_name")
   /// Uygulama formu: 'tablet' | 'sirup' | 'enjeksiyon' | 'merhem' | 'damla' | 'diger'
   form           String
   /// Yazılan doz — miktar + birim (mg, ml, IU...); doz yardımcısından veya elle
   doseAmount     Decimal? @map("dose_amount") @db.Decimal(10, 3)
-  doseUnit       String? @map("dose_unit")
+  doseUnit       String?  @map("dose_unit")
   /// Uygulama yolu: 'oral' | 'deri_alti' | 'kas_ici' | 'damar_ici' | 'topikal' | 'diger'
   route          String
   /// Sıklık serbest metin (ör. 'günde 2 kez')
   frequency      String
-  durationDays   Int?    @map("duration_days")
+  durationDays   Int?     @map("duration_days")
   /// Verilen miktar + birim (ambalaj/şişe/adet — dağıtım stok üzerinden yapılır)
-  quantity       Decimal @db.Decimal(12, 3)
-  quantityUnit   String  @map("quantity_unit")
+  quantity       Decimal  @db.Decimal(12, 3)
+  quantityUnit   String   @map("quantity_unit")
   instructions   String?
 
   // Doz yardımcısı — aritmetik öneri ve görünür formül; onay bilgisi
-  doseCalcWeightKg  Decimal? @map("dose_calc_weight_kg") @db.Decimal(8, 3)
-  doseCalcMgPerKg   Decimal? @map("dose_calc_mg_per_kg") @db.Decimal(10, 3)
+  doseCalcWeightKg      Decimal?  @map("dose_calc_weight_kg") @db.Decimal(8, 3)
+  doseCalcMgPerKg       Decimal?  @map("dose_calc_mg_per_kg") @db.Decimal(10, 3)
   /// Görünür formül metni (ör. '20 kg × 10 mg/kg')
-  doseCalcFormula   String?  @map("dose_calc_formula")
-  doseCalcSuggested Decimal? @map("dose_calc_suggested") @db.Decimal(10, 3)
-  doseCalcUnit      String?  @map("dose_calc_unit")
+  doseCalcFormula       String?   @map("dose_calc_formula")
+  doseCalcSuggested     Decimal?  @map("dose_calc_suggested") @db.Decimal(10, 3)
+  doseCalcUnit          String?   @map("dose_calc_unit")
   /// Veteriner açık onayı — yalnızca prescription.sign izniyle true yapılabilir
-  doseApproved         Boolean   @default(false) @map("dose_approved")
-  doseApprovedByStaffId String?  @map("dose_approved_by_staff_id") @db.Uuid
-  doseApprovedAt       DateTime? @map("dose_approved_at")
-  createdAt    DateTime @default(now()) @map("created_at")
+  doseApproved          Boolean   @default(false) @map("dose_approved")
+  doseApprovedByStaffId String?   @map("dose_approved_by_staff_id") @db.Uuid
+  doseApprovedAt        DateTime? @map("dose_approved_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
 
-  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
-  product      Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
-  doseApprovedBy Staff?     @relation("PrescriptionLineDoseApprover", fields: [doseApprovedByStaffId], references: [id], onDelete: SetNull)
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  product        Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  doseApprovedBy Staff?       @relation("PrescriptionLineDoseApprover", fields: [doseApprovedByStaffId], references: [id], onDelete: SetNull)
 
-  dispenses          DispenseEvent[]
+  dispenses            DispenseEvent[]
   administrationEvents AdministrationEvent[]
 
   @@index([prescriptionId])
@@ -1807,25 +1818,25 @@ model PrescriptionLine {
 /// 'DispenseEvent'). Parti seçimi açık lot ya da FEFO; expired/karantina bloklu.
 /// lotCode/expiresAt kayıt anında partiden dondurulur (izlenebilirlik).
 model DispenseEvent {
-  id                 String   @id @default(uuid()) @db.Uuid
-  clinicId           String   @map("clinic_id") @db.Uuid
-  branchId           String   @map("branch_id") @db.Uuid
-  prescriptionId     String   @map("prescription_id") @db.Uuid
-  prescriptionLineId String   @map("prescription_line_id") @db.Uuid
-  productId          String   @map("product_id") @db.Uuid
-  warehouseId        String   @map("warehouse_id") @db.Uuid
-  lotId              String?  @map("lot_id") @db.Uuid
-  lotCode            String?  @map("lot_code")
+  id                 String    @id @default(uuid()) @db.Uuid
+  clinicId           String    @map("clinic_id") @db.Uuid
+  branchId           String    @map("branch_id") @db.Uuid
+  prescriptionId     String    @map("prescription_id") @db.Uuid
+  prescriptionLineId String    @map("prescription_line_id") @db.Uuid
+  productId          String    @map("product_id") @db.Uuid
+  warehouseId        String    @map("warehouse_id") @db.Uuid
+  lotId              String?   @map("lot_id") @db.Uuid
+  lotCode            String?   @map("lot_code")
   expiresAt          DateTime? @map("expires_at")
-  qty                Decimal  @db.Decimal(12, 3)
+  qty                Decimal   @db.Decimal(12, 3)
   /// Yazılan stok defteri hareketi — mutabakat izlenebilirliği
-  movementId         String?  @map("movement_id") @db.Uuid
-  dispensedByStaffId String   @map("dispensed_by_staff_id") @db.Uuid
-  dispensedAt        DateTime @default(now()) @map("dispensed_at")
+  movementId         String?   @map("movement_id") @db.Uuid
+  dispensedByStaffId String    @map("dispensed_by_staff_id") @db.Uuid
+  dispensedAt        DateTime  @default(now()) @map("dispensed_at")
   note               String?
   /// Mobil tekrar denemelerinde tekilleştirme
-  idempotencyKey     String?  @map("idempotency_key") @db.Uuid
-  createdAt          DateTime @default(now()) @map("created_at")
+  idempotencyKey     String?   @map("idempotency_key") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at")
 
   prescription     Prescription     @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
   prescriptionLine PrescriptionLine @relation(fields: [prescriptionLineId], references: [id], onDelete: Cascade)
@@ -1878,23 +1889,23 @@ model AdministrationEvent {
 /// evrensel takvim yoktur; her klinik kendi protokolünü tür + ürün bazında
 /// tanımlar. speciesId null = türden bağımsız protokol.
 model VaccineProtocol {
-  id        String   @id @default(uuid()) @db.Uuid
-  clinicId  String   @map("clinic_id") @db.Uuid
-  productId String   @map("product_id") @db.Uuid
-  speciesId String?  @map("species_id") @db.Uuid
-  name      String
+  id                  String   @id @default(uuid()) @db.Uuid
+  clinicId            String   @map("clinic_id") @db.Uuid
+  productId           String   @map("product_id") @db.Uuid
+  speciesId           String?  @map("species_id") @db.Uuid
+  name                String
   /// İlk doz için önerilen yaş (gün) — hasta doğum tarihinden hesaplanır
-  firstDoseAgeDays    Int     @default(0) @map("first_dose_age_days")
+  firstDoseAgeDays    Int      @default(0) @map("first_dose_age_days")
   /// Hatırlatıcı tekrar aralığı (gün) — örn. yıllık 365
-  boosterIntervalDays Int     @default(365) @map("booster_interval_days")
+  boosterIntervalDays Int      @default(365) @map("booster_interval_days")
   /// Aşı vadesinden kaç gün önce hatırlatma önerilir
-  reminderLeadDays    Int     @default(14) @map("reminder_lead_days")
-  doseLabel           String? @map("dose_label")
+  reminderLeadDays    Int      @default(14) @map("reminder_lead_days")
+  doseLabel           String?  @map("dose_label")
   route               String?
   notes               String?
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   clinic  Clinic   @relation(fields: [clinicId], references: [id], onDelete: Restrict)
   product Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
@@ -1935,14 +1946,14 @@ model VaccineEvent {
   idempotencyKey        String?   @map("idempotency_key") @db.Uuid
   createdAt             DateTime  @default(now()) @map("created_at")
 
-  clinic          Clinic          @relation(fields: [clinicId], references: [id], onDelete: Restrict)
-  branch          Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  patient         Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  protocol        VaccineProtocol? @relation(fields: [protocolId], references: [id], onDelete: SetNull)
-  product         Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
-  warehouse       Warehouse       @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-  lot             InventoryLot    @relation(fields: [lotId], references: [id], onDelete: Restrict)
-  administeredBy  Staff           @relation(fields: [administeredByStaffId], references: [id], onDelete: Restrict)
+  clinic         Clinic           @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch         Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  patient        Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  protocol       VaccineProtocol? @relation(fields: [protocolId], references: [id], onDelete: SetNull)
+  product        Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse      Warehouse        @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  lot            InventoryLot     @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  administeredBy Staff            @relation(fields: [administeredByStaffId], references: [id], onDelete: Restrict)
 
   reminders VaccineReminder[]
 
@@ -1977,12 +1988,12 @@ model VaccineReminder {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  patient     Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  vaccineEvent VaccineEvent?  @relation(fields: [vaccineEventId], references: [id], onDelete: Cascade)
-  product     Product?        @relation(fields: [productId], references: [id], onDelete: SetNull)
-  branch      Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  sentBy      Staff?          @relation(fields: [sentByStaffId], references: [id], onDelete: SetNull)
-  clinic      Clinic          @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  vaccineEvent VaccineEvent? @relation(fields: [vaccineEventId], references: [id], onDelete: Cascade)
+  product      Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  branch       Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  sentBy       Staff?        @relation(fields: [sentByStaffId], references: [id], onDelete: SetNull)
+  clinic       Clinic        @relation(fields: [clinicId], references: [id], onDelete: Restrict)
 
   /// Aynı aşı kaydına aynı türden ikinci hatırlatma yazılamaz (NULL vaccineEventId
   /// satırları PG'de tekil kısıta takılmaz — serbest hatırlatmalar için bilinir)
@@ -1992,7 +2003,6 @@ model VaccineReminder {
   @@map("vaccine_reminders")
 }
 
-
 /// ============================================================================
 /// Faz 11 — Laboratuvar, cerrahi ve yatış modülleri
 /// ============================================================================
@@ -2000,27 +2010,27 @@ model VaccineReminder {
 /// Lab test kataloğu — klinik kapsamlı; referans/kritik aralıklar test başına.
 /// Türe özgü aralık gerekiyorsa aynı test türe bağlı ikinci satır olarak açılır.
 model LabCatalog {
-  id        String   @id @default(uuid()) @db.Uuid
-  clinicId  String   @map("clinic_id") @db.Uuid
-  code      String
-  name      String
+  id              String   @id @default(uuid()) @db.Uuid
+  clinicId        String   @map("clinic_id") @db.Uuid
+  code            String
+  name            String
   /// 'kan' | 'idrar' | 'dışkı' | 'swab' | 'doku' | 'diğer'
-  sampleType String  @map("sample_type")
-  unit      String?
-  speciesId String?  @map("species_id") @db.Uuid
+  sampleType      String   @map("sample_type")
+  unit            String?
+  speciesId       String?  @map("species_id") @db.Uuid
   /// Referans aralık (opsiyonel — kalitatif testlerde boş)
-  refLow    Decimal? @map("ref_low") @db.Decimal(10, 2)
-  refHigh   Decimal? @map("ref_high") @db.Decimal(10, 2)
+  refLow          Decimal? @map("ref_low") @db.Decimal(10, 2)
+  refHigh         Decimal? @map("ref_high") @db.Decimal(10, 2)
   /// Kritik eşikler — dışına düşen sonuç klinisyen uyarısı üretir
-  criticalLow  Decimal? @map("critical_low") @db.Decimal(10, 2)
-  criticalHigh Decimal? @map("critical_high") @db.Decimal(10, 2)
-  turnaroundHours Int  @default(24) @map("turnaround_hours")
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  criticalLow     Decimal? @map("critical_low") @db.Decimal(10, 2)
+  criticalHigh    Decimal? @map("critical_high") @db.Decimal(10, 2)
+  turnaroundHours Int      @default(24) @map("turnaround_hours")
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
-  clinic  Clinic    @relation(fields: [clinicId], references: [id], onDelete: Restrict)
-  species Species?  @relation(fields: [speciesId], references: [id], onDelete: SetNull)
+  clinic  Clinic      @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  species Species?    @relation(fields: [speciesId], references: [id], onDelete: SetNull)
   orders  LabOrder[]
   results LabResult[]
 
@@ -2053,16 +2063,17 @@ model LabOrder {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  clinic       Clinic       @relation(fields: [clinicId], references: [id], onDelete: Restrict)
-  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
-  encounter    Encounter?   @relation(fields: [encounterId], references: [id], onDelete: SetNull)
-  test         LabCatalog   @relation(fields: [testId], references: [id], onDelete: Restrict)
-  veterinarian Staff        @relation("LabOrderVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
-  requestedBy  Staff        @relation("LabOrderRequester", fields: [requestedById], references: [id], onDelete: Restrict)
-  cancelledBy  Staff?       @relation("LabOrderCanceller", fields: [cancelledById], references: [id], onDelete: SetNull)
-  samples      Sample[]
-  results      LabResult[]
+  clinic         Clinic          @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch         Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  patient        Patient         @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  encounter      Encounter?      @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  test           LabCatalog      @relation(fields: [testId], references: [id], onDelete: Restrict)
+  veterinarian   Staff           @relation("LabOrderVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
+  requestedBy    Staff           @relation("LabOrderRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  cancelledBy    Staff?          @relation("LabOrderCanceller", fields: [cancelledById], references: [id], onDelete: SetNull)
+  samples        Sample[]
+  results        LabResult[]
+  printDocuments PrintDocument[]
 
   @@index([clinicId, status, orderedAt])
   @@index([branchId, status])
@@ -2087,8 +2098,8 @@ model Sample {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  order      LabOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  collectedBy Staff   @relation("SampleCollector", fields: [collectedById], references: [id], onDelete: Restrict)
+  order       LabOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  collectedBy Staff    @relation("SampleCollector", fields: [collectedById], references: [id], onDelete: Restrict)
 
   @@unique([orderId])
   @@index([clinicId, status])
@@ -2120,10 +2131,10 @@ model LabResult {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  order          LabOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order          LabOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   test           LabCatalog @relation(fields: [testId], references: [id], onDelete: Restrict)
-  resultedBy     Staff    @relation("LabResultReporter", fields: [resultedById], references: [id], onDelete: Restrict)
-  acknowledgedBy Staff?   @relation("LabResultAcknowledger", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+  resultedBy     Staff      @relation("LabResultReporter", fields: [resultedById], references: [id], onDelete: Restrict)
+  acknowledgedBy Staff?     @relation("LabResultAcknowledger", fields: [acknowledgedById], references: [id], onDelete: SetNull)
 
   @@unique([orderId])
   @@index([clinicId, isCritical, acknowledgedAt])
@@ -2154,13 +2165,13 @@ model SurgeryCase {
   createdAt          DateTime  @default(now()) @map("created_at")
   updatedAt          DateTime  @updatedAt @map("updated_at")
 
-  clinic       Clinic              @relation(fields: [clinicId], references: [id], onDelete: Restrict)
-  branch       Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  patient      Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
-  owner        Owner               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  encounter    Encounter?          @relation(fields: [encounterId], references: [id], onDelete: SetNull)
-  veterinarian Staff                @relation("SurgeryVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
-  room         Room?               @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  clinic       Clinic             @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch       Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  patient      Patient            @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  owner        Owner              @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  encounter    Encounter?         @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  veterinarian Staff              @relation("SurgeryVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
+  room         Room?              @relation(fields: [roomId], references: [id], onDelete: SetNull)
   anesthesia   AnesthesiaRecord?
   checklists   SurgeryChecklist[]
 
@@ -2257,15 +2268,16 @@ model HospitalStay {
   createdAt           DateTime  @default(now()) @map("created_at")
   updatedAt           DateTime  @updatedAt @map("updated_at")
 
-  clinic       Clinic       @relation(fields: [clinicId], references: [id], onDelete: Restrict)
-  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
-  owner        Owner        @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  encounter    Encounter?   @relation(fields: [encounterId], references: [id], onDelete: SetNull)
-  kennel       Kennel       @relation(fields: [kennelId], references: [id], onDelete: Restrict)
-  veterinarian Staff        @relation("HospitalStayVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
-  observations HospitalObservation[]
-  medications  MedicationAdministration[]
+  clinic         Clinic                     @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch         Branch                     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  patient        Patient                    @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  owner          Owner                      @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  encounter      Encounter?                 @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  kennel         Kennel                     @relation(fields: [kennelId], references: [id], onDelete: Restrict)
+  veterinarian   Staff                      @relation("HospitalStayVeterinarian", fields: [veterinarianId], references: [id], onDelete: Restrict)
+  observations   HospitalObservation[]
+  medications    MedicationAdministration[]
+  printDocuments PrintDocument[]
 
   @@index([branchId, status, admittedAt])
   @@index([kennelId, status])
@@ -2275,21 +2287,21 @@ model HospitalStay {
 
 /// Yatış gözlemi — günlük vital takip ve notlar; tüm geçmiş korunur.
 model HospitalObservation {
-  id          String   @id @default(uuid()) @db.Uuid
-  clinicId    String   @map("clinic_id") @db.Uuid
-  stayId      String   @map("stay_id") @db.Uuid
+  id           String   @id @default(uuid()) @db.Uuid
+  clinicId     String   @map("clinic_id") @db.Uuid
+  stayId       String   @map("stay_id") @db.Uuid
   /// 'vital' | 'note'
-  kind        String   @default("vital")
-  tempC       Decimal? @map("temp_c") @db.Decimal(4, 1)
-  weightKg    Decimal? @map("weight_kg") @db.Decimal(6, 2)
-  heartRate   Int?     @map("heart_rate")
-  respRate    Int?     @map("resp_rate")
-  appetite    String?
-  behavior    String?
-  notes       String?
-  observedAt  DateTime @default(now()) @map("observed_at")
-  observedById String  @map("observed_by_id") @db.Uuid
-  createdAt   DateTime @default(now()) @map("created_at")
+  kind         String   @default("vital")
+  tempC        Decimal? @map("temp_c") @db.Decimal(4, 1)
+  weightKg     Decimal? @map("weight_kg") @db.Decimal(6, 2)
+  heartRate    Int?     @map("heart_rate")
+  respRate     Int?     @map("resp_rate")
+  appetite     String?
+  behavior     String?
+  notes        String?
+  observedAt   DateTime @default(now()) @map("observed_at")
+  observedById String   @map("observed_by_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
 
   stay       HospitalStay @relation(fields: [stayId], references: [id], onDelete: Cascade)
   observedBy Staff        @relation("HospitalObserver", fields: [observedById], references: [id], onDelete: Restrict)
@@ -2321,15 +2333,187 @@ model MedicationAdministration {
   notes            String?
   createdAt        DateTime @default(now()) @map("created_at")
 
-  stay          HospitalStay  @relation(fields: [stayId], references: [id], onDelete: Cascade)
-  patient       Patient       @relation(fields: [patientId], references: [id], onDelete: Restrict)
-  product       Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
-  service       Service?      @relation(fields: [serviceId], references: [id], onDelete: SetNull)
-  administeredBy Staff        @relation("MedicationAdministerer", fields: [administeredById], references: [id], onDelete: Restrict)
-  stockMovement StockMovement? @relation("MedicationStockMovement", fields: [stockMovementId], references: [id], onDelete: SetNull)
+  stay           HospitalStay   @relation(fields: [stayId], references: [id], onDelete: Cascade)
+  patient        Patient        @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  product        Product?       @relation(fields: [productId], references: [id], onDelete: SetNull)
+  service        Service?       @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  administeredBy Staff          @relation("MedicationAdministerer", fields: [administeredById], references: [id], onDelete: Restrict)
+  stockMovement  StockMovement? @relation("MedicationStockMovement", fields: [stockMovementId], references: [id], onDelete: SetNull)
 
   @@index([stayId, administeredAt])
   @@index([clinicId, administeredAt])
   @@index([productId])
   @@map("medication_administrations")
+}
+
+/// Bildirim şablonu — kanal bazlı, {{degisken}} yer tutucularıyla. Şablon metni
+/// render anında değişkenlerle doldurulur; eksik zorunlu değişken render'ı 400 yapar.
+model NotificationTemplate {
+  id        String   @id @default(uuid()) @db.Uuid
+  clinicId  String   @map("clinic_id") @db.Uuid
+  /// Klinik içinde tekil şablon kodu (ör. APPT_REMINDER_SMS)
+  code      String
+  name      String
+  /// 'push' | 'sms' | 'email' | 'whatsapp'
+  channel   String
+  /// 'appointment' | 'vaccine' | 'lab' | 'hospital' | 'custom'
+  category  String
+  /// E-posta konusu; SMS/WhatsApp/push için null
+  subject   String?
+  /// Gövde şablonu — {{ownerName}}, {{patientName}}, {{date}}, {{time}}...
+  body      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  notifications Notification[]
+
+  @@unique([clinicId, code])
+  @@index([clinicId, channel])
+  @@map("notification_templates")
+}
+
+/// Bildirim — iç bildirim merkezi kaydı. Kuyruk satırıdır: queued→processing→
+/// sent | failed | dead_letter | skipped. Onay (consent) kuralı kuyruğa girişte
+/// zorlanır; gönderim denemeleri NotificationAttempt'te izlenir.
+model Notification {
+  id             String    @id @default(uuid()) @db.Uuid
+  clinicId       String    @map("clinic_id") @db.Uuid
+  branchId       String?   @map("branch_id") @db.Uuid
+  templateId     String?   @map("template_id") @db.Uuid
+  /// 'push' | 'sms' | 'email' | 'whatsapp'
+  channel        String
+  /// 'appointment' | 'vaccine' | 'lab' | 'hospital' | 'custom'
+  category       String
+  ownerId        String    @map("owner_id") @db.Uuid
+  /// Normalleştirilmiş alıcı (telefon 90..., e-posta küçük harf)
+  recipientValue String    @map("recipient_value")
+  subject        String?
+  body           String
+  /// 'queued' | 'processing' | 'sent' | 'failed' | 'dead_letter' | 'skipped'
+  status         String    @default("queued")
+  /// Atlanma gerekçesi (CONSENT_MISSING gibi) — status=skipped için
+  skipReason     String?   @map("skip_reason")
+  /// Üretilen uyarı: FAILED_PROVIDER vs. — status=failed için
+  lastError      String?   @map("last_error")
+  /// Deneme sayacı (attempt kayıtlarıyla senkron)
+  attempts       Int       @default(0)
+  /// Kuyruk tekilleştirme anahtarı — aynı anahtar ikinci kez kuyruğa girmez
+  /// (retry duplicate kabul kriterinin DB düzeyi güvencesi)
+  idempotencyKey String    @map("idempotency_key")
+  scheduledFor   DateTime  @default(now()) @map("scheduled_for")
+  sentAt         DateTime? @map("sent_at")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  clinic     Clinic                @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch     Branch?               @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  template   NotificationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  owner      Owner                 @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  createdBy  Staff?                @relation("NotificationCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  attemptLog NotificationAttempt[]
+
+  @@unique([clinicId, idempotencyKey])
+  @@index([clinicId, status])
+  @@index([clinicId, ownerId])
+  @@index([branchId, status])
+  @@index([scheduledFor, status])
+  @@map("notifications")
+}
+
+/// Gönderim denemesi — her kuyruk işleme adımının sonucu. (notificationId,
+/// attemptNo) tekil; providerMessageId sandık sağlayıcıdan döner ve aynı
+/// bildirimin tüm denemelerinde aynıdır (duplicate gönderim kanıtı için).
+model NotificationAttempt {
+  id                String   @id @default(uuid()) @db.Uuid
+  notificationId    String   @map("notification_id") @db.Uuid
+  attemptNo         Int      @map("attempt_no")
+  /// 'success' | 'retryable' | 'permanent'
+  outcome           String
+  providerName      String   @map("provider_name")
+  providerMessageId String?  @map("provider_message_id")
+  error             String?
+  startedAt         DateTime @map("started_at")
+  finishedAt        DateTime @map("finished_at")
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, attemptNo])
+  @@index([notificationId])
+  @@map("notification_attempts")
+}
+
+/// Entegrasyon bağlantısı — yalnızca bağlantı üst verisi. Provider secret
+/// ASLA bu tabloya yazılmaz: kimlik bilgileri yalnızca sunucu tarafı env'den
+/// okunur (kabul kriteri). mode='live' yalnız yetkili sözleşmeyle açılır.
+model IntegrationConnection {
+  id              String    @id @default(uuid()) @db.Uuid
+  clinicId        String    @map("clinic_id") @db.Uuid
+  /// 'einvoice' | 'lab'
+  kind            String
+  /// Sağlayıcı adı (ör. sandbox stub: 'vetcore-sandbox')
+  providerName    String    @map("provider_name")
+  /// 'sandbox' | 'live'
+  mode            String    @default("sandbox")
+  /// 'active' | 'inactive'
+  status          String    @default("inactive")
+  /// Secret içermeyen yapılandırma (endpoint, org kodu vb.); secret anahtar
+  /// adları yazım anında reddedilir (SECRET_NOT_ALLOWED).
+  config          Json?
+  lastCheckAt     DateTime? @map("last_check_at")
+  lastCheckResult String?   @map("last_check_result")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+
+  @@unique([clinicId, kind])
+  @@index([clinicId])
+  @@map("integration_connections")
+}
+
+/// Yazdırılabilir belge — üretim anında dondurulmuş anlık görüntü (snapshot)
+/// + private storage'daki PDF. Kaynak kayıt sonradan değişse de belge değişmez
+/// (muayene özeti, aşı kartı, reçete, onam, lab raporu, taburculuk).
+model PrintDocument {
+  id             String   @id @default(uuid()) @db.Uuid
+  clinicId       String   @map("clinic_id") @db.Uuid
+  branchId       String   @map("branch_id") @db.Uuid
+  /// 'exam_summary' | 'vaccine_card' | 'prescription' | 'consent' | 'lab_report' | 'discharge'
+  kind           String
+  /// Klinik içinde tekil belge numarası (BELGE-0001; kayım sırası transaction ile)
+  documentNo     String   @map("document_no")
+  title          String
+  patientId      String?  @map("patient_id") @db.Uuid
+  ownerId        String?  @map("owner_id") @db.Uuid
+  encounterId    String?  @map("encounter_id") @db.Uuid
+  prescriptionId String?  @map("prescription_id") @db.Uuid
+  labOrderId     String?  @map("lab_order_id") @db.Uuid
+  hospitalStayId String?  @map("hospital_stay_id") @db.Uuid
+  /// Üretim anındaki kaynak veri anlık görüntüsü (denetlenebilir çıktı)
+  snapshot       Json
+  /// Private storage anahtarı — dış URL verilmez, indirme API ucuyladır
+  storageKey     String   @map("storage_key")
+  fileMime       String   @default("application/pdf") @map("file_mime")
+  fileSize       Int      @map("file_size")
+  createdById    String   @map("created_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  clinic       Clinic        @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch       Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  patient      Patient?      @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  owner        Owner?        @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  encounter    Encounter?    @relation(fields: [encounterId], references: [id], onDelete: SetNull)
+  prescription Prescription? @relation(fields: [prescriptionId], references: [id], onDelete: SetNull)
+  labOrder     LabOrder?     @relation(fields: [labOrderId], references: [id], onDelete: SetNull)
+  hospitalStay HospitalStay? @relation(fields: [hospitalStayId], references: [id], onDelete: SetNull)
+  createdBy    Staff         @relation("PrintDocumentCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@unique([clinicId, documentNo])
+  @@index([clinicId, kind, createdAt])
+  @@index([branchId, createdAt])
+  @@index([patientId])
+  @@map("print_documents")
 }

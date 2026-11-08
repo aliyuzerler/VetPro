@@ -196,3 +196,25 @@ export async function apiDownload(path: string, fileName: string): Promise<void>
   anchor.remove();
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Faz 12 — yetkili PDF önizleme: Bearer başlığıyla akışı blob'a alır ve
+ * object URL döndürür (iframe/görüntüleyici). URL dışarıya sızmaz ve
+ * sekme kapanınca tarayıcı tarafından temizlenir.
+ */
+export async function apiBlobUrl(path: string): Promise<string> {
+  const headers: Record<string, string> = {};
+  const token = getAccessToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`/api/v1${path}`, { headers });
+  if (!res.ok) {
+    const body: unknown = await res.json().catch(() => null);
+    const message =
+      body && typeof body === 'object' && 'message' in body
+        ? String((body as { message: unknown }).message)
+        : `Belge açılamadı (${res.status})`;
+    throw new ApiError(res.status, message);
+  }
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}

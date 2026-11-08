@@ -169,3 +169,28 @@ erDiagram
   `HospitalMedication`): stoğu Faz 08 ortak transaction servisi düşer,
   bakiye defterle mutabık kalır. `PRODUCT`/`SERVICE` SetNull — katalog
   silinse kayıt künyesi korunur.
+
+## Faz 12 — Bildirimler, belgeler ve entegrasyonlar (2026-11-08)
+
+- `NOTIFICATION_TEMPLATE ||--o{ NOTIFICATION : templated` — kanal
+  push/sms/email/whatsapp; `{{degisken}}` yer tutucuları render anında
+  zorunlu kılınır (eksik değişken 400).
+- `NOTIFICATION }o--|| OWNER : addressed` — kuyruk satırı; durum makinesi
+  `queued → processing → sent | failed | dead_letter | skipped`;
+  `@@unique([clinicId, idempotencyKey])` REPLAY tekilleştirmesi; koşullu
+  claim (queued→processing updateMany) eşzamanlı çift işlemeyi kapatır.
+- `NOTIFICATION ||--o{ NOTIFICATION_ATTEMPT : attempted` —
+  `@@unique([notificationId, attemptNo])`; attemptNo GLOBAL sıralıdır
+  (manuel retry sıfırlansa bile çakışmaz); outcome success/retryable/
+  permanent; `providerMessageId` bildirim kimliğinden deterministik
+  türetilir — sağlayıcı tarafı duplicate gönderim kanıtı.
+- `INTEGRATION_CONNECTION` — klinik başına kind (einvoice/lab) tekil;
+  mode sandbox/live (canlı yalnız yetkili sözleşmeyle); config JSON'a
+  secret benzeri anahtar yazımı uygulama katmanında reddedilir
+  (`SECRET_NOT_ALLOWED`) — sağlayıcı kimlik bilgileri yalnız sunucu env'si.
+- `PRINT_DOCUMENT }o--|| PATIENT/OWNER/ENCOUNTER/PRESCRIPTION/LAB_ORDER/
+  HOSPITAL_STAY : frozen` — `@@unique([clinicId, documentNo])` (BELGE-0001
+  sıralı); 6 tür (exam_summary/vaccine_card/prescription/consent/lab_report/
+  discharge); üretim anında donmuş `snapshot` JSON + private storage PDF
+  (storageKey dışa sızmaz — indirme yetkili API ucuyla, ADR-018 deseni).
+  PDF gömülü DejaVu Sans ile üretilir (Türkçe glifler WinAnsi'ye sığmaz).

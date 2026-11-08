@@ -342,3 +342,37 @@ ister; kritik sonuç onayı ek olarak `clinical.sign` ister.
   REPLAY — tekrar istek mevcut kaydı döner). Modül kendi stok mantığını yazmaz.
 - `GET /staff/veterinarians` → oturum açmış herkese açık hafif atama seçici
   (id/ad-soyad/unvan; e-posta, rol, şube içermez).
+
+## Notifications / documents / integrations (Faz 12)
+
+- `GET|POST|PATCH /notifications/templates` (`notification.manage`) → şablon
+  CRUD; kod klinikte tekil; eksik şablon değişkeni render'da 400
+  `NOTIFICATION_TEMPLATE_VAR_MISSING`.
+- `GET /notifications/consents/:ownerId` → kanal bazlı onay durumu (kilit
+  nedenleri; push uygulama içi olarak muaf).
+- `POST /notifications/enqueue` → onay kuralı zorunlu (sms/email/whatsapp;
+  yoksa 409 `NOTIFICATION_CONSENT_REQUIRED`); alıcı birincil iletişim
+  kaydından normalleştirilir (telefon → 90xxxxxxxxxx); aynı
+  `idempotencyKey` REPLAY döner (duplicate kuyruk yok).
+- `POST /notifications/run-queue` → koşullu claim ile queued kayıtları işler;
+  retryable hata üstel backoff'la kuyruğa döner (30 sn → 2 dk → 8 dk), bütçe
+  3 denemede `dead_letter`; permanent → `failed`. Sağlayıcı hatası kayıt
+  bazında izole edilir — klinik ana akış bozulmaz. Özet: claimed/sent/
+  retrying/deadLettered/failed.
+- `GET /notifications` (status/channel/category/ownerId filtreleri),
+  `GET /notifications/:id` (deneme geçmişiyle), `POST /notifications/:id/retry`
+  (failed/dead_letter → queued; bütçe tazelenir; NOTIFICATION_RETRIED denetimi).
+- `GET /notifications/delivery-report?sinceDays=30` → durum/kanal kırılımı +
+  teslim edilebilirlik yüzdesi.
+- `POST /documents/print` (`document.manage`) → kind + refId; kaynak kayıttan
+  donmuş snapshot + BELGE-#### numaralı PDF (private storage). Yanıt
+  `downloadUrl` + reçete için `authorizedStatus` taşır.
+- `GET /documents` / `GET /documents/:id` / `GET /documents/:id/pdf` →
+  liste/detay/StreamableFile indirme (private, no-store; dış/imzalı URL yok).
+- `GET /integrations` (`settings.manage`) → bağlantılar + `hasLiveIntegration`
+  + `liveNotice` (canlı yetkili entegrasyon yoksa UI uyarı şeridi bunu
+  gösterir) + secret politikası notu. `POST /integrations` /
+  `PATCH /integrations/:id` → config'e secret benzeri anahtar yazımı 400
+  `INTEGRATION_SECRET_NOT_ALLOWED`. `POST /integrations/:id/sandbox-check`
+  → adapter sözleşme ping'i koşar, sonucu damgalar (sandbox stub çıktısı
+  gerçek sağlayıcı verisi değildir).

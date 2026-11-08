@@ -116,6 +116,8 @@ async function main(): Promise<void> {
         'lab.manage',
         'surgery.manage',
         'hospital.manage',
+        'notification.manage',
+        'document.manage',
       ],
     },
     {
@@ -132,6 +134,8 @@ async function main(): Promise<void> {
         'prescription.manage',
         'vaccine.manage',
         'lab.manage',
+        'notification.manage',
+        'document.manage',
       ],
     },
     {
@@ -328,6 +332,82 @@ async function main(): Promise<void> {
       where: { clinicId_code: { clinicId: clinic.id, code: labDef.code } },
       update: {},
       create: { ...labDef, clinicId: clinic.id },
+    });
+  }
+
+  // 6a-2) Faz 12 — Bildirim şablonları (randevu/aşı/hatırlatma; Türkçe)
+  const templateDefs = [
+    {
+      code: 'APPT_REMINDER_SMS',
+      name: 'Randevu Hatırlatma (SMS)',
+      channel: 'sms',
+      category: 'appointment',
+      subject: null,
+      body: 'Sayın {{ownerName}}, {{patientName}} için {{date}} {{time}} randevunuz bulunmaktadır. Görüşmek üzere — {{clinicName}}',
+    },
+    {
+      code: 'APPT_REMINDER_EMAIL',
+      name: 'Randevu Hatırlatma (E-posta)',
+      channel: 'email',
+      category: 'appointment',
+      subject: 'Randevu Hatırlatma — {{patientName}} / {{date}} {{time}}',
+      body: 'Sayın {{ownerName}},\n\n{{patientName}} için {{date}} {{time}} randevunuz bulunmaktadır.\nŞube: {{branchName}}\n\n{{clinicName}}',
+    },
+    {
+      code: 'VACCINE_REMINDER_SMS',
+      name: 'Aşı Hatırlatma (SMS)',
+      channel: 'sms',
+      category: 'vaccine',
+      subject: null,
+      body: 'Sayın {{ownerName}}, {{patientName}} adlı hastanızın {{vaccineName}} aşısı {{dueDate}} tarihinde zamanı gelmiştir. Randevu için bize ulaşın — {{clinicName}}',
+    },
+    {
+      code: 'LAB_READY_EMAIL',
+      name: 'Lab Sonucu Hazır (E-posta)',
+      channel: 'email',
+      category: 'lab',
+      subject: 'Laboratuvar Sonucunuz Hazır — {{patientName}}',
+      body: 'Sayın {{ownerName}},\n\n{{patientName}} için {{testName}} sonucu hazırlanmıştır. Detay için kliniğimizle iletişime geçin.\n\n{{clinicName}}',
+    },
+    {
+      code: 'HOSPITAL_UPDATE_WHATSAPP',
+      name: 'Yatış Durum Güncellemesi (WhatsApp)',
+      channel: 'whatsapp',
+      category: 'hospital',
+      subject: null,
+      body: 'Sayın {{ownerName}}, {{patientName}} yatış durumu: {{statusText}}. {{clinicName}}',
+    },
+    {
+      code: 'PUSH_INTERNAL_NOTE',
+      name: 'İç Bildirim (Uygulama İçi)',
+      channel: 'push',
+      category: 'custom',
+      subject: '{{title}}',
+      body: '{{message}}',
+    },
+  ] as const;
+  for (const tpl of templateDefs) {
+    await prisma.notificationTemplate.upsert({
+      where: { clinicId_code: { clinicId: clinic.id, code: tpl.code } },
+      update: { name: tpl.name, body: tpl.body, subject: tpl.subject, channel: tpl.channel, category: tpl.category },
+      create: { ...tpl, clinicId: clinic.id, active: true },
+    });
+  }
+
+  // 6a-3) Faz 12 — Sandbox entegrasyon bağlantıları (canlı yetkili entegrasyon YOK;
+  // adapter contract + sandbox stub — UI'da "canlı entegrasyon yok" uyarısı görünür)
+  for (const kind of ['einvoice', 'lab'] as const) {
+    await prisma.integrationConnection.upsert({
+      where: { clinicId_kind: { clinicId: clinic.id, kind } },
+      update: {},
+      create: {
+        clinicId: clinic.id,
+        kind,
+        providerName: 'vetcore-sandbox',
+        mode: 'sandbox',
+        status: 'active',
+        config: kind === 'einvoice' ? { orgCode: 'VETCORE-DEMO' } : { endpointHint: 'https://sandbox.example/vetcore/lab' },
+      },
     });
   }
 

@@ -1393,3 +1393,178 @@ export const HOSPITAL_STAY_STATUS_CATALOG: readonly { value: HospitalStayStatus;
   { value: 'transferred', label: 'Transfer' },
   { value: 'discharged', label: 'Taburcu' },
 ];
+
+// ---------------------------------------------------------------------------
+// Faz 12 — Bildirimler, PDF belgeler ve entegrasyonlar
+// ---------------------------------------------------------------------------
+
+export const NOTIFICATION_CHANNEL_CATALOG = [
+  { value: 'push', label: 'Uygulama İçi' },
+  { value: 'sms', label: 'SMS' },
+  { value: 'email', label: 'E-posta' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+] as const;
+
+export const NOTIFICATION_STATUS_CATALOG = [
+  { value: 'queued', label: 'Kuyrukta' },
+  { value: 'processing', label: 'İşleniyor' },
+  { value: 'sent', label: 'Gönderildi' },
+  { value: 'failed', label: 'Başarısız' },
+  { value: 'dead_letter', label: 'Ölü Mektup' },
+  { value: 'skipped', label: 'Atlandı' },
+] as const;
+
+export const NOTIFICATION_CATEGORY_CATALOG = [
+  { value: 'appointment', label: 'Randevu' },
+  { value: 'vaccine', label: 'Aşı' },
+  { value: 'lab', label: 'Lab' },
+  { value: 'hospital', label: 'Yatış' },
+  { value: 'custom', label: 'Özel' },
+] as const;
+
+export type NotificationChannel = (typeof NOTIFICATION_CHANNEL_CATALOG)[number]['value'];
+export type NotificationStatus = (typeof NOTIFICATION_STATUS_CATALOG)[number]['value'];
+export type NotificationCategory = (typeof NOTIFICATION_CATEGORY_CATALOG)[number]['value'];
+
+export type NotificationTemplateDto = {
+  id: string;
+  code: string;
+  name: string;
+  channel: string;
+  category: string;
+  subject: string | null;
+  body: string;
+  requiredVars: string[];
+  active: boolean;
+};
+
+export type NotificationAttemptDto = {
+  id: string;
+  attemptNo: number;
+  outcome: 'success' | 'retryable' | 'permanent';
+  providerName: string;
+  providerMessageId: string | null;
+  error: string | null;
+  startedAt: string;
+  finishedAt: string;
+};
+
+export type NotificationDto = {
+  id: string;
+  clinicId: string;
+  branchId: string | null;
+  channel: NotificationChannel;
+  category: NotificationCategory;
+  status: NotificationStatus;
+  ownerId: string;
+  ownerName: string | null;
+  templateId: string | null;
+  templateCode: string | null;
+  recipientValue: string;
+  subject: string | null;
+  body: string;
+  attempts: number;
+  maxAttempts: number;
+  lastError: string | null;
+  sentAt: string | null;
+  scheduledFor: string;
+  idempotencyKey: string;
+  createdAt: string;
+  attemptsLog?: NotificationAttemptDto[];
+  replayed?: boolean;
+};
+
+export type NotificationListResponse = {
+  items: NotificationDto[];
+  total: number;
+};
+
+export type ChannelConsentState = {
+  channel: NotificationChannel;
+  consentKind: string | null;
+  granted: boolean;
+  revokedAt: string | null;
+};
+
+export type NotificationConsentDto = {
+  ownerId: string;
+  ownerName: string;
+  channels: {
+    push: ChannelConsentState;
+    sms: ChannelConsentState;
+    email: ChannelConsentState;
+    whatsapp: ChannelConsentState;
+  };
+  contacts: { phone: string | null; email: string | null };
+};
+
+export type DeliveryReportDto = {
+  sinceDays: number;
+  total: number;
+  statusCounts: Record<string, number>;
+  channelBreakdown: Record<string, Record<string, number>>;
+  deliverabilityPercent: number;
+};
+
+export type RunQueueSummaryDto = {
+  claimed: number;
+  sent: number;
+  retrying: number;
+  deadLettered: number;
+  failed: number;
+};
+
+export type DocumentKind =
+  | 'exam_summary'
+  | 'vaccine_card'
+  | 'prescription'
+  | 'consent'
+  | 'lab_report'
+  | 'discharge';
+
+export const DOCUMENT_KIND_CATALOG = [
+  { value: 'exam_summary', label: 'Muayene Özeti', source: 'encounter' },
+  { value: 'vaccine_card', label: 'Aşı Kartı', source: 'patient' },
+  { value: 'prescription', label: 'Reçete', source: 'prescription' },
+  { value: 'consent', label: 'Onam Formu', source: 'owner' },
+  { value: 'lab_report', label: 'Lab Raporu', source: 'lab_order' },
+  { value: 'discharge', label: 'Taburculuk Özeti', source: 'hospital_stay' },
+] as const;
+
+export type PrintDocumentDto = {
+  id: string;
+  documentNo: string;
+  kind: DocumentKind;
+  title: string;
+  patient: { id: string; name: string; code: string } | null;
+  createdBy: string | null;
+  fileSize: number;
+  createdAt: string;
+  downloadUrl: string;
+  authorizedStatus?: string | null;
+};
+
+export type PrintDocumentListResponse = {
+  items: PrintDocumentDto[];
+  total: number;
+};
+
+export type IntegrationConnectionDto = {
+  id: string;
+  kind: 'einvoice' | 'lab';
+  kindLabel: string;
+  providerName: string;
+  mode: 'sandbox' | 'live';
+  status: 'active' | 'inactive';
+  config: Record<string, unknown> | null;
+  lastCheckAt: string | null;
+  lastCheckResult: string | null;
+  updatedAt: string;
+};
+
+export type IntegrationListResponse = {
+  items: IntegrationConnectionDto[];
+  hasLiveIntegration: boolean;
+  liveNotice: string | null;
+  secretPolicy: string;
+};

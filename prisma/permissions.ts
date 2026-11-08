@@ -208,4 +208,16 @@ export const PERMISSIONS = [
     name: 'Yatış yönetimi',
     description: 'Kabul, kennel, gözlem, tedavi sarfı ve taburculuk akışını yönetir',
   },
+  {
+    key: 'notification.manage',
+    group: 'clinical',
+    name: 'Bildirim yönetimi',
+    description: 'Bildirim şablonları, kuyruk ve teslim raporunu yönetir (onay kuralı uygulanır)',
+  },
+  {
+    key: 'document.manage',
+    group: 'clinical',
+    name: 'Belge yönetimi',
+    description: 'Muayene özeti, aşı kartı, reçete, onam, lab raporu ve taburculuk belgeleri üretir',
+  },
 ] as const;

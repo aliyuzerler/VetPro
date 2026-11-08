@@ -2,6 +2,85 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.12.0] — Faz 12: Bildirimler, PDF belgeler ve entegrasyon adaptörleri (2026-11-08)
+
+### Eklendi
+- **Veri modeli (migration `faz12_notifications_documents`)**: `NotificationTemplate`
+  (klinik kapsamlı şablon; `@@unique([clinicId, code])`; kanal push/sms/email/whatsapp;
+  kategori appointment/vaccine/lab/hospital/custom; `{{degisken}}` yer tutucuları),
+  `Notification` (kuyruk satırı; `queued→processing→sent|failed|dead_letter|skipped`;
+  `@@unique([clinicId, idempotencyKey])` — REPLAY tekilleştirmesi; normalleştirilmiş
+  alıcı, backoff'lu `scheduledFor`, deneme sayacı), `NotificationAttempt`
+  (`@@unique([notificationId, attemptNo])` — deneme numarası GLOBAL devam eder;
+  outcome success/retryable/permanent; `providerMessageId` — bildirim kimliğinden
+  deterministik türetilir, retry duplicate kanıtı), `IntegrationConnection`
+  (klinik başına kind tekil; mode sandbox/live — canlı yalnız yetkili sözleşmeyle;
+  config JSON'a secret anahtar yazımı reddedilir), `PrintDocument`
+  (`@@unique([clinicId, documentNo])` — BELGE-0001 sıralı; 6 tür: muayene özeti,
+  aşı kartı, reçete, onam, lab raporu, taburculuk; üretim anında donmuş
+  `snapshot` JSON + private storage PDF — dış URL yok, indirme yetkili API ucuyla).
+  Yeni izinler: `notification.manage`, `document.manage` (katalog 32 anahtar;
+  veteriner +2, resepsiyon +2).
+- **API — bildirimler** (`/notifications`): şablon CRUD (kod tekil; eksik şablon
+  değişkeni 400 `NOTIFICATION_TEMPLATE_VAR_MISSING`); kuyruğa alma — onay kuralı
+  kuyruk girişinde zorlanır (sms/email/whatsapp için `OwnerConsent` granted ve
+  geri alınmamış olmalı; yoksa 409 `NOTIFICATION_CONSENT_REQUIRED`; push uygulama
+  içi olarak onay ve telefon/e-posta gerektirmez, alıcı `in-app:<ownerId>`),
+  alıcı kanal bazlı birincil iletişim kaydından çözülür ve normalleştirilir
+  (telefon → 90xxxxxxxxxx), aynı `idempotencyKey` REPLAY döner; kuyruk işleme
+  tiki `POST /notifications/run-queue` — koşullu claim (`queued→processing`
+  updateMany) eşzamanlı çift işlemeyi kapatır, sağlayıcı hatası kayıt bazında
+  izole edilir (retryable → üstel backoff ile kuyruğa geri: 30 sn → 2 dk → 8 dk;
+  bütçe 3 denemede biter → `dead_letter`; permanent → `failed`), klinik ana
+  akış asla bloklanmaz; manuel retry (`POST /:id/retry`) failed/dead_letter'dan
+  kuyruğa alır, denetim yazar, bütçeyi tazeler; teslim raporu
+  (`GET /notifications/delivery-report`) durum/kanal kırılımı + teslim
+  edilebilirlik yüzdesi; onay durum ucu (`GET /notifications/consents/:ownerId`)
+  kanal kilidi nedenlerini raporlar.
+- **API — sağlayıcı sözleşmesi**: `NotificationProvider` arayüzü (push/sms/
+  email/whatsapp) + sandbox stub'ları; hata enjeksiyonu yalnız sunucu tarafı
+  `VETCORE_SANDBOX_FAIL` env'sinden ("sms:always,email:once") — web/mobile
+  bundle'ına girmez. `providerMessageId = sbx-<provider>-<notificationId>`
+  deterministiktir: aynı bildirimin tüm denemelerinde AYNI kimlik döner.
+- **API — PDF belgeler** (`/documents`): 6 belge türü üretimi
+  (`POST /documents/print` — kind + refId; kaynak kayıttan donmuş snapshot),
+  liste/detay, yetkili indirme (`GET /documents/:id/pdf` — StreamableFile,
+  private, no-store). PDF üretimi pdf-lib + **gömülü DejaVu Sans** (Regular/Bold,
+  subset): Türkçe glifler (ğışçöüĞİŞÇÖÜ) WinAnsi standart fontla kodlanamadığı
+  için TTF gömmesi zorunludur — klinik adı + şube bilgisi + BELGE numarası
+  başlıkta, footer'da üretim zamanı damgası. Reçete belgesi imza durumunu
+  doğru gösterir: taslak → "TASLAK — İMZALANMAMIŞ" filigranı, imzalı →
+  imza bloğu (veteriner adı, "Yetkili Veteriner Hekim" unvanı, imza zamanı).
+  Taburculuk özeti yalnız taburcu edilmiş yatış için üretilir.
+- **API — entegrasyonlar** (`/integrations`): e-fatura ve lab adapter
+  sözleşmeleri (mock değil; ADR-008/ADR-009 deseni) + sandbox stub'lar —
+  sandbox çıktıları gerçek sağlayıcı verisi değildir ve bunu açıkça belirtir;
+  bağlantı CRUD (`settings.manage`), config'e secret benzeri anahtar yazımı
+  400 `INTEGRATION_SECRET_NOT_ALLOWED` (canlı sağlayıcı kimlik bilgileri
+  yalnız sunucu env'sinden okunur); sandbox kontrolü adapter ping'ini koşar
+  ve sonucu damgalar; `hasLiveIntegration=false` iken list yanıtı
+  `liveNotice` ile "canlı yetkili entegrasyon yok" der — UI uyarı şeridi
+  bunu gösterir.
+- **Web**: `/bildirimler` (teslim raporu KPI kartları + kanal dağılım çubukları,
+  durum filtreli kuyruk tablosu, onay paneli gösteren yeni bildirim diyaloğu,
+  deneme geçmişli detay diyaloğu, manuel retry, şablonlar sekmesi),
+  `/belgeler` (belge tablosu + tür rozetleri, tür→kaynak dinamik seçen üretim
+  diyaloğu, yetkili blob akışıyla PDF önizleme diyaloğu/iframe),
+  `/entegrasyonlar` (bağlantı kartları, sandbox/canlı rozetleri, canlı yok
+  uyarı şeridi, sandbox kontrol düğmesi, secret politikası notu); nav'da
+  "İletişim & Belgeler" grubu + Yönetim'de "Entegrasyonlar".
+- **Testler**: alan mantığı 35 birim test (şablon render/onay eşlemesi/
+  normalizasyon/backoff/durum makinesi/sağlayıcı hata planları; PDF gömülü
+  font kanıtı + Türkçe glif boyut karşılaştırması; secret taraması + sandbox
+  adapter sözleşmeleri), API e2e 12/12 kabul kriteri (retry duplicate yok —
+  REPLAY + deterministik providerMessageId + eşzamanlı çift run-queue'da tek
+  işleme; consent 409; PDF %PDF imzası + boyut; reçete taslak/imzalı ayrımı;
+  secret 400 + yanıt sızıntısı yok; sağlayıcı hatasına rağmen encounter 201;
+  yetki/şube kapsamı; teslim raporu tutarlılığı), Playwright tam süit
+  194 PASS (Faz 12 spec 11×2 kırılım) + 22 ekran görüntüsü, Storybook
+  153/153 (axe dâhil, 4 yeni bileşen hikâyesi: bildirim durumu, teslim
+  raporu kartı, belge türü, entegrasyon modu).
+
 ## [0.11.0] — Faz 11: Laboratuvar, cerrahi ve yatış modülleri (2026-11-08)
 
 ### Eklendi

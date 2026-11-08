@@ -663,6 +663,75 @@ Stok rolü lab/cerrahi/yatış modüllerini göremez (API düzeyinde de 403).
 
 Mobil kırılımda üç modül de tek kolona düşer ve taşmasız yüklenir (E2E iddiası).
 
+### Web — Bildirim merkezi: teslim raporu, kuyruk ve onay paneli (Faz 12)
+
+![Bildirim merkezi](docs/screenshots/web-f12-01-bildirim-merkezi.png)
+
+Teslim raporu kartları toplam/durum kırılımı/kanal bazlı dağılımı gösterir;
+kuyruk tablosu durum filtresiyle çalışır (Kuyrukta → İşleniyor → Gönderildi /
+Başarısız / Ölü Mektup / Atlandı).
+
+![Yeni bildirim onay paneli](docs/screenshots/web-f12-02-yeni-bildirim-onay-paneli.png)
+
+Yeni bildirim diyaloğu sahibin kanal bazlı iletişim onaylarını gösterir: onaysız
+kanalda kuyruğa alma düğmesi API 409 `NOTIFICATION_CONSENT_REQUIRED` ile
+reddedilir ve hata diyaloğunda görünür.
+
+![Onay hatası](docs/screenshots/web-f12-03-onay-hatasi.png)
+
+Kuyruk işleme tiki ("Kuyruğu Çalıştır") queued kayıtları sağlayıcıya gönderir;
+sağlayıcı hatası retryable ise kayıt üstel backoff'la kuyruğa döner, bütçe
+(3 deneme) bitince ölü mektuba düşer ve "Yeniden Kuyruğa Al" operatör aksiyonu
+bekler. Özet satırı işleme sonucunu raporlar.
+
+![Kuyruk özeti](docs/screenshots/web-f12-04-kuyruk-ozeti.png)
+
+![Bildirim detayı](docs/screenshots/web-f12-05-bildirim-detayi.png)
+
+Stok rolü bildirim merkezini hiç görmez (API düzeyinde de 403).
+
+![Bildirim erişim yok](docs/screenshots/web-f12-06-bildirim-erisim-yok.png)
+
+### Web — Belgeler: klinik markalı PDF üretimi ve önizleme (Faz 12)
+
+![PDF önizleme](docs/screenshots/web-f12-07-belge-pdf-onizleme.png)
+
+6 belge türü (muayene özeti, aşı kartı, reçete, onam, lab raporu, taburculuk)
+üretim anındaki kaynak verisinden donmuş anlık görüntüyle üretilir; PDF gömülü
+DejaVu Sans ile Türkçe karakterleri taşır, başlıkta klinik adı + şube bilgisi +
+BELGE numarası vardır. Önizleme yetkili API ucundan blob akışıyla açılır —
+bağlantı paylaşılamaz.
+
+![Belge listesi](docs/screenshots/web-f12-08-belge-listesi.png)
+
+Reçete belgesi imza durumunu doğru gösterir: taslak filigranlı ("TASLAK —
+İMZALANMAMIŞ"), imzalı belge imza bloğuyla (veteriner + "Yetkili Veteriner
+Hekim" unvanı + zaman) üretilir. Onam formu rıza tablosuyla üretilir.
+
+![Onam formu](docs/screenshots/web-f12-09-onam-formu.png)
+
+### Web — Entegrasyonlar: sandbox sözleşmesi ve canlı yok uyarısı (Faz 12)
+
+![Entegrasyonlar](docs/screenshots/web-f12-10-entegrasyonlar.png)
+
+E-fatura ve lab entegrasyonları mock değil, adapter sözleşmesi + sandbox
+stub'dır. "Canlı yetkili entegrasyon yok" uyarı şeridi canlı modun yalnız
+yetkili sözleşmeyle açılacağını belirtir; sandbox kontrolü adapter ping'ini
+koşar ve sonucu damgalar. Sağlayıcı secret'ları yalnız sunucu env'sindedir —
+config'e secret yazımı API'de 400 ile reddedilir.
+
+![Sandbox kontrol](docs/screenshots/web-f12-11-sandbox-kontrol.png)
+
+### Mobil — bildirimler, belgeler ve entegrasyonlar (Faz 12)
+
+![Mobil bildirim merkezi](docs/screenshots/mobil-web-f12-01-bildirim-merkezi.png)
+
+![Mobil PDF önizleme](docs/screenshots/mobil-web-f12-07-belge-pdf-onizleme.png)
+
+![Mobil entegrasyonlar](docs/screenshots/mobil-web-f12-10-entegrasyonlar.png)
+
+Mobil kırılımda üç sayfa da tek kolona düşer ve taşmasız yüklenir (E2E iddiası).
+
 ### Web — Tasarım sistemi rehberi (`/stil-rehberi`)
 
 ![Stil rehberi](docs/screenshots/web-stil-rehberi.png)

@@ -1,6 +1,7 @@
 import {
   BarChart3,
   BedDouble,
+  Bell,
   Boxes,
   Building2,
   CalendarDays,
@@ -121,6 +122,14 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     ],
   },
   {
+    label: 'İletişim & Belgeler',
+    icon: Bell,
+    items: [
+      { label: 'Bildirim Merkezi', phase: 12, href: '/bildirimler' },
+      { label: 'Belgeler', phase: 12, href: '/belgeler' },
+    ],
+  },
+  {
     label: 'Raporlar',
     icon: BarChart3,
     items: [
@@ -135,6 +144,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { label: 'Tasarım Sistemi', phase: 2, href: '/stil-rehberi' },
       { label: 'Klinik Ayarları', phase: 3, href: '/ayarlar' },
       { label: 'Denetim Kaydı', phase: 3, href: '/ayarlar?tab=denetim' },
+      { label: 'Entegrasyonlar', phase: 12, href: '/entegrasyonlar' },
     ],
   },
 ] as const;
