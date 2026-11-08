@@ -118,6 +118,7 @@ async function main(): Promise<void> {
         'hospital.manage',
         'notification.manage',
         'document.manage',
+        'reports.view',
       ],
     },
     {
@@ -136,6 +137,7 @@ async function main(): Promise<void> {
         'lab.manage',
         'notification.manage',
         'document.manage',
+        'reports.view',
       ],
     },
     {
@@ -153,6 +155,7 @@ async function main(): Promise<void> {
         'supplier.manage',
         'warehouse.manage',
         'prescription.dispense',
+        'reports.view',
       ],
     },
     {
@@ -167,6 +170,7 @@ async function main(): Promise<void> {
         'finance.cash',
         'finance.expense',
         'finance.payable',
+        'reports.view',
         'reports.export',
       ],
     },

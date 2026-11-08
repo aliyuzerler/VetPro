@@ -1568,3 +1568,103 @@ export type IntegrationListResponse = {
   liveNotice: string | null;
   secretPolicy: string;
 };
+
+// ─── Faz 14 — Raporlar, içe aktarma ve yedekleme ────────────────────────────
+
+export type ReportFormat = 'csv' | 'xlsx' | 'pdf';
+
+export type ReportCatalogEntry = {
+  key: string;
+  title: string;
+  description: string;
+  periodParam: boolean;
+};
+
+export type ReportColumnDto = {
+  key: string;
+  label: string;
+  type: 'text' | 'number' | 'money' | 'date';
+};
+
+export type ReportTableDto = {
+  key: string;
+  title: string;
+  columns: ReportColumnDto[];
+  rows: Array<Record<string, string | number | null>>;
+  totalColumns?: string[];
+};
+
+export type ReportExportDto = {
+  id: string;
+  reportKey: string;
+  format: ReportFormat;
+  rowCount: number;
+  fileSizeBytes: number;
+  createdAt: string;
+  branchId: string | null;
+  requestedById: string;
+};
+
+export type ImportKind = 'owners' | 'patients' | 'products';
+
+export type ImportRowDto = {
+  id: string;
+  rowNumber: number;
+  status: 'valid' | 'error' | 'duplicate';
+  rawData: Record<string, string>;
+  errors: Record<string, string> | null;
+  matchedId: string | null;
+  resolution: 'create' | 'skip' | null;
+  createdRecordId: string | null;
+};
+
+export type ImportJobDto = {
+  id: string;
+  kind: ImportKind;
+  status: 'preview' | 'committed' | 'failed';
+  fileName: string;
+  totalRows: number;
+  validRows: number;
+  errorRows: number;
+  duplicateRows: number;
+  committedRows: number;
+  createdAt: string;
+  committedAt: string | null;
+  rows?: ImportRowDto[];
+};
+
+export type BackupRunDto = {
+  id: string;
+  kind: 'manual' | 'scheduled';
+  status: 'running' | 'completed' | 'failed';
+  archiveSha256: string | null;
+  totalBytes: number;
+  tableCount: number;
+  totalRows: number;
+  objectFileCount: number;
+  algorithm: string;
+  encrypted: boolean;
+  retentionUntil: string;
+  error: string | null;
+  startedAt: string;
+  completedAt: string | null;
+};
+
+export type BackupConfigDto = {
+  clinicId: string;
+  retentionDays: number;
+  updatedAt: string | null;
+};
+
+export type BackupManifestDto = {
+  runId: string;
+  createdAt: string;
+  algorithm: string;
+  archiveSha256: string;
+  archiveBytes: number;
+  tables: Array<{ name: string; rows: number; sha256: string }>;
+  totalRows: number;
+  objectFileCount: number;
+  appVersion: string;
+  runbook: string;
+};

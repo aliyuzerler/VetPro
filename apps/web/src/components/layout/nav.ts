@@ -133,8 +133,8 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     label: 'Raporlar',
     icon: BarChart3,
     items: [
-      { label: 'Finans Raporları', phase: 14 },
-      { label: 'Stok Raporları', phase: 14 },
+      { label: 'Raporlar ve Dışa Aktarma', phase: 14, href: '/raporlar' },
+      { label: 'Veri İçe Aktarma', phase: 14, href: '/ice-aktarim' },
     ],
   },
   {
@@ -145,6 +145,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       { label: 'Klinik Ayarları', phase: 3, href: '/ayarlar' },
       { label: 'Denetim Kaydı', phase: 3, href: '/ayarlar?tab=denetim' },
       { label: 'Entegrasyonlar', phase: 12, href: '/entegrasyonlar' },
+      { label: 'Yedekleme', phase: 14, href: '/yedekler' },
     ],
   },
 ] as const;

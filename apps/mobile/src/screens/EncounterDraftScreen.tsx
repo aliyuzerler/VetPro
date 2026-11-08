@@ -78,9 +78,11 @@ export function EncounterDraftScreen({
 
   const syncStateLabel: Record<DraftRow['syncState'], { text: string; bg: string; fg: string }> = {
     local_only: { text: 'Cihazda — gönderilmedi', bg: STATUS.neutralBg, fg: STATUS.neutral },
+    draft: { text: 'Taslak — gönderilmedi', bg: STATUS.neutralBg, fg: STATUS.neutral },
     queued: { text: 'Gönderim kuyruğunda', bg: STATUS.warningBg, fg: STATUS.warning },
     synced: { text: 'Sunucu onaylı', bg: STATUS.successBg, fg: STATUS.success },
     conflict: { text: 'Çakışma — senkron merkezinde çözün', bg: STATUS.dangerBg, fg: STATUS.danger },
+    error: { text: 'Gönderim hatası — yeniden denenecek', bg: STATUS.dangerBg, fg: STATUS.danger },
   };
 
   const save = useCallback(

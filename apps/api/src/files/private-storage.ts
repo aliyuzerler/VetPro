@@ -2,7 +2,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 
 /**
  * Özel (private) dosya saklama adaptörü — Faz 04.
@@ -31,9 +31,16 @@ export const PRIVATE_STORAGE_DIR = process.env.PRIVATE_STORAGE_DIR ?? '.uploads'
 export class LocalPrivateStorageAdapter implements PrivateStorageAdapter {
   private readonly root: string;
 
-  constructor(root?: string) {
+  constructor(@Optional() root?: string) {
     // root enjekte edilebilir (testlerde tmp dizini); yoksa PRIVATE_STORAGE_DIR.
+    // @Optional: Nest DI provider olarak kullanıldığında String enjeksiyonu
+    // denemesin (Faz 14 — reports/backup modülleri provider kaydeder).
     this.root = resolve(root ?? join(process.cwd(), PRIVATE_STORAGE_DIR));
+  }
+
+  /** Yedekleme (Faz 14) object dosyalarını okurken kök dizini açıkça verir. */
+  get rootDir(): string {
+    return this.root;
   }
 
   /** Dizin listesini ve ad tahminini engellemek için saklanan dosya adı

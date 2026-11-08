@@ -16,6 +16,11 @@ const require = createRequire(import.meta.url);
  * sembolik bağlantıya izin vermediği için ADR-011 zincirinde dosya kopyası
  * kullanılır). Loader "libicuuc.so.60" gibi SONAME arar; eksikse initdb 127 ile
  * düşer. Bu adım kopyaları idempotent olarak geri getirir.
+ *
+ * Faz 14 düzeltmesi: yalnız ".so" temel kopyası yetmez — yükleyici öncelikle
+ * major sürümlü SONAME'i ("libicuuc.so.60") arar; ".so" mevcutken ".so.60"
+ * eksikse hâlâ 127 düşüyordu. Artık her sürümlü dosyadan hem ".so.major" hem
+ * ".so" hedefleri ayrı ayrı kontrol edilip kopyalanır.
  */
 function hydrateSonameCopies() {
   const libDir = join(
@@ -28,9 +33,13 @@ function hydrateSonameCopies() {
   );
   if (!existsSync(libDir)) return;
   for (const file of readdirSync(libDir)) {
-    const match = /^(.+\.so)\.\d+\.\d+(\.\d+)?$/.exec(file);
-    if (match && !existsSync(join(libDir, match[1]))) {
-      copyFileSync(join(libDir, file), join(libDir, match[1]));
+    const match = /^(.+\.so)\.(\d+)(?:\.\d+)+(?:\.\d+)?$/.exec(file);
+    if (!match) continue;
+    const [, base, major] = match;
+    for (const target of [`${base}.${major}`, base]) {
+      if (!existsSync(join(libDir, target))) {
+        copyFileSync(join(libDir, file), join(libDir, target));
+      }
     }
   }
 }

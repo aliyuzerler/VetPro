@@ -76,6 +76,10 @@ model Clinic {
   integrationConnections IntegrationConnection[]
   printDocuments         PrintDocument[]
   syncOperations         SyncOperation[]
+  reportExports          ReportExport[]
+  importJobs             ImportJob[]
+  backupRuns             BackupRun[]
+  backupConfig           BackupConfig?
 
   @@map("clinics")
 }
@@ -129,6 +133,8 @@ model Branch {
   notifications    Notification[]
   printDocuments   PrintDocument[]
   syncOperations   SyncOperation[]
+  reportExports    ReportExport[]
+  importJobs       ImportJob[]
 
   @@unique([clinicId, code])
   @@index([clinicId])
@@ -203,6 +209,9 @@ model Staff {
   createdPrintDocuments   PrintDocument[]            @relation("PrintDocumentCreator")
   createdNotifications    Notification[]             @relation("NotificationCreator")
   syncOperations          SyncOperation[]
+  reportExports           ReportExport[]
+  importJobs              ImportJob[]
+  backupRuns              BackupRun[]
 
   @@index([clinicId])
   @@map("staff")
@@ -2527,32 +2536,32 @@ model PrintDocument {
 /// hizmet üretmez. Sonuç (accepted/rejected/conflict) + dönen sunucu anlık
 /// görüntüsü saklanır; çakışma çözümü istemci tarafında iki versiyonla yapılır.
 model SyncOperation {
-  id                 String   @id @default(uuid()) @db.Uuid
-  clinicId           String   @map("clinic_id") @db.Uuid
-  branchId           String   @map("branch_id") @db.Uuid
+  id                String   @id @default(uuid()) @db.Uuid
+  clinicId          String   @map("clinic_id") @db.Uuid
+  branchId          String   @map("branch_id") @db.Uuid
   /// İşlemi gönderen cihaz/personel — denetim ve şube kapsamı kaynağı
-  staffId            String   @map("staff_id") @db.Uuid
+  staffId           String   @map("staff_id") @db.Uuid
   /// İstemci üretimi tekil anahtar (UUIDv4) — @@unique ile REPLAY garantisidir
-  clientOperationId  String   @map("client_operation_id")
+  clientOperationId String   @map("client_operation_id")
   /// Beyaz liste: 'encounter.create_draft' | 'encounter.update_draft' |
   /// 'appointment.check_in' | 'appointment.status' | 'appointment.cancel'
   /// finalize/finance/stock türleri BURADA YOK — sunucu onayı olmadan posted
   /// görünemez (kabul kriteri) ve push yoluyla asla kesinleşmez.
-  kind               String
+  kind              String
   /// Hedef varlık türü: 'encounter' | 'appointment'
-  entity             String
-  entityId           String?  @map("entity_id") @db.Uuid
+  entity            String
+  entityId          String?  @map("entity_id") @db.Uuid
   /// İstemcinin gördüğü sürüm — sunucudaki sürümden geri ise CONFLICT.
   /// Kodlama: encounter → int version metni ("3"); appointment → updatedAt
   /// epoch ms ("1731050000123"); create_draft → "0".
-  expectedVersion    String   @default("0") @map("expected_version")
+  expectedVersion   String   @default("0") @map("expected_version")
   /// Uygulama anındaki istek gövdesi (denetim + replay kaynağı)
-  payload            Json
+  payload           Json
   /// 'accepted' | 'rejected' | 'conflict' — accepted replay sonucu da accepted
-  status             String
+  status            String
   /// Uygulama sonucu: serverId, version, snapshot (accepted) ya da hata kodu
-  result             Json
-  createdAt          DateTime @default(now()) @map("created_at")
+  result            Json
+  createdAt         DateTime @default(now()) @map("created_at")
 
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Restrict)
   branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
@@ -2562,4 +2571,132 @@ model SyncOperation {
   @@index([clinicId, branchId, createdAt])
   @@index([clinicId, staffId, createdAt])
   @@map("sync_operations")
+}
+
+// ─── Faz 14 — Raporlar, veri aktarımı ve yedekleme ──────────────────────────
+
+/// Rapor dışa aktarma kaydı — her CSV/XLSX/PDF üretimi reports.export izniyle
+/// yapılır ve buraya yazılır (kabul kriteri: izin yoksa dosya üretilmez;
+/// üretim denetim defterine de REPORT_EXPORT action'ı ile düşer). Dosya
+/// private storage'da tutulur; indirme yine izinli API ucuyla akar.
+model ReportExport {
+  id            String    @id @default(uuid()) @db.Uuid
+  clinicId      String    @map("clinic_id") @db.Uuid
+  branchId      String?   @map("branch_id") @db.Uuid
+  /// Rapor anahtarı: 'gelir' | 'borc-yaslandirma' | ...
+  reportKey     String    @map("report_key")
+  /// 'csv' | 'xlsx' | 'pdf'
+  format        String
+  requestedById String    @map("requested_by_id") @db.Uuid
+  dateFrom      DateTime? @map("date_from") @db.Date
+  dateTo        DateTime? @map("date_to") @db.Date
+  rowCount      Int       @map("row_count")
+  fileSizeBytes Int       @map("file_size_bytes")
+  storageKey    String?   @map("storage_key")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  clinic Clinic  @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  staff  Staff   @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+
+  @@index([clinicId, createdAt])
+  @@map("report_exports")
+}
+
+/// İçe aktarma işi — yükleme, doğrulama, önizleme, duplicate çözümü ve commit
+/// akışının defteri. Sessiz overwrite yok: duplicate satır açık 'create' ya da
+/// 'skip' kararı olmadan commit edilemez (kabul kriteri).
+model ImportJob {
+  id            String    @id @default(uuid()) @db.Uuid
+  clinicId      String    @map("clinic_id") @db.Uuid
+  branchId      String    @map("branch_id") @db.Uuid
+  /// 'owners' | 'patients' | 'products'
+  kind          String
+  /// 'preview' | 'committed' | 'failed'
+  status        String    @default("preview")
+  fileName      String    @map("file_name")
+  totalRows     Int       @map("total_rows")
+  validRows     Int       @map("valid_rows")
+  errorRows     Int       @map("error_rows")
+  duplicateRows Int       @map("duplicate_rows")
+  committedRows Int       @default(0) @map("committed_rows")
+  createdById   String    @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  committedAt   DateTime? @map("committed_at")
+
+  clinic Clinic      @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch Branch      @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  staff  Staff       @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  rows   ImportRow[]
+
+  @@index([clinicId, createdAt])
+  @@map("import_jobs")
+}
+
+/// İçe aktarma satırı — ham veri + hata listesi + duplicate eşleşmesi + çözüm.
+model ImportRow {
+  id              String   @id @default(uuid()) @db.Uuid
+  jobId           String   @map("job_id") @db.Uuid
+  rowNumber       Int      @map("row_number")
+  /// 'valid' | 'error' | 'duplicate'
+  status          String
+  rawData         Json     @map("raw_data")
+  /// Hata mesajları — alan bazlı: { alan: mesaj }
+  errors          Json?
+  /// Duplicate eşleşen mevcut kaydın kimliği (owners/patients/products)
+  matchedId       String?  @map("matched_id") @db.Uuid
+  /// 'create' | 'skip' — duplicate satır için açık karar; boşsa commit 409
+  resolution      String?
+  createdRecordId String?  @map("created_record_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  job ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, rowNumber])
+  @@map("import_rows")
+}
+
+/// Yedekleme çalışması — mantıksal veritabanı dökümü + object dosyaları +
+/// config meta verisi tek şifreli arşivde; manifest sha256 checksum'larla
+/// yan dosya olarak saklanır (kabul kriteri: manifest/checksum üretimi).
+model BackupRun {
+  id              String    @id @default(uuid()) @db.Uuid
+  clinicId        String    @map("clinic_id") @db.Uuid
+  /// 'manual' | 'scheduled'
+  kind            String    @default("manual")
+  /// 'running' | 'completed' | 'failed'
+  status          String    @default("running")
+  archiveKey      String?   @map("archive_key")
+  manifestKey     String?   @map("manifest_key")
+  /// Şifreli arşiv bütünü üzerinden sha256 — aktarım bozulma kanıtı
+  archiveSha256   String?   @map("archive_sha256")
+  totalBytes      Int       @map("total_bytes")
+  tableCount      Int       @map("table_count")
+  totalRows       Int       @map("total_rows")
+  objectFileCount Int       @default(0) @map("object_file_count")
+  /// Şifreleme algoritması — 'aes-256-gcm'
+  algorithm       String    @default("aes-256-gcm")
+  encrypted       Boolean   @default(true)
+  retentionUntil  DateTime  @map("retention_until")
+  error           String?
+  startedById     String    @map("started_by_id") @db.Uuid
+  startedAt       DateTime  @default(now()) @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  staff  Staff  @relation(fields: [startedById], references: [id], onDelete: Restrict)
+
+  @@index([clinicId, startedAt])
+  @@map("backup_runs")
+}
+
+/// Klinik başına yedek yapılandırması — saklama süresi (retention).
+model BackupConfig {
+  clinicId      String   @id @map("clinic_id") @db.Uuid
+  retentionDays Int      @default(30) @map("retention_days")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+
+  @@map("backup_configs")
 }

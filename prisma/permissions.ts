@@ -77,10 +77,28 @@ export const PERMISSIONS = [
     description: 'Tedarikçi borçlarını açar ve öder',
   },
   {
+    key: 'reports.view',
+    group: 'reports',
+    name: 'Rapor görüntüleme',
+    description: 'Raporları şube ve tarih filtreleriyle görüntüler',
+  },
+  {
     key: 'reports.export',
     group: 'reports',
     name: 'Rapor dışa aktarma',
-    description: 'Raporları dışa aktarır',
+    description: 'Raporları CSV/XLSX/PDF olarak dışa aktarır',
+  },
+  {
+    key: 'import.manage',
+    group: 'data',
+    name: 'İçe aktarma yönetimi',
+    description: 'Sahip/hasta/ürün başlangıç verisini şablonla içe aktarır',
+  },
+  {
+    key: 'backup.manage',
+    group: 'data',
+    name: 'Yedekleme yönetimi',
+    description: 'Yedek alır, indirir, saklama süresini yönetir (yalnız yönetici)',
   },
   {
     key: 'audit.view',

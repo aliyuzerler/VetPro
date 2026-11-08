@@ -2,6 +2,64 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.14.0] — Faz 14: Raporlar, veri aktarımı ve yedekleme (2026-11-09)
+
+### Eklendi
+- **Veri modeli (migration `faz14_reports_import_backup`)**: `ReportExport`
+  (rapor + biçim + filtre anlık görüntüsü, dosya bayt/metaveri, üreten personel),
+  `ImportJob`/`ImportRow` (şablon içe aktarma defteri — satır bazında
+  valid/duplicate/error durumu, duplicate kararları ve commit anındaki
+  uygulanma adetleri), `BackupRun` (durum, arşiv/manifest anahtarları, arşiv
+  sha256, tablo/satır/object adetleri, retentionUntil) ve `BackupConfig`
+  (klinik başına retention günleri). 4 yeni izin: `reports.view`,
+  `reports.export`, `import.manage`, `backup.manage` (katalog 36 anahtar;
+  veteriner/resepsiyon/stok/admin şablonları güncellendi).
+- **API — raporlar** (`/reports`): 10 rapor türü tek domain kaynağından
+  (`reports.domain.ts`): gelir (günlük/aylık tahsilat-iade-net), borç
+  yaşlandırma (0-30/31-60/61-90/90+ kovaları), hizmet dağılımı, hekim iş
+  yükü, aşı takip, stok değer/SKT, ürün tüketim, tedarik satın alma, lab
+  turnaround, yatış doluluk — hepsi şube + tarih/dönem filtreli, şube kapsamı
+  guard zinciriyle zorlanır. `GET /reports/:key` veri, `GET /reports/:key/export`
+  CSV/XLSX/PDF üretimi (`reports.export` izni + denetim; UTF-8 + Türkçe
+  glifler, ondalık virgül/sayı biçimi); dışa aktarmalar `report_exports`
+  defterine yazılır, `GET /reports/exports` geçmişi ve
+  `/exports/:id/download` indirmesi izinlidir.
+- **API — içe aktarma** (`/imports`): sahip/hasta/ürün şablon indirmesi,
+  CSV yükleme → doğrulama önizlemesi (satır bazında valid/duplicate/error;
+  duplicate olasılığı ad+telefon/mikroçip/barkod eşleşmesinden; sessiz
+  overwrite yok — her duplicate için commit anında karar alınır), hatalı
+  satır varken commit `400 IMPORT_ERRORS_BLOCK_COMMIT` + istemcide düğme
+  kilidi; commit tek transaction'da uygulanır, iş defteri tam izlenebilir.
+- **API — yedekleme** (`/backup`, owner-only): pg_dump yokluğunda mantıksal
+  yedek paketi — kullanıcı tabloları FK bağımlılık grafiğinden topolojik
+  sırayla, tablo başına JSONL + özel dosya deposu içerikleri + dosya başına
+  sha256 header; AES-256-GCM (scrypt türetimli `VETCORE_BACKUP_KEY`), arşiv
+  sha256 + `manifest.json` (`0600`). Retention 1–3650 gün ve süresi geçen
+  çalışların dosyalarıyla silinmesi; restore çift kapı (`backup.manage` izni
+  + `VETCORE_BACKUP_ALLOW_RESTORE=true` env gate, üretimde kapalı): arşiv
+  sha256 → decrypt → dosya checksum'ları → truncate (ters topolojik,
+  session_replication_role=replica) → sıralı replay (50'lik partiler) →
+  tablo/satır mutabakatı → object dosyalarının geri yazımı →
+  `BACKUP_RESTORED` denetimi. Prosedür: `docs/RESTORE_RUNBOOK.md`.
+- **Web**: `/raporlar` (10 rapor sekme gezgini, şube/dönem filtreleri,
+  KPI/özet + tablo, CSV/XLSX/PDF export rozetleri ve izinsiz kilit),
+  `/ice-aktarim` (şablon indirme, yükleme, önizleme durum tablosu —
+  valid/duplicate/error rozetleri, duplicate karar diyaloğu, hata kilidi),
+  `/yedekler` (yeni çalışma başlatma, çalışma tablosu + manifest/checksum
+  görünümü, retention ayarı; `backup.manage` yoksa kilitli görünüm).
+- **Mobil depolama onarımı**: `.gitignore` `db/` deseni her derinlikteki
+  `db` klasörünü eşlediğinden Faz 13 depolama dosyaları repoya hiç girmemişti;
+  `apps/mobile/src/lib/db/` (portlar + expo-sqlite + bellek-içi uygulama)
+  tüketiciler ve testler baz alınarak yeniden inşa edildi, desen `/db/` olarak
+  kök-dizinlendi (mobil vitest 11/11 doğrulandı).
+
+### Testler
+- API tam süit gömülü PostgreSQL üzerinde 437/437 (13 e2e spec; Faz 14 kabul
+  kriterleri 9/9; reports 16 + imports 14 alan birim testi), tüm depo
+  typecheck 11/11, Playwright 12 spec 211 koşum PASS (Faz 14 spec 9×2
+  kırılım) + ekran görüntüleri, Storybook 161/161 (axe dâhil; 8 yeni hikâye:
+  rapor tablosu, içe aktarma önizleme, yedek çalışmaları).
+
 ## [0.13.0] — Faz 13: React Native klinik personel uygulaması ve offline senkronizasyon (2026-11-08)
 
 ### Eklendi
