@@ -2,6 +2,89 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.13.0] — Faz 13: React Native klinik personel uygulaması ve offline senkronizasyon (2026-11-08)
+
+### Eklendi
+- **Veri modeli (migration `faz13_mobile_sync`)**: `SyncOperation` — mobil outbox
+  defteri. `@@unique([clinicId, clientOperationId])` ile istemci işlemi tekilleşir:
+  aynı anahtar REPLAY, eşzamanlı çift push P2002 ile yarıştırılır. `kind` beyaz
+  listesi (encounter.create_draft / encounter.update_draft / appointment.check_in /
+  appointment.status / appointment.cancel), `expectedVersion` (encounter → int
+  version metni, appointment → updatedAt epoch ms), uygulama anındaki `payload`,
+  sonuç `status` (accepted/rejected/conflict) ve `result` JSON saklanır.
+- **API — senkronizasyon** (`/sync`): `POST /sync/push` — sınırlı toplu işlem
+  (≤50; @ValidateNested), işlem başına accepted / duplicate / conflict / rejected
+  kararlı kodlarla; claim INSERT unique kısıttan yarıştırıcıdır. Sürüm uyuşmazlığında
+  `conflict` + sunucu anlık görüntüsü (iki versiyon korunur, sessiz overwrite yok).
+  finalize/finance/stock türleri beyaz listede yok — `SYNC_KIND_NOT_ALLOWED` ile
+  reddedilir (çevrimdışı işlem sunucu onayı olmadan posted görünmez). Uygulama
+  mantığı `FOR UPDATE` satır kilidiyle tek transaction'da yürür (web durum
+  makineleriyle aynı: ileri yönlü randevu geçişleri, imzalı encounter kilitli,
+  SOAP alan beyaz listesi); denetim yazıları `via: sync` metadata ile aynı
+  transaction'da. `GET /sync/pull` — opak base64url imleç, varlık başına
+  (updatedAt, id) filigranıyla randevu + muayene delta'sı; şube kapsamlı
+  (X-Branch-Id / auth.branchIds). `GET /sync/kinds` istemci paritesi için.
+  Yeni izin gerekmez — işlem türlerinin kendi izinleri servis düzeyinde zorlanır
+  (`encounter.manage` / `appointment.manage`); yetkisiz personel push'u
+  `SYNC_PERMISSION_DENIED` ile reddedilir.
+- **Mobil — çevrimdışı altyapı** (`apps/mobile/src/lib`): depolama portları
+  (meta/cache/outbox/conflicts/drafts/photos) + iki uygulama: expo-sqlite (cihaz;
+  idempotent DDL, SONAME benzeri kalıcı şema) ve in-memory (unit testler).
+  `SyncEngine`: restart recovery (in_flight → queued), sınırlı batch push,
+  accepted/duplicate sonucunu taslak + cache'e uygulama (lastOperationId ile kesin
+  eşleme), conflict'i iki versiyonla çakışma tablosuna yazma, rejected'i kararlı
+  kodla kaydetme, 30 sn→2 dk→8 dk backoff (5 denemede durur), imleçli pull +
+  cache upsert. İstemci tarafında da finalize guard: finalize/finance/stock
+  enqueue edilirse `SyncKindNotAllowedError`.
+- **Mobil — kimlik akışı**: login (gerçek `/auth/login` + `/auth/me`),
+  şube seçimi (çok şubeli personel; `/auth/active-branch`), access/refresh
+  expo-secure-store'da; 401'de tek seferlik sessiz refresh, revoke'ta oturum
+  temizliği ve login'e dönüş. API istemcisi genişletildi: hasta arama, aşı
+  hatırlatmaları, ürün sorgusu, uygulama içi bildirimler, sync push/pull.
+- **Mobil — ekranlar**: Login, Şube Seçimi, Bugün ajandası (senkron rozetli),
+  Randevu detayı, Hasta arama + özet (çevrimdışı önbellek araması dürüst
+  etiketle), Çevrimdışı muayene taslağı (SOAP + vital; cihaza kaydet / kaydet ve
+  gönder; finalize notu: kesinleşme sunucu onaylıdır), Fotoğraflar + metadata
+  yükleme kuyruğu (expo-image-picker; sunucu onayı olmadan "yüklendi" görünmez),
+  Aşı hatırlatmaları, Görevler (check-in bekleyenler + cihazda bekleyen
+  taslaklar), Stok hızlı sorgu (salt görüntüleme), Bildirimler, Senkron Merkezi
+  (kuyruk/çakışma/reddedilen sayıları, iki versiyonlu çakışma çözümü: sunucuyu
+  koru / yereli koru ve yeniden gönder), Daha Fazla menüsü + çıkış.
+- **Mobil testleri** (`vitest`, 11 test): çevrimdışı taslak + fotoğraf metadata
+  kalıcılığı, restart recovery, reconnect'te sunucu ID/version sync'i, duplicate
+  replay tek uygulama, çakışmada iki versiyon + çözüm akışları, finalize guard,
+  backoff/zaman aşımı, pull delta + imleç; API istemcisi 401 sessiz refresh ve
+  revoke akışları (fetch mock ile).
+
+### Düzeltildi
+- **auth-flow e2e fikstürü**: resepsiyon rolü izinleri "önce sil sonra kur"
+  sırasıyla paralel koşumda boş izin penceresi açıyor, lab spec'inin resepsiyon
+  testleri 403'e düşüyordu → önce-kur-sonra-fazlasını-sil sırası + şablon seed
+  şablonuyla eşitlendi (finance.pay, lab.manage, notification/document.manage
+  eklendi; Faz 09-12'de unutulmuştu).
+- **sync e2e**: refresh-tekrar-kullanım algısı personelin tüm oturumlarını
+  iptal ettiğinden paralel spec'leri vuruyordu → kimlik-akışı testi özel
+  fikstür personeliyle (f13-dans) yürütülür ve afterAll'da temizlenir.
+- **scripts/dev-postgres.mjs**: pnpm reinstall sonrası @embedded-postgres lib
+  dizinindeki SONAME kopyaları kayboluyor (initdb exit 127) → idempotent
+  hydrate adımı eklendi. `scripts/run-with-pg.sh` tek komutluk DB ömür yönetimi
+  (stale pid temizliği + SQL probe'lu bekleme; sandbox'ta shell'in exportladığı
+  SQLite `DATABASE_URL` şablonunu dayatır).
+- **scripts/clean-test-leftovers.ts**: başarısız e2e koşumlarının kalıntıları
+  (gelecek gün randevuları → takvim 409 çakışmaları, E2E sahipleri → strict-mode
+  belirsizliği, taslaklar, sync kayıtları) temizlenir.
+- **lab-surgery-hospital e2e**: f11-04 kritik panel boşken kendi kritiğini
+  üretir hale getirildi (önceki projenin onay zinciri paneli boşaltınca ikinci
+  kırılım 15 sn timeout'a düşüyordu).
+
+### Doğrulama
+- lint 0 hata; turbo typecheck+test 18/18; turbo build 6/6; API süit 392/392
+  (13 yeni sync e2e dahil); mobil vitest 11/11; Playwright tam süit + ekran
+  görüntüleri; Storybook 153/153.
+- Bilinen sınırlar: mobil ekranların emülatör/gerçek cihaz görsel doğrulaması
+  sandbox'ta yapılamaz (Manuel doğrulama listesinde); expo-sqlite/secure-store
+  yolları cihaz tarafıdır ve Node testlerinde port sözleşmesiyle doğrulanır.
+
 ## [0.12.0] — Faz 12: Bildirimler, PDF belgeler ve entegrasyon adaptörleri (2026-11-08)
 
 ### Eklendi

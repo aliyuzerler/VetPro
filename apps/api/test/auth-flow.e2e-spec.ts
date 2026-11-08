@@ -142,18 +142,32 @@ beforeAll(async () => {
   });
   // Paylaşılan resepsiyon rolü bozulmaz — aksine kataloğu eşleşen şablon izinleri
   // geri yüklenir (paralel/geçmiş koşumlardan kalan kirli durumu iyileştirir).
+  // Şablon seed'in resepsiyon izinleriyle birebir tutulmalıdır: Faz 09 finance.pay,
+  // Faz 11 lab.manage, Faz 12 notification/document.manage sonradan eklendi.
+  // (Faz 13 QA bulgusu: deleteMany→createMany sırası paralel koşumda boş izin
+  // penceresi açıyor, lab spec'inin resepsiyon testleri 403'e düşüyordu —
+  // önce-kur-sonra-fazlasını-sil sırasıyla pencere kapatıldı.)
   const canonicalResepsiyon = [
     'owner.manage',
     'patient.manage',
     'appointment.manage',
+    'finance.pay',
     'prescription.manage',
     'vaccine.manage',
+    'lab.manage',
+    'notification.manage',
+    'document.manage',
   ];
-  await prisma.rolePermission.deleteMany({ where: { roleId: resepsiyonRole.id } });
+  // 1) Eksikler önce eklenir — paralel okuyucular asla boş izin kümesi görmez.
   await prisma.rolePermission.createMany({
     data: canonicalResepsiyon
       .filter((key) => permissionKeys.includes(key))
       .map((permissionKey) => ({ roleId: resepsiyonRole.id, permissionKey })),
+    skipDuplicates: true,
+  });
+  // 2) Şablon dışı fazlalıklar sonra silinir (kirli kalıntı temizliği).
+  await prisma.rolePermission.deleteMany({
+    where: { roleId: resepsiyonRole.id, permissionKey: { notIn: canonicalResepsiyon } },
   });
 
   // İzinsiz personel fikstürü — yalnız bu spec'in kullanımına özel rol.

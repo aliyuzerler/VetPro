@@ -5,10 +5,35 @@
  * Üretim/staging ortamında Docker Compose altyapısı kullanılır (infra/docker/).
  */
 import { createRequire } from 'node:module';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const require = createRequire(import.meta.url);
+
+/**
+ * Faz 13 — pnpm reinstall sonrası @embedded-postgres lib dizinindeki SONAME
+ * kopyaları kaybolur (paket yalnızca sürümlü .so.X.Y.Z dosyaları taşır; sandbox
+ * sembolik bağlantıya izin vermediği için ADR-011 zincirinde dosya kopyası
+ * kullanılır). Loader "libicuuc.so.60" gibi SONAME arar; eksikse initdb 127 ile
+ * düşer. Bu adım kopyaları idempotent olarak geri getirir.
+ */
+function hydrateSonameCopies() {
+  const libDir = join(
+    process.cwd(),
+    'node_modules',
+    '@embedded-postgres',
+    'linux-x64',
+    'native',
+    'lib',
+  );
+  if (!existsSync(libDir)) return;
+  for (const file of readdirSync(libDir)) {
+    const match = /^(.+\.so)\.\d+\.\d+(\.\d+)?$/.exec(file);
+    if (match && !existsSync(join(libDir, match[1]))) {
+      copyFileSync(join(libDir, file), join(libDir, match[1]));
+    }
+  }
+}
 
 const PORT = 5433;
 const DATA_DIR = resolve(process.cwd(), '.tmp-pg/data');
@@ -18,6 +43,7 @@ const POSTGRES_DB = 'vetcore';
 
 async function up() {
   mkdirSync(DATA_DIR, { recursive: true });
+  hydrateSonameCopies();
   const { default: EmbeddedPostgres } = require('embedded-postgres');
 
   // Idempotent: zaten kurulu bir küme varsa initdb'yi yeniden çalıştırma

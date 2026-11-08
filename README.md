@@ -855,6 +855,43 @@ Veteriner rolünde Tahsilat Al ve İade aksiyonları hiç görünmez (salt-okunu
 Mobil kırılımda kasa kartları ve hareket defteri tek kolona düşer; yatay taşma
 yoktur (E2E iddiası).
 
+## Mobil klinik personel uygulaması ve çevrimdışı senkronizasyon (Faz 13)
+
+`apps/mobile` (Expo React Native) klinik personel için gerçek API'ye bağlanır:
+giriş + şube seçimi (access/refresh expo-secure-store'da; 401'de tek seferlik
+sessiz refresh, revoke'ta oturum temizliği), bugün ajandası, randevu detayı ve
+check-in/durum eylemleri, hasta arama/özet, **çevrimdışı muayene taslağı**
+(SOAP + vital), fotoğraf + metadata yükleme kuyruğu, aşı hatırlatmaları,
+görevler, stok hızlı sorgu (salt görüntüleme), uygulama içi bildirimler ve
+**Senkron Merkezi**.
+
+### Çevrimdışı mimari (ADR-025)
+
+- **Outbox defteri**: çevrimdışı işlemler `client_operation_id` ile expo-sqlite
+  outbox'ına yazılır; uygulama kapansa bile korunur (açılışta in_flight → queued
+  recovery). `POST /sync/push` sınırlı batch'ler halinde gönderir; aynı anahtar
+  REPLAY olur — tekrar deneme duplicate hizmet/ücret/stok üretmez.
+- **Çakışma yönetimi**: sürüm uyuşmazlığında sunucu `conflict` + anlık görüntü
+  döner; Senkron Merkezi iki versiyonu yan yana gösterir — kullanıcı "sunucuyu
+  koru" ya da "yereli koru ve gönder" der; sessiz overwrite yoktur.
+- **Delta pull**: `GET /sync/pull` opak imleçle değişen randevu/muayene
+  kayıtlarını getirir; cihaz önbelleği güncellenir, çevrimdışı arama dürüst
+  "önbellek sonuçları" etiketiyle çalışır.
+- **Sunucu onaylı kesinleşme**: finalize/finans/stok türleri push beyaz
+  listesinde yoktur — istemci motoru da bunları reddeder; çevrimdışı işlem
+  asla "kesinleşti" görünmez.
+
+```bash
+pnpm dev:postgres                    # gömülü PostgreSQL (5433)
+pnpm dev:api                         # API (4000)
+pnpm dev:mobile                      # Expo (cihazda VetCore API'ye bağlanır)
+pnpm --filter @vetcore/mobile test   # senkron motoru unit testleri (11 test)
+```
+
+> Cihaz/emülatör notu: sandbox'ta Android/iOS emülatörü bulunmadığından mobil
+> ekranların görsel doğrulaması unit testler + API e2e (13 kabul senaryosu)
+> ile sağlanır; cihazda ilk çalıştırma adımları `docs/DEPLOYMENT.md` yolunu izler.
+
 ## Storybook — tasarım sistemi atölyesi (ADR-017)
 
 UI bileşenleri [Storybook 10](https://storybook.js.org/) ile izole geliştirilir ve

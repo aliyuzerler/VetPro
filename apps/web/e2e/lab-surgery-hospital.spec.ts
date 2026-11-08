@@ -59,6 +59,43 @@ test.describe('Faz 11 — laboratuvar akışı', () => {
   test('f11-04 kritik uyarı yetkili klinisyen ekranında belirir ve onaylanır', async ({ page }) => {
     await login(page, DEMO.veteriner);
     await page.goto('/laboratuvar');
+    await expect(page.getByTestId('laboratuvar-page')).toBeVisible();
+
+    // Panel boşsa (önceki projenin onay zinciri tüm kritikleri kapatmış olabilir)
+    // kendi kritiğini üret — test kendine yeterlidir (f11-05 deseniyle aynı akış).
+    const hasCritical = await page.getByTestId('lab-kritik-panel').count();
+    if (hasCritical === 0) {
+      await page.getByTestId('lab-durum-filtre').click();
+      await page.getByRole('option', { name: 'İstendi' }).click();
+      await page.getByTestId('lab-yeni').click();
+      await page.getByTestId('lab-hasta-secim').click();
+      await page.getByRole('option', { name: /Karabaş/ }).first().click();
+      await page.getByTestId('lab-test-secim').click();
+      await page.getByRole('option', { name: /Hemogram/ }).first().click();
+      await page.getByTestId('lab-vet-secim').click();
+      await page.getByRole('option', { name: /Ayşe Demir/ }).first().click();
+      await page.getByTestId('lab-kaydet').click();
+      await expect(page.getByTestId('lab-tablo')).toContainText('İstendi', { timeout: 15_000 });
+      await page.getByTestId('lab-satir').first().click();
+      await expect(page.getByTestId('lab-detay-diyalog')).toBeVisible();
+      await page.getByTestId('lab-numune-al').click();
+      await expect(page.getByTestId('lab-detay-diyalog')).toContainText('Numune Alındı', {
+        timeout: 15_000,
+      });
+      await page.getByTestId('lab-analiz-baslat').click();
+      await expect(page.getByTestId('lab-detay-diyalog')).toContainText('Analizde', {
+        timeout: 15_000,
+      });
+      await page.getByTestId('lab-sonuc-deger').fill('1.8');
+      await page.getByTestId('lab-sonuc-gir').click();
+      await expect(page.getByTestId('lab-sonuc-ozet')).toContainText('Kritik düşük', {
+        timeout: 15_000,
+      });
+      await page.getByTestId('lab-detay-kapat').click().catch(() => undefined);
+      await page.reload();
+      await expect(page.getByTestId('laboratuvar-page')).toBeVisible();
+    }
+
     await expect(page.getByTestId('lab-kritik-panel')).toBeVisible({ timeout: 15_000 });
     await expect(page.getByTestId('lab-kritik-satir').first()).toBeVisible();
     await screenshot(page, 'web-f11-04-kritik-uyari-paneli.png');

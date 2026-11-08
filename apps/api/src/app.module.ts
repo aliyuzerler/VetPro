@@ -29,6 +29,7 @@ import { HospitalModule } from './hospital/hospital.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { DocumentsModule } from './documents/documents.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { SyncModule } from './sync/sync.module';
 
 /**
  * Faz 03: kimlik, personel, rol/izin, şube kapsamı, oturum ve denetim modülleri.
@@ -41,6 +42,7 @@ import { IntegrationsModule } from './integrations/integrations.module';
  * Faz 10: reçete (imza/doz onayı/dağıtım/uygulama) ve aşı (protokol/kayıt/takvim/hatırlatma) modülleri.
  * Faz 11: lab, cerrahi ve yatış modülleri (sipariş yaşam döngüsü, kennel, gözlem).
  * Faz 12: bildirimler (şablon/kuyruk/retry), PDF belgeler ve entegrasyon adaptörleri.
+ * Faz 13: mobil senkronizasyon (push/pull — outbox defteri, delta imleci, çakışma).
  * Guard zinciri (global): JwtAuthGuard → PermissionsGuard; şube kapsamlı uçlarda
  * ayrıca BranchScopeGuard devreye girer.
  */
@@ -75,6 +77,7 @@ import { IntegrationsModule } from './integrations/integrations.module';
     NotificationsModule,
     DocumentsModule,
     IntegrationsModule,
+    SyncModule,
   ],
 })
 export class AppModule implements NestModule {

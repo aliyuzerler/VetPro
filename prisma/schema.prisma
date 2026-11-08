@@ -75,6 +75,7 @@ model Clinic {
   notifications          Notification[]
   integrationConnections IntegrationConnection[]
   printDocuments         PrintDocument[]
+  syncOperations         SyncOperation[]
 
   @@map("clinics")
 }
@@ -127,6 +128,7 @@ model Branch {
   hospitalStays    HospitalStay[]
   notifications    Notification[]
   printDocuments   PrintDocument[]
+  syncOperations   SyncOperation[]
 
   @@unique([clinicId, code])
   @@index([clinicId])
@@ -200,6 +202,7 @@ model Staff {
   administeredMeds        MedicationAdministration[] @relation("MedicationAdministerer")
   createdPrintDocuments   PrintDocument[]            @relation("PrintDocumentCreator")
   createdNotifications    Notification[]             @relation("NotificationCreator")
+  syncOperations          SyncOperation[]
 
   @@index([clinicId])
   @@map("staff")
@@ -2516,4 +2519,47 @@ model PrintDocument {
   @@index([branchId, createdAt])
   @@index([patientId])
   @@map("print_documents")
+}
+
+/// Faz 13 — mobil çevrimdışı senkronizasyon işlem kaydı (outbox defteri).
+/// Her istemci işlemi client_operation_id ile tekilleşir: aynı anahtar REPLAY
+/// döner ve yanıt kayıttan oynatılır — tekrar deneme duplicate ücret/stok/
+/// hizmet üretmez. Sonuç (accepted/rejected/conflict) + dönen sunucu anlık
+/// görüntüsü saklanır; çakışma çözümü istemci tarafında iki versiyonla yapılır.
+model SyncOperation {
+  id                 String   @id @default(uuid()) @db.Uuid
+  clinicId           String   @map("clinic_id") @db.Uuid
+  branchId           String   @map("branch_id") @db.Uuid
+  /// İşlemi gönderen cihaz/personel — denetim ve şube kapsamı kaynağı
+  staffId            String   @map("staff_id") @db.Uuid
+  /// İstemci üretimi tekil anahtar (UUIDv4) — @@unique ile REPLAY garantisidir
+  clientOperationId  String   @map("client_operation_id")
+  /// Beyaz liste: 'encounter.create_draft' | 'encounter.update_draft' |
+  /// 'appointment.check_in' | 'appointment.status' | 'appointment.cancel'
+  /// finalize/finance/stock türleri BURADA YOK — sunucu onayı olmadan posted
+  /// görünemez (kabul kriteri) ve push yoluyla asla kesinleşmez.
+  kind               String
+  /// Hedef varlık türü: 'encounter' | 'appointment'
+  entity             String
+  entityId           String?  @map("entity_id") @db.Uuid
+  /// İstemcinin gördüğü sürüm — sunucudaki sürümden geri ise CONFLICT.
+  /// Kodlama: encounter → int version metni ("3"); appointment → updatedAt
+  /// epoch ms ("1731050000123"); create_draft → "0".
+  expectedVersion    String   @default("0") @map("expected_version")
+  /// Uygulama anındaki istek gövdesi (denetim + replay kaynağı)
+  payload            Json
+  /// 'accepted' | 'rejected' | 'conflict' — accepted replay sonucu da accepted
+  status             String
+  /// Uygulama sonucu: serverId, version, snapshot (accepted) ya da hata kodu
+  result             Json
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  staff  Staff  @relation(fields: [staffId], references: [id], onDelete: Restrict)
+
+  @@unique([clinicId, clientOperationId])
+  @@index([clinicId, branchId, createdAt])
+  @@index([clinicId, staffId, createdAt])
+  @@map("sync_operations")
 }
