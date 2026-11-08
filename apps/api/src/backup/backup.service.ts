@@ -133,12 +133,43 @@ export class BackupService implements OnModuleInit {
   }
 
   private async dumpTableRows(table: string): Promise<{ jsonl: Buffer; rows: number }> {
+    // sast-ok: tablo adı information_schema'dan gelir ve assertIdentifier ile
+    // beyaz-liste desenine zorlanır (parametresiz tanımlayıcı SQL'in tek yolu).
+    const safeTable = BackupService.assertIdentifier(table);
     const rows = await this.prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
-      `SELECT * FROM "public"."${table}"`,
+      `SELECT * FROM "public"."${safeTable}"`,
     );
     const lines = rows.map((row) => JSON.stringify(row));
     const jsonl = Buffer.from(lines.length > 0 ? `${lines.join('\n')}\n` : '', 'utf8');
     return { jsonl, rows: rows.length };
+  }
+
+  /**
+   * SQL tanımlayıcı (tablo/kolon) doğrulayıcı — Faz 15 SAST sertleştirmesi.
+   * Tanımlayıcılar parametreli bağlanamaz; bu yüzden katı desenle doğrulanır.
+   * Manifest/arşivden gelen her tanımlayıcı bu kapıdan geçmeden SQL'e girmez.
+   */
+  private static assertIdentifier(name: string): string {
+    if (!/^[A-Za-z_][A-Za-z0-9_]{0,62}$/.test(name)) {
+      throw new Error(`Geçersiz SQL tanımlayıcısı: ${name.slice(0, 64)}`);
+    }
+    return name;
+  }
+
+  /** Restore sonrası planner istatistiği — sast-ok: adlar assertIdentifier'dan geçer. */
+  private async analyzeRestoredTables(
+    tables: Array<{ name: string; rows: number }>,
+  ): Promise<void> {
+    for (const table of tables) {
+      const safe = BackupService.assertIdentifier(table.name);
+      try {
+        // sast-ok: tanımlayıcı assertIdentifier beyaz listesinden geçer.
+        await this.prisma.$executeRawUnsafe(`ANALYZE "public"."${safe}"`);
+      } catch (error) {
+        // ANALYZE başarısızlığı restore'u geçersiz kılmaz; loglanır ve atlanır.
+        this.logger.warn(`ANALYZE başarısız (${table.name}): ${String(error).slice(0, 160)}`);
+      }
+    }
   }
 
   /**
@@ -384,12 +415,15 @@ export class BackupService implements OnModuleInit {
     const reversed = [...order].reverse();
 
     await this.prisma.$transaction(async (tx) => {
+      // sast-ok: SET/TRUNCATE/INSERT tanımlayıcıları assertIdentifier beyaz
+      // listesinden geçer; değerler sqlLiteral ile kodlanır (Faz 15 sertleştirmesi).
       await tx.$executeRawUnsafe(`SET session_replication_role = replica`);
       await tx.$executeRawUnsafe(
-        `TRUNCATE TABLE ${reversed.map((t) => `"public"."${t}"`).join(', ')} CASCADE`,
+        `TRUNCATE TABLE ${reversed.map((t) => `"public"."${BackupService.assertIdentifier(t)}"`).join(', ')} CASCADE`,
       );
       let restoredRows = 0;
       for (const table of order) {
+        const safeTable = BackupService.assertIdentifier(table);
         const entry = bundle.header.files.find((f) => f.path === `db/${table}.jsonl`);
         if (!entry || entry.length === 0) continue;
         const text = bundle.file(`db/${table}.jsonl`).toString('utf8');
@@ -397,30 +431,34 @@ export class BackupService implements OnModuleInit {
         for (let i = 0; i < lines.length; i += 50) {
           const chunk = lines.slice(i, i + 50).map((line) => JSON.parse(line) as Record<string, unknown>);
           const first = chunk[0]!;
-          const columns = Object.keys(first);
+          const columns = Object.keys(first).map((c) => BackupService.assertIdentifier(c));
           const values = chunk
             .map((row) => `(${columns.map((c) => BackupService.sqlLiteral(row[c])).join(', ')})`)
             .join(', ');
+          // sast-ok: kolon adları assertIdentifier'dan, değerler sqlLiteral'den geçer.
           await tx.$executeRawUnsafe(
-            `INSERT INTO "public"."${table}" (${columns.map((c) => `"${c}"`).join(', ')}) VALUES ${values}`,
+            `INSERT INTO "public"."${safeTable}" (${columns.map((c) => `"${c}"`).join(', ')}) VALUES ${values}`,
           );
           restoredRows += chunk.length;
         }
       }
+      // sast-ok: sabit komut — dış girdi içermez.
       await tx.$executeRawUnsafe(`SET session_replication_role = DEFAULT`);
       void restoredRows;
     });
 
     // Satır sayısı mutabakatı — her tablo manifest ile eşleşmeli
     const countRows: Array<{ table_name: string; count: bigint }> =
+      // sast-ok: sabit sorgu — dış girdi içermez.
       await this.prisma.$queryRawUnsafe(
         `SELECT relname AS table_name, n_live_tup AS count FROM pg_stat_user_tables WHERE schemaname='public'`,
       );
     const counts = new Map(countRows.map((r) => [r.table_name, Number(r.count)]));
     // n_live_tup tahminî olabilir — kesin sayım manifest tablolarında yapılır
     for (const table of manifest.tables) {
+      // sast-ok: tablo adı assertIdentifier ile beyaz-listelenir.
       const exact = await this.prisma.$queryRawUnsafe<Array<{ c: bigint }>>(
-        `SELECT COUNT(*) AS c FROM "public"."${table.name}"`,
+        `SELECT COUNT(*) AS c FROM "public"."${BackupService.assertIdentifier(table.name)}"`,
       );
       const actual = Number(exact[0]?.c ?? 0);
       counts.set(table.name, actual);
@@ -453,6 +491,13 @@ export class BackupService implements OnModuleInit {
       ip: (request['ip'] as string) ?? null,
       userAgent: (request['user-agent'] as string) ?? null,
     });
+
+    // Faz 15 slow-query review bulgusu: bulk geri yazım sonrası planner
+    // istatistikleri bayattır; ilk aramalar saniyeler sürebilir (10k hasta
+    // ölçeğinde gözlemlendi). ANALYZE, bir sonraki ilk sorguyu sağlıklı
+    // planla açar — restore'un parçası olarak burada çalıştırılır.
+    await this.analyzeRestoredTables(manifest.tables);
+
     return {
       runId,
       tables: manifest.tables.length,

@@ -5,11 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Denetim } from '@/components/settings/denetim';
 import { KlinikProfili } from '@/components/settings/klinik-profili';
+import { Lisans } from '@/components/settings/lisans';
 import { Personel } from '@/components/settings/personel';
 import { Roller } from '@/components/settings/roller';
 import { Subeler } from '@/components/settings/subeler';
 
-const TABS = ['klinik', 'subeler', 'personel', 'roller', 'denetim'] as const;
+const TABS = ['klinik', 'subeler', 'personel', 'roller', 'denetim', 'lisans'] as const;
 type TabKey = (typeof TABS)[number];
 
 function isTabKey(value: string | null): value is TabKey {
@@ -31,7 +32,7 @@ function AyarlarIcerik() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Klinik Ayarları</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Klinik profili, şubeler, personel, roller ve denetim kaydı — Faz 03.
+          Klinik profili, şubeler, personel, roller, denetim kaydı ve lisans.
         </p>
       </div>
 
@@ -52,6 +53,9 @@ function AyarlarIcerik() {
           <TabsTrigger value="denetim" className="min-h-11" data-testid="tab-denetim">
             Denetim Kaydı
           </TabsTrigger>
+          <TabsTrigger value="lisans" className="min-h-11" data-testid="tab-lisans">
+            Lisans
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="klinik" className="mt-4">
@@ -68,6 +72,9 @@ function AyarlarIcerik() {
         </TabsContent>
         <TabsContent value="denetim" className="mt-4">
           <Denetim />
+        </TabsContent>
+        <TabsContent value="lisans" className="mt-4">
+          <Lisans />
         </TabsContent>
       </Tabs>
     </div>

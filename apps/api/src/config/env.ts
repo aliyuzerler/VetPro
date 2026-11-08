@@ -30,6 +30,28 @@ export const EnvSchema = z.object({
     .int()
     .positive()
     .default(10 * 1024 * 1024),
+  /// Faz 15 — CORS izin listesi: virgülle ayrılmış kökenler; boşsa aynı köken
+  /// dışındaki tüm tarayıcı istekleri reddedilir (sunucular arası entegrasyonlar
+  /// tarayıcı CORS denetimine girmez).
+  VETCORE_CORS_ORIGINS: z
+    .string()
+    .default('')
+    .transform((v) =>
+      v
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0),
+    ),
+  /// Faz 15 — Swagger UI yalnızca açıkça istenirse yayında kalır (üretimde kapalı).
+  VETCORE_ENABLE_SWAGGER: z.coerce.boolean().default(false),
+  /// Faz 15 — hız sınırları (dakika başına): kimlik uçları ve genel API.
+  VETCORE_RATE_LIMIT_AUTH: z.coerce.number().int().positive().default(20),
+  VETCORE_RATE_LIMIT_API: z.coerce.number().int().positive().default(600),
+  /// Faz 15 — kalıcı lisans aktivasyon imza anahtarı (satıcı tarafı HMAC-SHA256).
+  /// Boşsa lisans uçları yalnızca durum okur; aktivasyon 503 ile reddedilir.
+  VETCORE_LICENSE_SIGNING_KEY: z.string().default(''),
+  /// Faz 14 yedek anahtarı gibi üretimde zorunlu olan sırlar için ortak kapı.
+  VETCORE_REQUIRE_PROD_SECRETS: z.coerce.boolean().default(false),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -51,7 +73,18 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
       result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`),
     );
   }
-  return result.data;
+  const env = result.data;
+  // Faz 15 sıkılaştırması: üretimde geliştirme varsayılanı sırlar kesinlikle kabul edilmez.
+  if (env.NODE_ENV === 'production') {
+    const prodErrors: string[] = [];
+    if (env.AUTH_JWT_SECRET === 'dev-only-vetcore-local-secret-change-me') {
+      prodErrors.push('AUTH_JWT_SECRET: üretimde varsayılan geliştirme anahtarı kabul edilmez');
+    }
+    if (prodErrors.length > 0) {
+      throw new EnvValidationError(prodErrors);
+    }
+  }
+  return env;
 }
 
 export const ENV_TOKEN = Symbol('ENV');

@@ -100,3 +100,24 @@ asla tutulmaz.
   üretimde bu uç gate ile kapalıdır ve kapalı kalması önerilir.
 - Şema değişikliği sonrası eski yedek, yeni şemaya doğrudan restore edilemez —
   sürüm eşleşen ortamda doğrulanır.
+
+## 7. Restore tatbikatı kayıtları (drill log)
+
+Her tatbikat, `reports-import-backup.e2e-spec.ts` içindeki restore zincirini
+(`POST /backup/runs` → checksum doğrulama → `POST /backup/runs/{id}/restore` →
+satır mutabakatı) gerçek gömülü PostgreSQL üzerinde koşar; sonuç buraya işlenir.
+
+| Tarih | Sürüm | Koşum | Sonuç |
+|---|---|---|---|
+| 2026-11-08 (Faz 14) | 0.1.0 | API e2e restore zinciri (checksum bozuk arşiv 400, kapalı gate 403, açık gate'te tam restore + mutabakat) | PASS |
+| 2026-11-09 (Faz 15) | 0.1.0 | Tam süit zinciri koşumunda restore tatbikatı tekrarlandı (Faz 15 migration'ları uygulandıktan sonra; 14 migration + audit tetikleyicileri + lisans tablosu ile) | PASS — sonuç Faz 15 kapanış raporunda |
+
+Tatbikat komutu (staging/geliştirme ortamında):
+
+```bash
+scripts/f14-api-e2e.sh   # gömülü PG + migrate + seed + vitest restore zinciri
+```
+
+Faz 15 ek notu: restore sonrası `BackupService` etkilenen tablolar üzerinde
+`ANALYZE` çalıştırır — bulk geri yazım sonrası bayat planner istatistiklerinin
+ilk aramaları saniyeler sürmesine karşı (bkz. docs/PERFORMANCE.md §Slow query review).

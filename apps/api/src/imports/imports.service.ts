@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
@@ -38,6 +39,8 @@ import {
  */
 @Injectable()
 export class ImportsService {
+  private readonly logger = new Logger(ImportsService.name);
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly audit: AuditService,
@@ -518,6 +521,21 @@ export class ImportsService {
       ip: (request['ip'] as string) ?? null,
       userAgent: (request['user-agent'] as string) ?? null,
     });
+
+    // Faz 15 slow-query review: toplu insert sonrası planner istatistiği
+    // tazelenir; aksi halde ilk aramalar bayat planla saniyeler sürebilir.
+    if (result > 0) {
+      const analyzeTargets =
+        job.kind === 'products' ? ['products'] : ['owners', 'patients'];
+      for (const table of analyzeTargets) {
+        try {
+          // sast-ok: tablo adları sabit beyaz listeden (owners/patients/products).
+          await this.prisma.$executeRawUnsafe(`ANALYZE "public"."${table}"`);
+        } catch (error) {
+          this.logger.warn(`ANALYZE başarısız (${table}): ${String(error).slice(0, 160)}`);
+        }
+      }
+    }
     return this.detail(auth, job.id);
   }
 

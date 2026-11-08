@@ -2,6 +2,76 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) yaklaşımı; sürümler SemVer uyumlu numaralandırılır.
 
+## [0.15.0] — Faz 15: Güvenlik, performans ve müşteri teslimi (2026-11-09)
+
+### Eklendi
+- **API güvenlik sertleştirmesi**: tüm yanıtlarda savunma başlıkları
+  (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Cache-Control:
+  no-store`, COOP/CORP, `Permissions-Policy`); bağımlılıksız bellek içi kayan
+  pencere **hız sınırlayıcı** (kimlik uçları 20/dk, genel API 600/dk —
+  429 + `Retry-After` + `X-RateLimit-*` başlıkları); **CORS izin listesi**
+  (`VETCORE_CORS_ORIGINS`); Swagger UI üretimde varsayılan kapalı
+  (`VETCORE_ENABLE_SWAGGER`); üretimde varsayılan geliştirme JWT sırrı
+  `parseEnv` tarafından reddedilir (Faz 03 sıkılaştırma notunun karşılığı).
+- **Denetim defteri append-only (migration `faz15_security_hardening`)**:
+  `audit_events` üzerinde UPDATE/DELETE'i bloklayan tetikleyiciler — stok
+  defteriyle aynı desen (docs/SECURITY.md §8 tamper-resistant karşılığı).
+- **Kalıcı lisans aktivasyonu (aboneliksiz)**: `license_activations` tablosu +
+  `/license` ucu (durum tüm personele, aktivasyon `settings.manage`); anahtar
+  biçimi şeffaf: `VETCORE.<payload>.<sig>` = HMAC-SHA256, **çevrimdışı**
+  doğrulama; imzasız/bozuk anahtar 400 (`LICENSE_MALFORMED`/
+  `LICENSE_BAD_SIGNATURE`), yapılandırmasız sunucuda 503
+  (`LICENSE_SIGNING_DISABLED`); aktivasyon/yenileme denetim kaydı üretir;
+  anahtar ham haliyle asla döndürülmez (son 4 karakter maskeli). Satıcı tarafı
+  üretici: `scripts/license-generate.mjs` (ağ çağrısı yok). **Uzaktan kill
+  switch ve telemetri bilinçli olarak yoktur.** Web: Ayarlar → Lisans kartı
+  (durum + aktivasyon formu, izin duyarlı).
+- **Güvenlik taramaları**: `scripts/security-scan.sh` (secret desen taraması,
+  belgelenmiş sentetik değer ayırıcıyla) ve `scripts/sast-scan.mjs` (eval/dinamik
+  kod, ham SQL, zayıf karma, kodlanmış belirteç kuralları; `sast-ok:` denetlenebilir
+  bastırma). SAST bulgusu doğrultusunda backup servisindeki tanımlayıcı
+  interpolasyonları `BackupService.assertIdentifier` beyaz listesine alındı.
+- **Performans ölçüm altyapısı**: `scripts/f15-perf-bench.mjs` (ölçek verisi:
+  12k sahip/10k hasta/200 ürün/60k stok satırı; 6 senaryo × N istek, p50/p95)
+  + `scripts/f15-perf-chain.sh`. Sonuçlar docs/PERFORMANCE.md'de — tüm hedefler
+  PASS. **Slow query review bulgusu ve tedavisi**: bulk yükleme sonrası bayat
+  planner istatistikleriyle sahip araması ilk koşumlarda ~16,8 sn sürüyordu;
+  `BackupService.restoreRun` ve `ImportsService.commit` artık hedef tablolarda
+  `ANALYZE` çalıştırır.
+- **Mobil sync güvenilirlik doğrulaması**: Faz 13 motor testleri (restart
+  recovery, backoff, çakışma iki versiyon) tam süitte tekrar koşuldu; teslim
+  dokümanına işlendi (docs/HANDOVER.md).
+- **Üretim kurulum sertleştirmesi**: `infra/docker/docker-compose.yml` — zorunlu
+  sırlar `:?` kapısıyla (varsayılan parola ile kurulum imkânsız), PostgreSQL/
+  Redis/MinIO portları host'a tamamen yayınlanmaz, backend ağı `internal`,
+  tüm servislerde `no-new-privileges`, nginx servisi eklendi; `infra/nginx/
+  nginx.conf` TLS 443 + HTTP→HTTPS + HSTS + modern şifre paketleri + limit_req
+  hız bölgeleri; `infra/docker/.env.example` zorunlu sır listesiyle.
+- **Dokümanlar**: `docs/THREAT_MODEL.md` (STRIDE, 18 tehdit + tedaviler),
+  `docs/INSTALL.md` (kurulum, lisans aktivasyonu, donanım varsayımları, smoke),
+  `docs/HANDOVER.md` (sorumluluk matrisi, kalan riskler, donanım listesi,
+  manuel mevzuat doğrulama listesi, destek akışı); DEPLOYMENT.md'ye güncelleme/
+  geri alma/observability; RESTORE_RUNBOOK.md'ye tatbikat kayıtları.
+- **E2E mutlu yol** (`apps/web/e2e/happy-path.spec.ts`): sahip → hasta →
+  randevu → muayene(SOAP+imza) → hizmet(partisiz + parti takipli lot) → ücret →
+  tahsilat → PDF önizleme zinciri tek koşumda + Lisans kartı mobil taşma denetimi.
+- **API güvenlik e2e** (`apps/api/test/security.e2e-spec.ts`): güvenlik
+  başlıkları, hız limiti başlıkları, denetim append-only (UPDATE/DELETE DB
+  düzeyinde reddedilir), lisans akışı (aktive/bad-signature/izin), IDOR/şube
+  izolasyonu (çapraz şube hasta erişimi 403, liste sızması yok, geçersiz token 401).
+- Lisans birim testleri + hız sınırlayıcı birim testleri; ADR-026.
+
+### Güvenlik
+- SAST: 7 bulgu (ham SQL interpolasyonu) → beyaz liste doğrulayıcıyla kapandı
+  (0 açık bulgu); secret taraması 0 bulgu; yeni runtime bağımlılığı yok.
+- `pnpm audit --prod`: multer (high — DoS) ve deepmerge-ts (high — prisma CLI
+  zinciri) override'larla giderildi → **kritik/high 0**; kalan 2 moderate bulgu
+  expo CLI geliştirme araç zincirinden (glob/minimatch; üretim runtime'ına
+  girmez) — kalan risk olarak docs/HANDOVER.md §3'te belgelendi.
+
+### Kaldırıldı
+- Swagger UI varsayılan yayını (üretimde opt-in) — dokümante edildi.
+
 ## [0.14.0] — Faz 14: Raporlar, veri aktarımı ve yedekleme (2026-11-09)
 
 ### Eklendi

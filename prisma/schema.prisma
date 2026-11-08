@@ -80,6 +80,7 @@ model Clinic {
   importJobs             ImportJob[]
   backupRuns             BackupRun[]
   backupConfig           BackupConfig?
+  licenseActivations     LicenseActivation[]
 
   @@map("clinics")
 }
@@ -212,6 +213,7 @@ model Staff {
   reportExports           ReportExport[]
   importJobs              ImportJob[]
   backupRuns              BackupRun[]
+  licenseActivations      LicenseActivation[]
 
   @@index([clinicId])
   @@map("staff")
@@ -2699,4 +2701,26 @@ model BackupConfig {
   clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
 
   @@map("backup_configs")
+}
+
+/// Faz 15 — kalıcı lisans aktivasyonu (aboneliksiz, çevrimdışı doğrulama).
+/// Satıcı tarafından HMAC-SHA256 ile imzalanan anahtar kurulumda bir kez
+/// doğrulanıp kaydedilir; uzak kill switch veya telemetri yoktur.
+model LicenseActivation {
+  id                 String   @id @default(uuid()) @db.Uuid
+  /// Klinik başına tek aktivasyon (kaydın yenilenmesi güncelleme yoluyla olur).
+  clinicId           String   @unique @map("clinic_id") @db.Uuid
+  licenseKey         String   @map("license_key")
+  /// Lisans sahibi görünür adı (klinik kimlik yapılandırması).
+  licenseeName       String   @map("licensee_name")
+  productEdition     String   @default("standard") @map("product_edition")
+  activatedAt        DateTime @default(now()) @map("activated_at")
+  activatedByStaffId String?  @map("activated_by_staff_id") @db.Uuid
+  note               String?
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Restrict)
+  staff  Staff? @relation(fields: [activatedByStaffId], references: [id], onDelete: SetNull)
+
+  @@index([activatedAt])
+  @@map("license_activations")
 }

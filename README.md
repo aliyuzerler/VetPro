@@ -961,3 +961,24 @@ node scripts/storybook-screenshots.mjs        # ekran görüntülerini yenile
 - Klinik iş akışını en az bir veteriner hekim ve bir klinik yöneticisiyle doğrula.
 - Resmi reçete, veteriner tıbbi ürün, kayıt ve faturalama yükümlülükleri için güncel mevzuatı uzmanla doğrula. Bu paket hukuki uygunluk belgesi değildir.
 - Canlı verilerle geliştirme/test yapma; sentetik demo verisi kullan.
+
+## Kurulum, güvenlik ve teslim (Faz 15)
+
+- **Kurulum rehberi**: `docs/INSTALL.md` — Docker Compose üretim kurulumu, kalıcı
+  lisans aktivasyonu (Ayarlar → Lisans; çevrimdışı HMAC doğrulaması, abonelik yok),
+  kurulum donanımında performans doğrulaması.
+- **Müşteri teslimi**: `docs/HANDOVER.md` — sorumluluk matrisi, kalan riskler,
+  donanım varsayımları, manuel mevzuat doğrulama listesi, destek akışı.
+- **Tehdit modeli**: `docs/THREAT_MODEL.md` — STRIDE (18 tehdit + tedaviler).
+- **Güncelleme / geri alma**: `docs/DEPLOYMENT.md`; yedekten dönüş: `docs/RESTORE_RUNBOOK.md`.
+- **Güvenlik taramaları**: `bash scripts/security-scan.sh` (secret) ve
+  `node scripts/sast-scan.mjs` (SAST) — CI kapısı olarak kullanılır.
+- **Performans ölçümü**: `bash scripts/f15-perf-chain.sh` (gömülü PG üzerinde ölçek
+  verisi + p50/p95 raporu; hedefler ve sonuçlar `docs/PERFORMANCE.md`).
+- Üretim kabuk sertleştirmesi: `infra/docker/docker-compose.yml` (zorunlu sırlar,
+  yönetim portları host'a kapalı, internal backend ağı) + `infra/nginx/nginx.conf`
+  (TLS 443, HSTS, hız bölgeleri). Uçtan uca mutlu yol E2E'si:
+  `apps/web/e2e/happy-path.spec.ts`.
+
+![Lisans kartı](apps/web/e2e/screenshots/chromium-desktop-f15-08-lisans-karti.png)
+![Mutlu yol — tahsilat](apps/web/e2e/screenshots/chromium-desktop-f15-06-tahsilat-tam.png)

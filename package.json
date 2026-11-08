@@ -55,6 +55,10 @@
     "jose": "^6.2.15"
   },
   "pnpm": {
+    "overrides": {
+      "multer": "^2.5.0",
+      "deepmerge-ts": "^8.0.0"
+    },
     "onlyBuiltDependencies": [
       "embedded-postgres",
       "@embedded-postgres/linux-x64",

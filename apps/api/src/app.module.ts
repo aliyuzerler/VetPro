@@ -1,6 +1,10 @@
-import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { Inject, MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { EnvModule } from './config/env.module';
+import { ENV_TOKEN } from './config/env';
+import type { Env } from './config/env';
 import { CorrelationIdMiddleware } from './common/correlation-id.middleware';
+import { SecurityHeadersMiddleware } from './common/security-headers.middleware';
+import { RateLimitMiddleware } from './common/rate-limit.middleware';
 import { HealthModule } from './health/health.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthInfraModule } from './common/auth/auth-infra.module';
@@ -33,6 +37,7 @@ import { SyncModule } from './sync/sync.module';
 import { ReportsModule } from './reports/reports.module';
 import { ImportsModule } from './imports/imports.module';
 import { BackupModule } from './backup/backup.module';
+import { LicenseModule } from './license/license.module';
 
 /**
  * Faz 03: kimlik, personel, rol/izin, şube kapsamı, oturum ve denetim modülleri.
@@ -86,10 +91,19 @@ import { BackupModule } from './backup/backup.module';
     ReportsModule,
     ImportsModule,
     BackupModule,
+    LicenseModule,
   ],
 })
 export class AppModule implements NestModule {
+  constructor(@Inject(ENV_TOKEN) private readonly env: Env) {}
+
   configure(consumer: MiddlewareConsumer): void {
     consumer.apply(CorrelationIdMiddleware).forRoutes('*');
+    consumer.apply(SecurityHeadersMiddleware).forRoutes('*');
+    const rateLimit = new RateLimitMiddleware({
+      authLimit: this.env.VETCORE_RATE_LIMIT_AUTH,
+      apiLimit: this.env.VETCORE_RATE_LIMIT_API,
+    });
+    consumer.apply(rateLimit.use.bind(rateLimit)).forRoutes('*');
   }
 }
